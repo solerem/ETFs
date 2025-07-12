@@ -1,4 +1,3 @@
-import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 
@@ -7,18 +6,19 @@ class Data:
 
     period = '5y'
 
-    def __init__(self, currency, etf_list, etf_preference):
+    def __init__(self, currency, etf_list):
 
         self.sgd_rate = None
         self.nav = None
         self.rf_rate = None
+        self.returns = None
+        self.excess_returns = None
 
         self.etf_list = etf_list
         self.currency = currency
         self.get_sgd_rate()
         self.get_rf_rate()
-        self.get_nav()
-        self.returns = self.nav.pct_change().iloc[1:]
+        self.get_nav_returns()
         self.spy = yf.download('VOO', period=Data.period, interval='1mo', auto_adjust=True)['Close']
 
 
@@ -34,17 +34,22 @@ class Data:
 
     def get_rf_rate(self):
 
-        irx = yf.download('^IRX', period=Data.period, interval='1wk', auto_adjust=True)['Close'].resample('MS').ffill()[1:]
+        irx = yf.download('^IRX', period=Data.period, interval='1wk', auto_adjust=True)['Close'].resample('MS').ffill()[2:]
         self.rf_rate = ((irx/100)+1) ** (1/12) - 1
 
 
-    def get_nav(self):
+    def get_nav_returns(self):
 
         self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
-        self.add_BTC()
+        self.add_btc()
+        self.returns = self.nav.pct_change().iloc[1:]
+
+        self.excess_returns = self.returns.copy()
+        for ticker in self.etf_list:
+            self.excess_returns[ticker] -= self.rf_rate['^IRX']
 
 
-    def add_BTC(self):
+    def add_btc(self):
 
         btc = yf.download('BTC-USD', period=Data.period, interval='1mo', auto_adjust=True)['Close']['BTC-USD']
 

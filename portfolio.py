@@ -1,7 +1,3 @@
-from unittest.mock import inplace
-
-from charset_normalizer import detect
-
 from data import Data
 
 
@@ -59,7 +55,7 @@ class Portfolio(Info):
 
         super().__init__(risk, cash_sgd, holdings, currency, allow_short)
 
-        self.data = Data(self.currency, self.etf_list, self.etf_preference)
+        self.data = Data(self.currency, self.etf_list)
         self.cash = self.cash_sgd / self.data.sgd_rate
         self.drop_highly_correlated()
 
@@ -95,7 +91,7 @@ class Portfolio(Info):
 
 
 
-Portfolio()
+#Portfolio()
 
 
 

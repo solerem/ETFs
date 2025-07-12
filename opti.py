@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib import pyplot as plt
 from portfolio import Portfolio
 from scipy.optimize import minimize
 
@@ -12,6 +13,7 @@ class Opti:
 
         self.objective = None
         self.optimum = None
+        self.optimum_all = None
 
         self.portfolio = portfolio
         self.n = len(self.portfolio.etf_list)
@@ -49,7 +51,14 @@ class Opti:
         w_opt = [0 if abs(w) < 0.01 else w for w in w_opt]
         w_opt /= Opti.abs_sum(w_opt)
 
-        self.optimum = {tick: w for tick, w in zip(self.portfolio.etf_list, w_opt)}
+        self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, w_opt)}
+        self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
+
+
+    def plot_optimum(self):
+
+        plt.bar(self.optimum.keys(), self.optimum.values(), color=self.portfolio.color_plot)
+        plt.show()
 
 
 Opti(Portfolio())

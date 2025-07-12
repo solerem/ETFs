@@ -1,5 +1,6 @@
 import pandas as pd
 import yfinance as yf
+import matplotlib.pyplot as plt
 
 
 class Data:
@@ -10,7 +11,7 @@ class Data:
 
         self.sgd_rate = None
         self.nav = None
-        self.returns = None
+        self.rf_rate = None
 
         self.etf_list = etf_list
         self.currency = currency
@@ -18,6 +19,7 @@ class Data:
         self.get_rf_rate()
         self.get_nav()
         self.returns = self.nav.pct_change().iloc[1:]
+        self.spy = yf.download('VOO', period=Data.period, interval='1mo', auto_adjust=True)['Close']
 
 
     def get_sgd_rate(self):
@@ -32,8 +34,8 @@ class Data:
 
     def get_rf_rate(self):
 
-        irx = yf.download('^IRX', period=Data.period, interval='1mo', auto_adjust=True)['Close']
-        self.rf_rate = (irx/100) ** (1/12)
+        irx = yf.download('^IRX', period=Data.period, interval='1wk', auto_adjust=True)['Close'].resample('MS').ffill()[1:]
+        self.rf_rate = ((irx/100)+1) ** (1/12) - 1
 
 
     def get_nav(self):
@@ -54,3 +56,20 @@ class Data:
         self.nav['BTC'] = btc
 
 
+    def plot(self, tickers):
+
+        for t in tickers:
+            historic = (self.nav[t]/self.nav[t].iloc[0] - 1)*100
+            plt.plot(historic, label=t)
+
+        spy = (self.spy / self.spy.iloc[0] - 1)*100
+        plt.plot(spy, label='SPY', ls='--')
+
+        rf_rate = ((self.rf_rate+1).cumprod()-1) * 100
+        plt.plot(rf_rate, label='rate', ls='--')
+
+        plt.axhline(0, color='black')
+
+
+        plt.legend()
+        plt.show()

@@ -56,7 +56,6 @@ class Portfolio(Info):
 
         self.data = Data(self.currency, self.etf_list, self.etf_preference)
         self.cash = self.cash_sgd / self.data.sgd_rate
-        print(self.cash)
 
 
 

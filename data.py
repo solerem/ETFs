@@ -54,6 +54,7 @@ class Data:
             btc *= rate
 
         self.nav['BTC'] = btc
+        self.etf_list.append('BTC')
 
 
     def plot(self, tickers):
@@ -70,6 +71,8 @@ class Data:
 
         plt.axhline(0, color='black')
 
-
         plt.legend()
         plt.show()
+
+
+

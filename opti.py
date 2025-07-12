@@ -15,6 +15,8 @@ class Opti:
         self.optimum = None
         self.optimum_all = None
         self.w_opt = None
+        self.goal = None
+        self.difference = None
 
         self.portfolio = portfolio
         self.n = len(self.portfolio.etf_list)
@@ -23,6 +25,7 @@ class Opti:
         self.cov = self.portfolio.data.excess_returns.cov().values
         self.get_objective()
         self.optimize()
+        self.rebalance()
 
 
     @staticmethod
@@ -54,6 +57,7 @@ class Opti:
 
         self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
+        self.goal = {ticker: self.optimum_all[ticker] * self.portfolio.liquidity for ticker in self.optimum_all}
 
 
     def plot_optimum(self):
@@ -83,4 +87,18 @@ class Opti:
         plt.show()
 
 
-Opti(Portfolio()).plot_in_sample()
+    def rebalance(self):
+        self.difference = self.goal.copy()
+
+        for ticker in self.portfolio.holdings:
+            self.difference[ticker] -= self.portfolio.holdings[ticker]
+
+        for ticker in self.difference:
+            if self.difference[ticker] != 0:
+                self.difference[ticker] -= np.sign(self.difference[ticker])
+
+        self.difference = {ticker: int(self.difference[ticker]) for ticker in self.difference if self.difference[ticker]}
+
+
+
+Opti(Portfolio())

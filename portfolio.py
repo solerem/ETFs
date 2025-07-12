@@ -75,9 +75,13 @@ class Portfolio(Info):
 
         super().__init__(risk, cash_sgd, holdings, currency, allow_short)
 
+        self.liquidity = None
+
         self.data = Data(self.currency, self.etf_list)
         self.cash = self.cash_sgd / self.data.sgd_rate
         self.drop_highly_correlated()
+        self.get_liquidity()
+
 
 
     def remove_etf(self, ticker):
@@ -110,6 +114,9 @@ class Portfolio(Info):
                 break
 
 
+    def get_liquidity(self):
+
+        self.liquidity = self.cash + sum(self.holdings.values())
 
 
 

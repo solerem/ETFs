@@ -23,6 +23,12 @@ class Info:
         3: 'USD'
     }
 
+    weight_cov = {
+        1: 20,
+        2: 10,
+        3: 2
+    }
+
 
     def __init__(self, risk, cash_sgd, holdings, currency, allow_short):
 
@@ -31,6 +37,7 @@ class Info:
         self.holdings = holdings if holdings else {}
         self.allow_short = allow_short
         self.currency = currency if currency else Info.currency_config[self.risk]
+        self.weight_cov = Info.weight_cov[self.risk]
         self.etf_list = Info.etf_list[self.currency]
         self.etf_preference = Info.etf_preference[self.currency]
         self.transform_etf_preference()
@@ -44,7 +51,6 @@ class Info:
             temp[self.etf_preference[preferred]] = False
 
         self.etf_preference = temp
-
 
 
 
@@ -65,6 +71,7 @@ class Portfolio(Info):
         self.etf_list.remove(ticker)
         self.data.nav.drop(ticker, axis=1, inplace=True)
         self.data.returns.drop(ticker, axis=1, inplace=True)
+        self.data.excess_returns.drop(ticker, axis=1, inplace=True)
 
 
     def drop_highly_correlated(self):
@@ -88,10 +95,6 @@ class Portfolio(Info):
             if not detected:
                 break
 
-
-
-
-#Portfolio()
 
 
 

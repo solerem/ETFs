@@ -14,6 +14,7 @@ class Opti:
         self.objective = None
         self.optimum = None
         self.optimum_all = None
+        self.w_opt = None
 
         self.portfolio = portfolio
         self.n = len(self.portfolio.etf_list)
@@ -47,11 +48,11 @@ class Opti:
             print(f"Optimization failed: {opt.message}")
             return None
 
-        w_opt = opt.x
-        w_opt = [0 if abs(w) < 0.01 else w for w in w_opt]
-        w_opt /= Opti.abs_sum(w_opt)
+        self.w_opt = opt.x
+        self.w_opt = [0 if abs(w) < 0.01 else w for w in self.w_opt]
+        self.w_opt /= Opti.abs_sum(self.w_opt)
 
-        self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, w_opt)}
+        self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
 
 
@@ -61,4 +62,25 @@ class Opti:
         plt.show()
 
 
-Opti(Portfolio())
+    def plot_in_sample(self):
+
+        returns = self.portfolio.data.returns[self.optimum.keys()]
+        weights = list(self.optimum.values())
+        cumulative = ((1 + returns @ weights).cumprod()-1)*100
+
+        plt.plot(cumulative, label=self.portfolio.name)
+
+        spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
+        plt.plot(spy, label='SPY', ls='--')
+
+        rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
+        plt.plot(rf_rate, label='rate', ls='--')
+
+        plt.axhline(0, color='black')
+        plt.ylabel('%')
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+
+Opti(Portfolio()).plot_in_sample()

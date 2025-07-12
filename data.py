@@ -76,6 +76,8 @@ class Data:
 
         plt.axhline(0, color='black')
 
+        plt.ylabel('%')
+        plt.grid()
         plt.legend()
         plt.show()
 

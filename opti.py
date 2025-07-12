@@ -22,7 +22,6 @@ class Opti:
         self.n = len(self.portfolio.etf_list)
         self.w0 = np.full(self.n, 1/self.n)
         self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.n
-        self.cov = self.portfolio.data.excess_returns.cov().values
         self.get_objective()
         self.optimize()
         self.rebalance()
@@ -39,7 +38,7 @@ class Opti:
         def f(w):
             excess_series = self.portfolio.data.excess_returns @ w
             mean = excess_series.mean()
-            return self.portfolio.weight_cov * w @ self.cov @ w - mean
+            return self.portfolio.weight_cov * w @ self.portfolio.cov_excess_returns @ w - mean
 
         self.objective = f
 

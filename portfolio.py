@@ -81,6 +81,7 @@ class Portfolio(Info):
         self.cash = self.cash_sgd / self.data.sgd_rate
         self.drop_highly_correlated()
         self.get_liquidity()
+        self.cov_excess_returns = self.data.excess_returns.cov().values
 
 
 

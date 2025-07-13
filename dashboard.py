@@ -1,6 +1,8 @@
 import dash
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, ctx, State
+from dash.dependencies import ALL
 
+from portfolio import Portfolio
 
 
 class Dashboard(dash.Dash):
@@ -8,10 +10,13 @@ class Dashboard(dash.Dash):
     def __init__(self):
 
         super().__init__()
-        self.layout_functions = [Dashboard.title, Dashboard.radio_risk_comp, Dashboard.radio_currency_comp, Dashboard.switch_short_comp]
+        self.layout_functions = [
+            Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
+            Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio
+                                 ]
 
         self.main_div = None
-        self.risk, self.currency, self.allow_short = None, None, None
+        self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
         self.get_layout()
         self.callbacks()
 
@@ -26,12 +31,12 @@ class Dashboard(dash.Dash):
 
 
     @staticmethod
-    def title():
+    def text_title():
         return [html.H1("ETF Rebalancer")]
 
 
     @staticmethod
-    def radio_risk_comp():
+    def radio_risk():
         return [html.H4("Select risk level:"),
         dcc.RadioItems(
             id='radio-risk',
@@ -45,7 +50,7 @@ class Dashboard(dash.Dash):
 
 
     @staticmethod
-    def radio_currency_comp():
+    def radio_currency():
         return [html.H4("Select currency:"),
                 dcc.RadioItems(
                     id='radio-currency',
@@ -55,8 +60,8 @@ class Dashboard(dash.Dash):
 
 
     @staticmethod
-    def switch_short_comp():
-        return [html.H4("Allow Short:"),
+    def radio_short():
+        return [html.H4("Allow Short ?"),
             dcc.RadioItems(
                 id='switch-short',
                 options=[
@@ -68,17 +73,75 @@ class Dashboard(dash.Dash):
         ]
 
 
+    @staticmethod
+    def input_cash():
+        return [html.H4("Input Cash (in SGD)"),
+                dcc.Input(id='cash', type='number', value=0, step='any')]
+
+
+    @staticmethod
+    def button_holdings():
+        return [
+            html.H4("Current Holdings:"),
+            html.Button("Add Holding", id='button-holdings', n_clicks=0),
+            html.Div(id='holdings-container', children=[])
+        ]
+
+
+    @staticmethod
+    def button_create_portfolio():
+        return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0)]
+
+
     def callbacks(self):
+
 
         @self.callback(
             Input('radio-risk', 'value'),
             Input('radio-currency', 'value'),
-            Input('switch-short', 'value')
+            Input('switch-short', 'value'),
+            Input('cash', 'value'),
+            Input({'type': 'ticker-input', 'index': ALL}, 'value'),
+            Input({'type': 'value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, allow_short):
+        def input_callbacks(risk, currency, allow_short, cash_sgd, holdings_tickers, holdings_values):
             self.risk = risk
             self.currency = currency
             self.allow_short = allow_short
+            self.cash_sgd = cash_sgd
+            self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
+
+
+        @self.callback(
+            Output('holdings-container', 'children'),
+            Input('button-holdings', 'n_clicks'),
+            Input('radio-currency', 'value'),  # <-- new Input
+            State({'type': 'ticker-input', 'index': ALL}, 'value'),
+            State({'type': 'value-input', 'index': ALL}, 'value'),
+        )
+        def update_holdings(n_clicks, currency, tickers, values):
+            holdings = []
+            for i in range(n_clicks):
+                ticker_val = tickers[i] if i < len(tickers) else ''
+                value_val = values[i] if i < len(values) else ''
+                holdings.append(
+                    html.Div([
+                        dcc.Input(id={'type': 'ticker-input', 'index': i}, type='text', placeholder='Ticker',
+                                  value=ticker_val),
+                        dcc.Input(id={'type': 'value-input', 'index': i}, type='number',
+                                  placeholder=f'Value (in {currency})', step='any', value=value_val)
+                    ])
+                )
+            return holdings
+
+        @self.callback(
+            Output('create-portfolio', 'n_clicks'),
+            Input('create-portfolio', 'n_clicks'),
+        )
+        def create_portfolio(create_portfolio_n_click):
+            if create_portfolio_n_click:
+                self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short)
+            return 0
 
 
 Dashboard().run()

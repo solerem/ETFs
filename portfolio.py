@@ -84,7 +84,6 @@ class Portfolio(Info):
         self.cov_excess_returns = self.data.excess_returns.cov().values
 
 
-
     def remove_etf(self, ticker):
 
         self.etf_list.remove(ticker)

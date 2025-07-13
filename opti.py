@@ -1,7 +1,12 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from portfolio import Portfolio
 from scipy.optimize import minimize
+import io
+import base64
+from dash import html
 
 
 class Opti:
@@ -60,30 +65,55 @@ class Opti:
 
 
     def plot_optimum(self):
+        # Create the plot
+        fig, ax = plt.subplots()
+        ax.bar(self.optimum.keys(), self.optimum.values(), color=self.portfolio.color_plot)
+        ax.set_title('Optimal Allocation')
 
-        plt.bar(self.optimum.keys(), self.optimum.values(), color=self.portfolio.color_plot)
-        plt.show()
+        # Save it to a buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        # Encode to base64
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
     def plot_in_sample(self):
-
         returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = list(self.optimum.values())
-        cumulative = ((1 + returns @ weights).cumprod()-1)*100
+        cumulative = ((1 + returns @ weights).cumprod() - 1) * 100
 
-        plt.plot(cumulative, label=self.portfolio.name)
+        fig, ax = plt.subplots()
+        ax.plot(cumulative, label=self.portfolio.name)
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        plt.plot(spy, label='SPY', ls='--')
+        ax.plot(spy, label='S&P 500', linestyle='--')
 
         rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
-        plt.plot(rf_rate, label='rate', ls='--')
+        ax.plot(rf_rate, label='Rate', linestyle='--')
 
-        plt.axhline(0, color='black')
-        plt.ylabel('%')
-        plt.legend()
-        plt.grid()
-        plt.show()
+        ax.axhline(0, color='black')
+        ax.set_title('In-Sample Performance')
+        ax.set_ylabel('%')
+        ax.legend()
+        ax.grid()
+
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        # Encode to base64
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
     def rebalance(self):
@@ -98,6 +128,3 @@ class Opti:
 
         self.difference = {ticker: int(self.difference[ticker]) for ticker in self.difference if self.difference[ticker]}
 
-
-
-Opti(Portfolio())

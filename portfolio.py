@@ -7,7 +7,7 @@ class Info:
 
     etf_list = {
         'SGD': ['VOO'],
-        'EUR': ['VOO'],
+        'EUR': ['VOO', 'SMH', 'SGOL', 'SGOV'],
         'USD': ['VOO', 'IVV'],
     }
 
@@ -36,9 +36,9 @@ class Info:
     }
 
     name = {
-        1: 'CT',
-        2: 'MT',
-        3: 'LT'
+        1: 'Low risk',
+        2: 'Medium risk',
+        3: 'High risk'
     }
 
 

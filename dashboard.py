@@ -3,6 +3,7 @@ from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
 
 from portfolio import Portfolio
+from opti import Opti
 
 
 class Dashboard(dash.Dash):
@@ -17,6 +18,7 @@ class Dashboard(dash.Dash):
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
+        self.portfolio, self.opti = None, None
         self.get_layout()
         self.callbacks()
 
@@ -76,7 +78,7 @@ class Dashboard(dash.Dash):
     @staticmethod
     def input_cash():
         return [html.H4("Input Cash (in SGD)"),
-                dcc.Input(id='cash', type='number', value=0, step='any')]
+                dcc.Input(id='cash', type='number', value=100, step='any')]
 
 
     @staticmethod
@@ -90,7 +92,8 @@ class Dashboard(dash.Dash):
 
     @staticmethod
     def button_create_portfolio():
-        return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0)]
+        return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
+                html.Div(id='portfolio-distrib')]
 
 
     def callbacks(self):
@@ -136,12 +139,18 @@ class Dashboard(dash.Dash):
 
         @self.callback(
             Output('create-portfolio', 'n_clicks'),
+            Output('portfolio-distrib', 'children'),
             Input('create-portfolio', 'n_clicks'),
         )
         def create_portfolio(create_portfolio_n_click):
             if create_portfolio_n_click:
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short)
-            return 0
+                self.opti = Opti(self.portfolio)
+                return 0, html.Div([
+                    self.opti.plot_optimum(),
+                    self.opti.plot_in_sample()
+                ])
+            return 0, dash.no_update
 
 
 Dashboard().run()

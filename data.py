@@ -1,3 +1,5 @@
+from locale import currency
+
 import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,6 +21,9 @@ class Data:
         self.get_rf_rate()
         self.get_nav_returns()
         self.spy = yf.download('VOO', period=Data.period, interval='1mo', auto_adjust=True)['Close']
+        if self.currency != 'USD':
+            self.spy['VOO'] /= self.currency_rate['USD']
+
 
 
     def get_currency(self):
@@ -26,7 +31,6 @@ class Data:
         to_download = [f'{self.currency}{ticker}=X' for ticker in Data.possible_currencies if ticker != self.currency]
         self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
-        self.currency_rate[self.currency] = pd.Series([1]*len(self.currency_rate))
 
         self.etf_currency = {}
 
@@ -48,7 +52,9 @@ class Data:
 
         self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
         for ticker in self.nav.columns:
-            self.nav[ticker] *= self.currency_rate[self.etf_currency[ticker]]
+            curr = self.etf_currency[ticker]
+            if self.currency != curr:
+                self.nav[ticker] /= self.currency_rate[curr]
         self.nav = self.nav.copy()
 
         self.add_btc()
@@ -62,7 +68,7 @@ class Data:
         btc = yf.download('BTC-USD', period=Data.period, interval='1mo', auto_adjust=True)['Close']['BTC-USD']
 
         if self.currency != 'USD':
-            btc *= self.currency_rate['USD']
+            btc /= self.currency_rate['USD']
 
         self.nav = self.nav.copy()
         self.nav['BTC'] = btc

@@ -108,7 +108,32 @@ class Opti:
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
-    #def plot(self):
+    def plot_weighted_perf(self):
+        returns = self.portfolio.data.returns[self.optimum.keys()]
+        weights = list(self.optimum.values())
+        weighted_returns = returns * weights
+
+        fig, ax = plt.subplots()
+        for col in weighted_returns.columns:
+            ax.plot(weighted_returns[col].cumsum() * 100, label=col)  # Assuming cumulative return view
+
+        ax.legend()
+        ax.set_title('In-Sample Performance Attribution')
+        ax.axhline(0, color='black')
+        ax.set_ylabel('%')
+        ax.grid()
+
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        # Encode to base64
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
     def rebalance(self):
@@ -121,4 +146,10 @@ class Opti:
             self.difference[ticker] = round(self.difference[ticker])
 
         self.difference = {ticker: int(self.difference[ticker]) for ticker in self.difference if self.difference[ticker]}
+
+
+
+
+
+
 

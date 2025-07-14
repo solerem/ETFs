@@ -148,7 +148,8 @@ class Dashboard(dash.Dash):
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
                     self.opti.plot_optimum(),
-                    self.opti.plot_in_sample()
+                    self.opti.plot_in_sample(),
+                    self.opti.plot_weighted_perf()
                 ])
             return 0, dash.no_update
 

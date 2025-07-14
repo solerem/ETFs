@@ -31,8 +31,9 @@ class Data:
     def get_rf_rate(self):
 
         irx = yf.Ticker("^IRX").history(period=self.period, interval="1d")['Close'] / 100
-        rf_monthly = irx.resample("M").last()
+        rf_monthly = irx.resample("MS").last()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
+        self.rf_rate.index = self.rf_rate.index.tz_localize(None)
 
 
     def get_nav_returns(self):
@@ -41,10 +42,6 @@ class Data:
         for ticker in self.nav.columns:
             self.nav[ticker] *= self.sgd_rate
         self.nav = self.nav.copy()
-
-        self.nav.index = self.nav.index.tz_localize(None) # CAUSE POSSIBLE DU BUG
-        print(self.nav)
-        self.rf_rate.index = self.rf_rate.index.tz_localize(None)
 
         self.add_btc()
         self.returns = self.nav.pct_change().iloc[1:]

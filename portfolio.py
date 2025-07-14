@@ -146,6 +146,7 @@ class Portfolio(Info):
             w[i] = 1
             obj_values[etf] = -self.objective(w)
 
+
         obj_values = pd.Series(obj_values, name='obj_values')
 
         cluster_df = cluster_df.set_index('ETF').join(obj_values)

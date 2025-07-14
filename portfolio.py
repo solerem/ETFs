@@ -1,5 +1,5 @@
 from data import Data
-from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.cluster.hierarchy import linkage, fcluster, single
 from scipy.spatial.distance import squareform
 import pandas as pd
 import numpy as np
@@ -135,22 +135,17 @@ class Portfolio(Info):
 
         cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
 
-        '''mean_returns = self.data.excess_returns.mean() * 252
-        volatility = self.data.returns.std() * np.sqrt(252)
-        sharpe_ratios = mean_returns / volatility
-        sharpe_ratios.name = 'Sharpe'''
-
         obj_values = {}
         for i, etf in enumerate(self.etf_list):
             w = np.zeros(self.n)
             w[i] = 1
-            obj_values[etf] = -self.objective(w)
+            obj_values[etf] = self.objective(single_ticker=etf)
 
 
         obj_values = pd.Series(obj_values, name='obj_values')
 
         cluster_df = cluster_df.set_index('ETF').join(obj_values)
-        best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmax().tolist()
+        best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
         for ticker in to_drop:
@@ -162,9 +157,16 @@ class Portfolio(Info):
         self.liquidity = self.cash + sum(self.holdings.values())
 
 
-    def get_objective(self):
+    def get_objective(self,):
 
-        def f(w):
+        def f(w=np.zeros(self.n), single_ticker=None):
+
+            if single_ticker:
+                excess_series = self.data.excess_returns[single_ticker]
+                mean = excess_series.mean()
+                var = excess_series.var()
+                return self.weight_cov * var - mean
+
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
             return self.weight_cov * w @ self.cov_excess_returns @ w - mean

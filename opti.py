@@ -37,7 +37,7 @@ class Opti:
 
 
     def optimize(self):
-        opt = minimize(lambda w: self.portfolio.objective(w), self.w0, method=Opti.solver_method, bounds=self.bounds, constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
+        opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds, constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
 
         if not opt.success:
             print(f"Optimization failed: {opt.message}")

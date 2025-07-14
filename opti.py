@@ -8,6 +8,7 @@ from scipy.optimize import minimize
 import io
 import base64
 from dash import html
+import pandas as pd
 
 
 class Opti:
@@ -107,15 +108,26 @@ class Opti:
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
-
     def plot_weighted_perf(self):
         returns = self.portfolio.data.returns[self.optimum.keys()]
-        weights = list(self.optimum.values())
-        weighted_returns = returns * weights
+        weights = pd.Series(self.optimum)  # Ensure index matches ETF names
 
+        # Compute cumulative returns for each asset
+        cumulative_returns = (1 + returns).cumprod()
+
+        # Multiply by initial weights to get dollar-equivalent growth per component
+        weighted_cumulative = cumulative_returns.multiply(weights, axis=1)
+
+        # Total portfolio cumulative return (same as in plot_in_sample)
+        portfolio_cumulative = weighted_cumulative.sum(axis=1)
+
+        # Contribution of each ETF to total portfolio return
+        contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100  # Subtract starting value
+
+        # Plot
         fig, ax = plt.subplots()
-        for col in weighted_returns.columns:
-            ax.plot(weighted_returns[col].cumsum() * 100, label=col)  # Assuming cumulative return view
+        for col in contribution.columns:
+            ax.plot(contribution.index, contribution[col], label=col)
 
         ax.legend()
         ax.set_title('In-Sample Performance Attribution')
@@ -134,7 +146,6 @@ class Opti:
         img_src = f"data:image/png;base64,{encoded}"
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
-
 
     def rebalance(self):
         self.difference = self.goal.copy()

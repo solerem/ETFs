@@ -108,7 +108,6 @@ class Portfolio(Info):
         self.get_objective()
 
 
-
     def remove_etf(self, ticker):
 
         self.data.nav.drop(ticker, axis=1, inplace=True)

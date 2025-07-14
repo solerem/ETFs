@@ -55,18 +55,18 @@ class Opti:
 
 
     def plot_optimum(self):
-        # Create the plot
+
+        sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
+
         fig, ax = plt.subplots()
-        ax.bar(self.optimum.keys(), self.optimum.values(), color=self.portfolio.color_plot)
+        ax.bar(sorted_optimum.keys(), sorted_optimum.values(), color=self.portfolio.color_plot)
         ax.set_title('Optimal Allocation')
 
-        # Save it to a buffer
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
-        # Encode to base64
         encoded = base64.b64encode(buf.read()).decode('utf-8')
         img_src = f"data:image/png;base64,{encoded}"
 
@@ -108,23 +108,15 @@ class Opti:
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
+
     def plot_weighted_perf(self):
         returns = self.portfolio.data.returns[self.optimum.keys()]
-        weights = pd.Series(self.optimum)  # Ensure index matches ETF names
+        weights = pd.Series(self.optimum)
 
-        # Compute cumulative returns for each asset
         cumulative_returns = (1 + returns).cumprod()
-
-        # Multiply by initial weights to get dollar-equivalent growth per component
         weighted_cumulative = cumulative_returns.multiply(weights, axis=1)
-
-        # Total portfolio cumulative return (same as in plot_in_sample)
-        portfolio_cumulative = weighted_cumulative.sum(axis=1)
-
-        # Contribution of each ETF to total portfolio return
         contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100  # Subtract starting value
 
-        # Plot
         fig, ax = plt.subplots()
         for col in contribution.columns:
             ax.plot(contribution.index, contribution[col], label=col)
@@ -135,17 +127,16 @@ class Opti:
         ax.set_ylabel('%')
         ax.grid()
 
-        # Save to buffer
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
-        # Encode to base64
         encoded = base64.b64encode(buf.read()).decode('utf-8')
         img_src = f"data:image/png;base64,{encoded}"
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+
 
     def rebalance(self):
         self.difference = self.goal.copy()

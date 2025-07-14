@@ -25,7 +25,6 @@ class Data:
             self.spy['VOO'] /= self.currency_rate['USD']
 
 
-
     def get_currency(self):
 
         to_download = [f'{self.currency}{ticker}=X' for ticker in Data.possible_currencies if ticker != self.currency]

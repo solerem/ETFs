@@ -27,6 +27,8 @@ class Info:
             "IEI", "XLP", "AVUV", "FNDF", "EMXC"]#['VOO', 'SMH'],
 
     }
+    etf_list['SGD'] = etf_list['USD']
+    etf_list['EUR'] = etf_list['USD']
 
     etf_preference = {
         'SGD': {},
@@ -99,7 +101,7 @@ class Portfolio(Info):
         self.drop_too_new()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
-        self.cash = self.cash_sgd / self.data.sgd_rate
+        self.cash = self.cash_sgd # / self.data.sgd_rate
         self.drop_highly_correlated()
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values

@@ -1,38 +1,45 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 class Data:
 
     period = '5y'
+    possible_currencies = ['USD', 'EUR', 'HKD', 'JPY', 'GBP', 'CHF', 'AUD', 'CNY', 'SEK']
 
     def __init__(self, currency, etf_list):
 
-        self.sgd_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns = None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency = None, None, None, None, None, None, None
 
         self.etf_list = etf_list
         self.currency = currency
-        self.get_sgd_rate()
+        self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
         self.spy = yf.download('VOO', period=Data.period, interval='1mo', auto_adjust=True)['Close']
 
 
-    def get_sgd_rate(self):
+    def get_currency(self):
 
-        if self.currency == 'SGD':
-            self.sgd_rate = 1
+        to_download = [f'{self.currency}{ticker}=X' for ticker in Data.possible_currencies if ticker != self.currency]
+        self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+        self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
+        self.currency_rate[self.currency] = pd.Series([1]*len(self.currency_rate))
 
-        else:
-            ticker = yf.Ticker(f'{self.currency}SGD=X')
-            self.sgd_rate = ticker.history(period='1d', interval='1h')['Close'].iloc[-1]
+        self.etf_currency = {}
+
+        for ticker in self.etf_list:
+            y_ticker = yf.Ticker(ticker)
+            currency = y_ticker.info.get('currency', 'N/A')
+            self.etf_currency[ticker] = currency
 
 
     def get_rf_rate(self):
 
         irx = yf.Ticker("^IRX").history(period=self.period, interval="1d")['Close'] / 100
-        rf_monthly = irx.resample("MS").last()
+        rf_monthly = irx.resample("MS").first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
         self.rf_rate.index = self.rf_rate.index.tz_localize(None)
 
@@ -41,7 +48,7 @@ class Data:
 
         self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
         for ticker in self.nav.columns:
-            self.nav[ticker] *= self.sgd_rate
+            self.nav[ticker] *= self.currency_rate[self.etf_currency[ticker]]
         self.nav = self.nav.copy()
 
         self.add_btc()
@@ -55,9 +62,7 @@ class Data:
         btc = yf.download('BTC-USD', period=Data.period, interval='1mo', auto_adjust=True)['Close']['BTC-USD']
 
         if self.currency != 'USD':
-            ticker = f'USD{self.currency}=X'
-            rate = yf.download(ticker, period='5y', interval='1mo', auto_adjust=True)['Close'][ticker]
-            btc *= rate
+            btc *= self.currency_rate['USD']
 
         self.nav = self.nav.copy()
         self.nav['BTC'] = btc

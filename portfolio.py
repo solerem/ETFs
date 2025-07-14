@@ -109,11 +109,11 @@ class Portfolio(Info):
 
     def remove_etf(self, ticker):
 
-        self.etf_list.remove(ticker)
         self.data.nav.drop(ticker, axis=1, inplace=True)
         self.data.returns.drop(ticker, axis=1, inplace=True)
         self.data.log_returns.drop(ticker, axis=1, inplace=True)
         self.data.excess_returns.drop(ticker, axis=1, inplace=True)
+        self.etf_list = list(self.data.nav.columns)
         self.n -= 1
 
 
@@ -135,16 +135,18 @@ class Portfolio(Info):
 
         cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
 
-        obj_values = {}
-        for i, etf in enumerate(self.etf_list):
-            w = np.zeros(self.n)
-            w[i] = 1
-            obj_values[etf] = self.objective(single_ticker=etf)
-
-
+        obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
         obj_values = pd.Series(obj_values, name='obj_values')
 
         cluster_df = cluster_df.set_index('ETF').join(obj_values)
+
+
+        (cluster_df.sort_values(by='Cluster')).to_csv('/Users/maximesolere/desktop/cluster.csv')
+        to_plot = cluster_df[cluster_df['Cluster'].isin([57, ])].index.to_list()
+        self.data.plot(to_plot)
+
+
+
         best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
@@ -169,12 +171,10 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            return self.weight_cov * w @ self.cov_excess_returns @ w - mean
+            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         self.objective = f
 
 
 
-
-
-
+#x = Portfolio(risk=1, currency='USD')

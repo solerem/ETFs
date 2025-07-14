@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from portfolio import Portfolio
+from data import Data
 from scipy.optimize import minimize
 import io
 import base64
@@ -86,7 +87,10 @@ class Opti:
         ax.plot(rf_rate, label='Rate', linestyle='--')
 
         ax.axhline(0, color='black')
-        ax.set_title('In-Sample Performance')
+
+        nb_years = int(Data.period[:-1])
+        pa_perf = round(((1+cumulative[-1]/100) ** (1/nb_years) - 1)*100, 1)
+        ax.set_title(f'In-Sample Performance ({pa_perf}% p.a.)')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()
@@ -102,6 +106,9 @@ class Opti:
         img_src = f"data:image/png;base64,{encoded}"
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+
+
+    #def plot(self):
 
 
     def rebalance(self):

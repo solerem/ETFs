@@ -2,6 +2,7 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 class Data:
 
     period = '5y'

@@ -1,6 +1,6 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 class Data:
 
@@ -8,11 +8,7 @@ class Data:
 
     def __init__(self, currency, etf_list):
 
-        self.sgd_rate = None
-        self.nav = None
-        self.rf_rate = None
-        self.returns = None
-        self.excess_returns = None
+        self.sgd_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns = None, None, None, None, None, None
 
         self.etf_list = etf_list
         self.currency = currency
@@ -34,19 +30,26 @@ class Data:
 
     def get_rf_rate(self):
 
-        irx = yf.download('^IRX', period=Data.period, interval='1wk', auto_adjust=True)['Close'].resample('MS').ffill()[2:]
-        self.rf_rate = ((irx/100)+1) ** (1/12) - 1
+        irx = yf.Ticker("^IRX").history(period=self.period, interval="1d")['Close'] / 100
+        rf_monthly = irx.resample("M").last()
+        self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
 
 
     def get_nav_returns(self):
 
         self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+        for ticker in self.nav.columns:
+            self.nav[ticker] *= self.sgd_rate
+        self.nav = self.nav.copy()
+
+        self.nav.index = self.nav.index.tz_localize(None) # CAUSE POSSIBLE DU BUG
+        print(self.nav)
+        self.rf_rate.index = self.rf_rate.index.tz_localize(None)
+
         self.add_btc()
         self.returns = self.nav.pct_change().iloc[1:]
-
-        self.excess_returns = self.returns.copy()
-        for ticker in self.etf_list:
-            self.excess_returns[ticker] -= self.rf_rate['^IRX']
+        self.log_returns = np.log(1+self.returns)
+        self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 
 
     def add_btc(self):
@@ -58,6 +61,7 @@ class Data:
             rate = yf.download(ticker, period='5y', interval='1mo', auto_adjust=True)['Close'][ticker]
             btc *= rate
 
+        self.nav = self.nav.copy()
         self.nav['BTC'] = btc
         self.etf_list.append('BTC')
 

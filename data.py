@@ -4,12 +4,13 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import concurrent.futures
 
 
 class Data:
 
     period = '5y'
-    possible_currencies = ['USD', 'EUR', 'HKD', 'JPY', 'GBP', 'CHF', 'AUD', 'CNY', 'SEK']
+    possible_currencies = ['USD', 'EUR', 'SGD']
 
     def __init__(self, currency, etf_list):
 
@@ -31,12 +32,18 @@ class Data:
         self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
 
-        self.etf_currency = {}
+        def get_currency(ticker):
+            try:
+                return ticker, yf.Ticker(ticker).fast_info['currency']
+            except Exception:
+                print('Cant retreive etf currency')
+                return ticker, 'N/A'
 
-        for ticker in self.etf_list:
-            y_ticker = yf.Ticker(ticker)
-            currency = y_ticker.info.get('currency', 'N/A')
-            self.etf_currency[ticker] = currency
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = executor.map(get_currency, self.etf_list)
+
+        self.etf_currency = dict(results)
+
 
 
     def get_rf_rate(self):

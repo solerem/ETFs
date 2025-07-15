@@ -43,9 +43,9 @@ class Info:
     }
 
     weight_cov = {
-        1: 20,
+        1: 30,
         2: 10,
-        3: 2
+        3: 10/3
     }
 
     color_plot = {
@@ -58,6 +58,12 @@ class Info:
         1: 'Low risk',
         2: 'Medium risk',
         3: 'High risk'
+    }
+
+    currency_sign = {
+        'EUR': '€',
+        'USD': '$',
+        'SGD': 'S$'
     }
 
 
@@ -137,17 +143,10 @@ class Portfolio(Info):
         cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
 
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
+        self.data.plot([min(obj_values, key=obj_values.get)])
         obj_values = pd.Series(obj_values, name='obj_values')
 
         cluster_df = cluster_df.set_index('ETF').join(obj_values)
-
-
-        (cluster_df.sort_values(by='Cluster')).to_csv('/Users/maximesolere/desktop/cluster.csv')
-        to_plot = cluster_df[cluster_df['Cluster'].isin([57, ])].index.to_list()
-        self.data.plot(to_plot)
-
-
-
         best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
@@ -160,7 +159,7 @@ class Portfolio(Info):
         self.liquidity = self.cash + sum(self.holdings.values())
 
 
-    def get_objective(self,):
+    def get_objective(self):
 
         def f(w=np.zeros(self.n), single_ticker=None):
 
@@ -178,4 +177,4 @@ class Portfolio(Info):
 
 
 
-#x = Portfolio(risk=1, currency='USD')
+#x = Portfolio(risk=1, currency='SGD')

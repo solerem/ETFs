@@ -17,14 +17,19 @@ class Opti:
 
     def __init__(self, portfolio):
 
-        self.optimum, self.optimum_all, self.w_opt, self.goal, self.difference, self.constraints = None, None, None, None, None, None
-
+        self.optimum, self.optimum_all, self.w_opt, self.goal, self.difference, self.constraints, self.bounds = None, None, None, None, None, None, None
         self.portfolio = portfolio
+        self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1/self.portfolio.n)
-        self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
         self.optimize()
         self.rebalance()
+
+
+    def get_bounds(self):
+        #index_btc = self.portfolio.data.nav.columns.to_list().index('BTC')
+        self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
+        #self.bounds[index_btc] = (-.1, .1)
 
 
     @staticmethod
@@ -79,10 +84,10 @@ class Opti:
         cumulative = ((1 + returns @ weights).cumprod() - 1) * 100
 
         fig, ax = plt.subplots()
-        ax.plot(cumulative, label=self.portfolio.name)
+        ax.plot(cumulative, label=self.portfolio.name + f' ({Portfolio.currency_sign[self.portfolio.currency]})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        ax.plot(spy, label='S&P 500', linestyle='--')
+        ax.plot(spy, label=f'S&P 500 ({Portfolio.currency_sign[self.portfolio.currency]})', linestyle='--')
 
         rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
         ax.plot(rf_rate, label='Rate', linestyle='--')

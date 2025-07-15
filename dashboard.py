@@ -93,7 +93,10 @@ class Dashboard(dash.Dash):
     @staticmethod
     def button_create_portfolio():
         return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
-                html.Div(id='portfolio-distrib')]
+                html.H4("Optimal Portfolio:"),
+                html.Div(id='portfolio-distrib'),
+                html.H4("Rebalancer:"),
+                html.Div(id='rebalancer')]
 
 
     def callbacks(self):

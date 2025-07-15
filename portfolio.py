@@ -27,6 +27,45 @@ class Info:
             "IEI", "XLP", "AVUV", "FNDF", "EMXC"]#['VOO', 'SMH'],
 
     }
+    etf_list['USD'] = [
+    # Broad U.S. Equity
+    "SPY",   # SPDR S&P 500 ETF Trust — launched Jan 22, 1993 :contentReference[oaicite:1]{index=1}
+    "QQQ",   # Invesco QQQ Trust (NASDAQ‑100) — launched Mar 1999 :contentReference[oaicite:2]{index=2}
+    "DIA",   # SPDR Dow Jones Industrial Average (“Diamonds”) — launched 1998 :contentReference[oaicite:3]{index=3}
+
+    # U.S. Cap segments
+    "MDY",   # SPDR S&P MidCap 400 — launched Apr 1995 :contentReference[oaicite:4]{index=4}
+    "IWM",   # iShares Russell 2000 — launched 2000 :contentReference[oaicite:5]{index=5}
+
+    # Sector ETFs (SPDR)
+    "XLY", "XLP", "XLE", "XLV", "XLF", "XLI", "XLB", "XLK", "XLU",  # launched 1998 :contentReference[oaicite:6]{index=6}
+
+    # International Developed Equity
+    "EFA",   # iShares MSCI EAFE — launched Aug 2001 :contentReference[oaicite:7]{index=7}
+    #"EFA Growth/Value variants (EFG/EFV)",
+    "EEM",   # iShares MSCI Emerging Markets — launched 2003 :contentReference[oaicite:8]{index=8}
+
+    # Country-specific equity (iShares WEBS line)
+    "EWA", "EWC", "EWH", "EWG", "EWI", "EWJ", "EWU", "EWM", "EWS", "EWP", "EWD",  # launched 1996–2000 :contentReference[oaicite:9]{index=9}
+
+    # Bond ETFs
+    "LQD",   # iShares iBoxx $ Investment Grade Corporate Bond — launched Jul 2002 :contentReference[oaicite:10]{index=10}
+    "TLT",   # iShares 20+ Year Treasury Bond — launched Jul 2002 :contentReference[oaicite:11]{index=11}
+    "TIP",   # iShares TIPS Bond ETF — launched Dec 2003 :contentReference[oaicite:12]{index=12}
+
+    # Commodity/Precious metals
+    "GLD",   # SPDR Gold Shares — launched Nov 2004 :contentReference[oaicite:13]{index=13}
+
+    # Currency
+    "FXE",   # Invesco Euro Currency Trust — launched Dec 2005 (just beyond cutoff, but major currency ETF line) :contentReference[oaicite:14]{index=14}
+
+    # Thematic & Long‑short early movers
+    "CSM",   # ProShares Large Cap/Core Plus (130/30 strategy) — first 130/30 ETF launched circa 2007 :contentReference[oaicite:15]{index=15}
+
+    # Broad-market Vanguard
+    "VTI",   # Vanguard Total Stock Market ETF — launched 2001
+]
+
     etf_list['SGD'] = etf_list['USD']
     etf_list['EUR'] = etf_list['USD']
 
@@ -43,7 +82,7 @@ class Info:
     }
 
     weight_cov = {
-        1: 30,
+        1: 10*3,
         2: 10,
         3: 10/3
     }
@@ -58,12 +97,6 @@ class Info:
         1: 'Low risk',
         2: 'Medium risk',
         3: 'High risk'
-    }
-
-    currency_sign = {
-        'EUR': '€',
-        'USD': '$',
-        'SGD': 'S$'
     }
 
 

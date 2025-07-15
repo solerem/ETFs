@@ -9,7 +9,7 @@ import concurrent.futures
 
 class Data:
 
-    period = '5y'
+    period = '20y'
     possible_currencies = ['USD', 'EUR', 'SGD']
 
     def __init__(self, currency, etf_list):
@@ -21,9 +21,9 @@ class Data:
         self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
-        self.spy = yf.download('VOO', period=Data.period, interval='1mo', auto_adjust=True)['Close']
+        self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
         if self.currency != 'USD':
-            self.spy['VOO'] /= self.currency_rate['USD']
+            self.spy['VTI'] /= self.currency_rate['USD']
 
 
     def get_currency(self):
@@ -88,7 +88,7 @@ class Data:
             plt.plot(historic, label=t)
 
         spy = (self.spy / self.spy.iloc[0] - 1)*100
-        plt.plot(spy, label='SPY', ls='--')
+        plt.plot(spy, label='Total stock market', ls='--')
 
         rf_rate = ((self.rf_rate+1).cumprod()-1) * 100
         plt.plot(rf_rate, label='rate', ls='--')

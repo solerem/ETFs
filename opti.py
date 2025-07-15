@@ -84,10 +84,10 @@ class Opti:
         cumulative = ((1 + returns @ weights).cumprod() - 1) * 100
 
         fig, ax = plt.subplots()
-        ax.plot(cumulative, label=self.portfolio.name + f' ({Portfolio.currency_sign[self.portfolio.currency]})')
+        ax.plot(cumulative, label=self.portfolio.name + f' ({self.portfolio.currency})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        ax.plot(spy, label=f'S&P 500 ({Portfolio.currency_sign[self.portfolio.currency]})', linestyle='--')
+        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
 
         rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
         ax.plot(rf_rate, label='Rate', linestyle='--')

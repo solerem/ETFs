@@ -57,10 +57,8 @@ class Info:
     "GLD",   # SPDR Gold Shares — launched Nov 2004 :contentReference[oaicite:13]{index=13}
 
     # Currency
-    "FXE",   # Invesco Euro Currency Trust — launched Dec 2005 (just beyond cutoff, but major currency ETF line) :contentReference[oaicite:14]{index=14}
 
     # Thematic & Long‑short early movers
-    "CSM",   # ProShares Large Cap/Core Plus (130/30 strategy) — first 130/30 ETF launched circa 2007 :contentReference[oaicite:15]{index=15}
 
     # Broad-market Vanguard
     "VTI",   # Vanguard Total Stock Market ETF — launched 2001
@@ -82,9 +80,9 @@ class Info:
     }
 
     weight_cov = {
-        1: 10*3,
+        1: 50,
         2: 10,
-        3: 10/3
+        3: 2
     }
 
     color_plot = {
@@ -112,6 +110,7 @@ class Info:
         self.color_plot = f'tab:{Info.color_plot[self.risk]}'
         self.etf_list = Info.etf_list[self.currency]
         self.etf_preference = Info.etf_preference[self.currency]
+        self.n = len(self.etf_list)
         self.transform_etf_preference()
 
 
@@ -128,14 +127,13 @@ class Info:
 class Portfolio(Info):
 
 
-    def __init__(self, risk=3, cash_sgd=100, holdings=None, currency=None, allow_short=False):
+    def __init__(self, risk=3, cash_sgd=100, holdings=None, currency=None, allow_short=False, static=False):
 
         super().__init__(risk, cash_sgd, holdings, currency, allow_short)
 
         self.liquidity, self.objective = None, None
 
-        self.n = len(self.etf_list) + 1
-        self.data = Data(self.currency, self.etf_list)
+        self.data = Data(self.currency, self.etf_list, static=static)
 
         self.drop_too_new()
         self.cov_excess_returns = self.data.excess_returns.cov().values
@@ -176,7 +174,6 @@ class Portfolio(Info):
         cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
 
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
-        self.data.plot([min(obj_values, key=obj_values.get)])
         obj_values = pd.Series(obj_values, name='obj_values')
 
         cluster_df = cluster_df.set_index('ETF').join(obj_values)
@@ -210,4 +207,4 @@ class Portfolio(Info):
 
 
 
-#x = Portfolio(risk=1, currency='SGD')
+#x = Portfolio(risk=1, currency='SGD', static=False)

@@ -8,9 +8,10 @@ from opti import Opti
 
 class Dashboard(dash.Dash):
 
-    def __init__(self):
+    def __init__(self, static=False):
 
         super().__init__()
+        self.static = static
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio
@@ -121,7 +122,7 @@ class Dashboard(dash.Dash):
         @self.callback(
             Output('holdings-container', 'children'),
             Input('button-holdings', 'n_clicks'),
-            Input('radio-currency', 'value'),  # <-- new Input
+            Input('radio-currency', 'value'),
             State({'type': 'ticker-input', 'index': ALL}, 'value'),
             State({'type': 'value-input', 'index': ALL}, 'value'),
         )
@@ -147,7 +148,7 @@ class Dashboard(dash.Dash):
         )
         def create_portfolio(create_portfolio_n_click):
             if create_portfolio_n_click:
-                self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short)
+                self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short, static=self.static)
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
                     self.opti.plot_optimum(),
@@ -157,7 +158,7 @@ class Dashboard(dash.Dash):
             return 0, dash.no_update
 
 
-Dashboard().run()
+Dashboard(static=True).run()
 
 
 

@@ -27,9 +27,7 @@ class Opti:
 
 
     def get_bounds(self):
-        #index_btc = self.portfolio.data.nav.columns.to_list().index('BTC')
         self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
-        #self.bounds[index_btc] = (-.1, .1)
 
 
     @staticmethod
@@ -101,13 +99,11 @@ class Opti:
         ax.legend()
         ax.grid()
 
-        # Save to buffer
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
-        # Encode to base64
         encoded = base64.b64encode(buf.read()).decode('utf-8')
         img_src = f"data:image/png;base64,{encoded}"
 
@@ -120,7 +116,7 @@ class Opti:
 
         cumulative_returns = (1 + returns).cumprod()
         weighted_cumulative = cumulative_returns.multiply(weights, axis=1)
-        contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100  # Subtract starting value
+        contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100
 
         fig, ax = plt.subplots()
         for col in contribution.columns:

@@ -1,17 +1,80 @@
+import numpy as np
+
 from portfolio import Portfolio
 from opti import Opti
 from tqdm import tqdm
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+import io
+import base64
+from dash import html
 
 
 class Backtest:
 
-    def __init__(self, portfolio, static=False):
+    def __init__(self, portfolio):
 
         self.portfolio = portfolio
-        n = len(self.portfolio.data.nav)
-        cutoff = round(2*n/3)
-        index = list(self.portfolio.data.nav.index)
-        for i in tqdm(range(cutoff, n)):
-            x = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency, allow_short=self.portfolio.allow_short, static=True, backtest=index[i])
-            Opti(x)
+        self.w_opt, self.returns, self.n, self.cutoff, self.index = None, None, None, None, None
+        self.parse_data()
+        self.get_returns()
 
+
+    def parse_data(self):
+
+        self.n = len(self.portfolio.data.nav)
+        self.cutoff = round(9.5 * self.n / 10)
+        self.index = list(self.portfolio.data.nav.index)
+
+        self.w_opt = []
+        for i in tqdm(range(self.cutoff, self.n)):
+            portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
+                          allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
+            self.w_opt.append(Opti(portfolio).w_opt)
+
+
+    def get_returns(self):
+
+        self.returns = []
+        for i, w in zip(range(self.cutoff, self.n), self.w_opt):
+            self.returns.append(self.portfolio.data.get_test_data_backtest(self.index[i]) @ w)
+        self.returns = np.array(self.returns)
+
+
+    def plot_backtest(self):
+
+        cumulative = (1+self.returns).cumprod()
+
+        fig, ax = plt.subplots()
+        ax.plot((cumulative-1)*100, label=self.portfolio.name + f' ({self.portfolio.currency})')
+        '''
+        spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
+        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
+
+        rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
+        ax.plot(rf_rate, label='Rate', linestyle='--')
+
+        ax.axhline(0, color='black')
+
+        nb_years = int(Data.period[:-1])
+        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100, 1)
+
+        running_max = cumulative.cummax()
+        drawdown = (cumulative - running_max) / running_max
+        max_drawdown = round(drawdown.min()*100)
+
+        ax.set_title(f'In-Sample Performance ({pa_perf}% p.a., {max_drawdown}% max dd)')'''
+        ax.set_ylabel('%')
+        ax.legend()
+        ax.grid()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})

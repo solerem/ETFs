@@ -31,6 +31,10 @@ class Data:
         return df
 
 
+    def get_test_data_backtest(self, cutoff):
+        return self.returns.loc[cutoff]
+
+
     def get_currency(self):
 
         to_download = [f'{self.currency}{ticker}=X' for ticker in Data.possible_currencies if ticker != self.currency]

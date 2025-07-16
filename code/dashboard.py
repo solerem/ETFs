@@ -19,12 +19,13 @@ class Dashboard(dash.Dash):
 
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
-            Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio
+            Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
+            Dashboard.button_create_backtest
                                  ]
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
-        self.portfolio, self.opti = None, None
+        self.portfolio, self.opti, self.backtest = None, None, None
         self.get_layout()
         self.callbacks()
 
@@ -100,9 +101,14 @@ class Dashboard(dash.Dash):
     def button_create_portfolio():
         return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
                 html.H4("Optimal Portfolio:"),
-                html.Div(id='portfolio-distrib'),
-                html.H4("Rebalancer:"),
-                html.Div(id='rebalancer')]
+                html.Div(id='portfolio-distrib')]
+
+
+    @staticmethod
+    def button_create_backtest():
+        return [html.Button("Create Backtest", id='create-backtest', n_clicks=0),
+                html.H4("Backtest:"),
+                html.Div(id='backtest-graphs')]
 
 
     def callbacks(self):
@@ -146,6 +152,7 @@ class Dashboard(dash.Dash):
                 )
             return holdings
 
+
         @self.callback(
             Output('create-portfolio', 'n_clicks'),
             Output('portfolio-distrib', 'children'),
@@ -155,11 +162,24 @@ class Dashboard(dash.Dash):
             if create_portfolio_n_click:
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short, static=self.static)
                 self.opti = Opti(self.portfolio)
-                Backtest(self.portfolio)
                 return 0, html.Div([
                     self.opti.plot_optimum(),
                     self.opti.plot_in_sample(),
                     self.opti.plot_weighted_perf()
+                ])
+            return 0, dash.no_update
+
+
+        @self.callback(
+            Output('create-backtest', 'n_clicks'),
+            Output('backtest-graphs', 'children'),
+            Input('create-backtest', 'n_clicks'),
+        )
+        def create_backtest(create_backtest_n_click):
+            if create_backtest_n_click:
+                self.backtest = Backtest(self.portfolio)
+                return 0, html.Div([
+                    self.backtest.plot_backtest()
                 ])
             return 0, dash.no_update
 

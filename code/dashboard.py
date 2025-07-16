@@ -1,9 +1,13 @@
+from datetime import datetime
+
 import dash
 from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
 
+from backtest import Backtest
 from portfolio import Portfolio
 from opti import Opti
+import datetime
 
 
 class Dashboard(dash.Dash):
@@ -12,6 +16,7 @@ class Dashboard(dash.Dash):
 
         super().__init__()
         self.static = static
+
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio
@@ -44,7 +49,7 @@ class Dashboard(dash.Dash):
         dcc.RadioItems(
             id='radio-risk',
             options=[
-                {'label': 'Low', 'value': 1},
+                #{'label': 'Low', 'value': 1},
                 {'label': 'Medium', 'value': 2},
                 {'label': 'High', 'value': 3}
             ],
@@ -150,6 +155,7 @@ class Dashboard(dash.Dash):
             if create_portfolio_n_click:
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short, static=self.static)
                 self.opti = Opti(self.portfolio)
+                Backtest(self.portfolio)
                 return 0, html.Div([
                     self.opti.plot_optimum(),
                     self.opti.plot_in_sample(),

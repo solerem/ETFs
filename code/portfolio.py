@@ -74,13 +74,13 @@ class Info:
     }
 
     currency_config = {
-        1: 'SGD',
+        #1: 'SGD',
         2: 'EUR',
         3: 'USD'
     }
 
     weight_cov = {
-        1: 0.0001,
+        #1: 0.0001,
         2: 1,
         3: 10
     }
@@ -127,13 +127,13 @@ class Info:
 class Portfolio(Info):
 
 
-    def __init__(self, risk=3, cash_sgd=100, holdings=None, currency=None, allow_short=False, static=False):
+    def __init__(self, risk=3, cash_sgd=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None):
 
         super().__init__(risk, cash_sgd, holdings, currency, allow_short)
 
         self.liquidity, self.objective = None, None
 
-        self.data = Data(self.currency, self.etf_list, static=static)
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
 
         self.drop_too_new()
         self.cov_excess_returns = self.data.excess_returns.cov().values

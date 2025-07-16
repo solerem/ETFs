@@ -13,17 +13,22 @@ class Data:
     possible_currencies = ['USD', 'EUR', 'SGD']
     data_dir_path = '/Users/maximesolere/PycharmProjects/ETF/data_dir/'
 
-    def __init__(self, currency, etf_list, static=False):
+    def __init__(self, currency, etf_list, static=False, backtest=None):
 
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency = None, None, None, None, None, None, None
-        self.etf_list, self.currency, self.static = etf_list, currency, static
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy = None, None, None, None, None, None, None, None
+        self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
 
         self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
-        self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
-        if self.currency != 'USD':
-            self.spy['VTI'] /= self.currency_rate['USD']
+        self.get_spy()
+
+
+    def drop_test_data_backtest(self, df):
+
+        if self.backtest:
+            df = df.loc[self.backtest - pd.DateOffset(months=180): self.backtest]
+        return df
 
 
     def get_currency(self):
@@ -42,17 +47,42 @@ class Data:
         if self.currency == 'SGD':
             self.currency_rate['EUR'] = self.currency_rate['EUR'].bfill()
 
-        def get_currency(ticker):
-            try:
-                return ticker, yf.Ticker(ticker).fast_info['currency']
-            except Exception:
-                print('Cant retreive etf currency')
-                return ticker, 'N/A'
+        for curr in self.currency_rate:
+            self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(get_currency, self.etf_list)
+        if self.static:
+            self.etf_currency = pd.Series(pd.read_csv(Data.data_dir_path+'curr_etf.csv', index_col=0)['0'])
 
-        self.etf_currency = dict(results)
+        else:
+
+            def get_currency(ticker):
+                try:
+                    return ticker, yf.Ticker(ticker).fast_info['currency']
+                except Exception:
+                    print('Cant retreive etf currency')
+                    return ticker, 'N/A'
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(get_currency, self.etf_list)
+
+            print(results)
+            self.etf_currency = dict(results)
+            #pd.Series(self.etf_currency).to_csv(Data.data_dir_path+'curr_etf.csv')
+
+
+    def get_spy(self):
+
+        if self.static:
+            self.spy = pd.read_csv(Data.data_dir_path+'spy.csv', index_col=0)
+            self.spy.index = pd.to_datetime(self.spy.index)
+        else:
+            self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
+            #self.spy['VTI'].to_csv(Data.data_dir_path+'spy.csv')
+
+        if self.currency != 'USD':
+            self.spy['VTI'] /= self.currency_rate['USD']
+
+        self.spy = self.drop_test_data_backtest(self.spy)
 
 
     def get_rf_rate(self):
@@ -66,6 +96,7 @@ class Data:
         rf_monthly = irx.resample("MS").first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
         self.rf_rate.index = self.rf_rate.index.tz_localize(None)
+        self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
 
 
     def get_nav_returns(self):
@@ -84,6 +115,9 @@ class Data:
 
         if self.period != '20y':
             self.add_btc()
+
+        self.nav = self.drop_test_data_backtest(self.nav)
+
 
         self.returns = self.nav.pct_change().iloc[1:]
         self.log_returns = np.log(1+self.returns)

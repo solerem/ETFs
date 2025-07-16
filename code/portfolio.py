@@ -80,9 +80,9 @@ class Info:
     }
 
     weight_cov = {
-        1: 100,
-        2: 10,
-        3: 2
+        1: 0.0001,
+        2: 1,
+        3: 10
     }
 
     color_plot = {
@@ -191,7 +191,7 @@ class Portfolio(Info):
 
     def get_objective(self):
 
-        def f(w=np.zeros(self.n), single_ticker=None):
+        def old_f(w=np.zeros(self.n), single_ticker=None):
 
             if single_ticker:
                 excess_series = self.data.excess_returns[single_ticker]
@@ -202,6 +202,23 @@ class Portfolio(Info):
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
             return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+
+        def f(w=np.zeros(self.n), single_ticker=None):
+
+            if single_ticker:
+                excess_series = self.data.excess_returns[single_ticker]
+                returns = self.data.returns[single_ticker]
+            else:
+                excess_series = self.data.excess_returns @ w
+                returns = self.data.returns @ w
+
+            prod = (1 + excess_series).product()
+            cumulative = (1 + returns).cumprod()
+            running_max = cumulative.cummax()
+            drawdown = (cumulative - running_max) / running_max
+            max_drawdown = drawdown.min()
+
+            return -Info.weight_cov[self.risk] *(prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         self.objective = f
 

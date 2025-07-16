@@ -79,10 +79,10 @@ class Opti:
     def plot_in_sample(self):
         returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = list(self.optimum.values())
-        cumulative = ((1 + returns @ weights).cumprod() - 1) * 100
+        cumulative = (1 + returns @ weights).cumprod()
 
         fig, ax = plt.subplots()
-        ax.plot(cumulative, label=self.portfolio.name + f' ({self.portfolio.currency})')
+        ax.plot((cumulative-1)*100, label=self.portfolio.name + f' ({self.portfolio.currency})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
         ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
@@ -93,8 +93,16 @@ class Opti:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])
-        pa_perf = round(((1+cumulative[-1]/100) ** (1/nb_years) - 1)*100, 1)
-        ax.set_title(f'In-Sample Performance ({pa_perf}% p.a.)')
+        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100, 1)
+
+        running_max = cumulative.cummax()
+        drawdown = (cumulative - running_max) / running_max
+        max_drawdown = round(drawdown.min()*100)
+
+        volatility = (returns@ weights).std() * np.sqrt(12)
+        volatility = round(volatility*100)
+
+        ax.set_title(f'In-Sample Performance ({pa_perf}% p.a., {max_drawdown}% max dd, {volatility}% vol)')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()

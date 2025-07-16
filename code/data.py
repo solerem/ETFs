@@ -55,7 +55,6 @@ class Data:
         self.etf_currency = dict(results)
 
 
-
     def get_rf_rate(self):
 
         if self.static:

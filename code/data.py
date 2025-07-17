@@ -34,7 +34,7 @@ class Data:
 
     @staticmethod
     def get_test_data_backtest(df, cutoff):
-        return df.loc[cutoff]
+        return df.loc[cutoff:]
 
 
     def get_currency(self):

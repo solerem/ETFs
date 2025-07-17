@@ -14,7 +14,7 @@ from data import Data
 
 class Backtest:
 
-    ratio_train_test = .9
+    ratio_train_test = .95
 
     def __init__(self, portfolio):
 
@@ -30,20 +30,19 @@ class Backtest:
         self.cutoff = round(Backtest.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
 
-        self.w_opt = []
+        self.w_opt = pd.DataFrame({ticker: [] for ticker in self.portfolio.etf_list})
         for i in tqdm(range(self.cutoff, self.n)):
             portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
                           allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
-            self.w_opt.append(Opti(portfolio).w_opt)
+            optimum = Opti(portfolio).optimum_all
+            self.w_opt.loc[self.index[i]] = optimum
 
 
     def get_returns(self):
 
-        self.returns = []
-        for i, w in zip(range(self.cutoff, self.n), self.w_opt):
-            self.returns.append(Data.get_test_data_backtest(self.portfolio.data.returns, self.index[i]) @ w)
-        self.returns = pd.Series(self.returns)
-        self.returns.index = self.index[self.cutoff:]
+        self.returns = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])
+        self.returns *= self.w_opt
+        self.returns = self.returns.sum(axis=1)
 
 
     def plot_backtest(self):

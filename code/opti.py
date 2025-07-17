@@ -16,6 +16,7 @@ import pandas as pd
 class Opti:
 
     solver_method = 'SLSQP'
+    graph_dir_path = '/Users/maximesolere/PycharmProjects/ETF/graphs/'
 
     def __init__(self, portfolio):
 
@@ -79,6 +80,9 @@ class Opti:
         )
         ax.set_title('Optimal Allocation')
 
+        output_path = Opti.graph_dir_path+f"{self.portfolio.currency}/{self.portfolio.name}/optimal_allocation.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
+
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)
@@ -118,6 +122,9 @@ class Opti:
         ax.legend()
         ax.grid()
 
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/in_sample.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
+
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)
@@ -147,6 +154,9 @@ class Opti:
         ax.axhline(0, color='black')
         ax.set_ylabel('%')
         ax.grid()
+
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/perf_attrib.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')

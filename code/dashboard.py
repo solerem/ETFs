@@ -99,15 +99,15 @@ class Dashboard(dash.Dash):
 
     @staticmethod
     def button_create_portfolio():
-        return [html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
-                html.H4("Optimal Portfolio:"),
+        return [html.H4("Optimal Portfolio:"),
+                html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
                 html.Div(id='portfolio-distrib')]
 
 
     @staticmethod
     def button_create_backtest():
-        return [html.Button("Create Backtest", id='create-backtest', n_clicks=0),
-                html.H4("Backtest:"),
+        return [html.H4("Backtest:"),
+                html.Button("Create Backtest", id='create-backtest', n_clicks=0),
                 html.Div(id='backtest-graphs')]
 
 

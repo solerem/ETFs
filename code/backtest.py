@@ -77,6 +77,9 @@ class Backtest:
         ax.legend()
         ax.grid()
 
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/Backtest/backtest.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
+
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches='tight')
         plt.close(fig)

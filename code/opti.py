@@ -93,7 +93,7 @@ class Opti:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])
-        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100, 1)
+        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100)
 
         running_max = cumulative.cummax()
         drawdown = (cumulative - running_max) / running_max

@@ -23,6 +23,7 @@ class Backtest:
         self.parse_data()
         self.get_returns()
 
+
     def parse_data(self):
 
         self.n = len(self.portfolio.data.nav)
@@ -63,7 +64,7 @@ class Backtest:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])*(1-Backtest.ratio_train_test)
-        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100, 1)
+        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100)
 
         running_max = cumulative.cummax()
         drawdown = (cumulative - running_max) / running_max

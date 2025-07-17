@@ -184,7 +184,7 @@ class Dashboard(dash.Dash):
             return 0, dash.no_update
 
 
-Dashboard(static=True).run()
+
 
 
 

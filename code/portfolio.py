@@ -2,6 +2,8 @@ from data import Data
 from scipy.cluster.hierarchy import linkage, fcluster, single
 from scipy.spatial.distance import squareform
 import pandas as pd
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import numpy as np
 
 class Info:
@@ -94,6 +96,7 @@ class Info:
 
     def __init__(self, risk, cash_sgd, holdings, currency, allow_short):
 
+        self.color_map = None
         self.risk = risk
         self.cash_sgd = cash_sgd
         self.holdings = holdings if holdings else {}
@@ -105,6 +108,7 @@ class Info:
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list)
         self.transform_etf_preference()
+        self.get_color_map()
 
 
     def transform_etf_preference(self):
@@ -115,6 +119,11 @@ class Info:
             temp[self.etf_preference[preferred]] = False
 
         self.etf_preference = temp
+
+
+    def get_color_map(self):
+        cmap = cm.get_cmap('tab20', self.n)
+        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.etf_list)}
 
 
 class Portfolio(Info):

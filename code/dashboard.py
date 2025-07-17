@@ -177,8 +177,9 @@ class Dashboard(dash.Dash):
         )
         def create_backtest(create_backtest_n_click):
             if create_backtest_n_click:
-                self.backtest = Backtest(self.portfolio)
+                self.backtest = Backtest(self.opti)
                 return 0, html.Div([
+                    self.backtest.plot_weights(),
                     self.backtest.plot_backtest()
                 ])
             return 0, dash.no_update

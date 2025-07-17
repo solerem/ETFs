@@ -16,11 +16,13 @@ class Backtest:
 
     ratio_train_test = .95
 
-    def __init__(self, portfolio):
+    def __init__(self, opti):
 
-        self.portfolio = portfolio
+        self.opti = opti
+        self.portfolio = self.opti.portfolio
         self.w_opt, self.returns, self.n, self.cutoff, self.index = None, None, None, None, None
         self.parse_data()
+        self.smoothen_weights()
         self.get_returns()
 
 
@@ -36,6 +38,17 @@ class Backtest:
                           allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
             optimum = Opti(portfolio).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
+
+
+    def smoothen_weights(self):
+
+        smoothed_df = pd.DataFrame(index=self.w_opt.index, columns=self.w_opt.columns, dtype=float)
+        smoothed_df.iloc[0] = self.w_opt.iloc[0]
+
+        for t in range(1, len(self.w_opt)):
+            smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2*smoothed_df.iloc[t - 1]) / 3
+
+        self.w_opt = smoothed_df
 
 
     def get_returns(self):
@@ -89,3 +102,30 @@ class Backtest:
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
+
+    def plot_weights(self):
+
+        fig, ax = plt.subplots()
+        tickers = self.opti.optimum.keys()
+        colors = [self.portfolio.color_map[ticker] for ticker in tickers]
+        ax.stackplot(self.w_opt.index, 100*self.w_opt[tickers].T, labels=tickers, colors=colors)
+
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        ax.set_title(f'Weights history')
+
+        ax.set_ylabel('%')
+        ax.legend()
+        ax.grid()
+
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/Backtest/weights.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})

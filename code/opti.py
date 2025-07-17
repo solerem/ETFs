@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 from portfolio import Portfolio
 from data import Data
 from scipy.optimize import minimize
@@ -17,12 +19,13 @@ class Opti:
 
     def __init__(self, portfolio):
 
-        self.optimum, self.optimum_all, self.w_opt, self.goal, self.difference, self.constraints, self.bounds = None, None, None, None, None, None, None
+        self.optimum, self.optimum_all, self.w_opt, self.goal, self.difference, self.constraints, self.bounds, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1/self.portfolio.n)
         self.optimize()
+        self.get_color_map()
         self.rebalance()
 
 
@@ -57,12 +60,23 @@ class Opti:
         self.goal = {ticker: self.optimum_all[ticker] * self.portfolio.liquidity for ticker in self.optimum_all}
 
 
-    def plot_optimum(self):
+    def get_color_map(self):
+        assets = list(self.optimum.keys())
+        cmap = cm.get_cmap('tab20', len(assets))  # or any colormap you prefer
+        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(assets)}
 
+
+    def plot_optimum(self):
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
 
         fig, ax = plt.subplots()
-        ax.bar(sorted_optimum.keys(), sorted_optimum.values(), color=self.portfolio.color_plot)
+        colors = [self.color_map[k] for k in sorted_optimum.keys()]
+        ax.pie(
+            sorted_optimum.values(),
+            labels=sorted_optimum.keys(),
+            colors=colors,
+            autopct=lambda pct: f'{int(round(pct))}%'
+        )
         ax.set_title('Optimal Allocation')
 
         buf = io.BytesIO()
@@ -124,8 +138,9 @@ class Opti:
         contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100
 
         fig, ax = plt.subplots()
+        color_map = self.color_map
         for col in contribution.columns:
-            ax.plot(contribution.index, contribution[col], label=col)
+            ax.plot(contribution.index, contribution[col], label=col, color=color_map[col])
 
         ax.legend()
         ax.set_title('In-Sample Performance Attribution')

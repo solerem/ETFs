@@ -11,10 +11,10 @@ import base64
 from dash import html
 from data import Data
 
+
 class Backtest:
 
     ratio_train_test = .9
-    capital_deposit_mensuel = 100
 
     def __init__(self, portfolio):
 
@@ -86,3 +86,4 @@ class Backtest:
         img_src = f"data:image/png;base64,{encoded}"
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+

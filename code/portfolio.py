@@ -85,12 +85,6 @@ class Info:
         3: 10
     }
 
-    color_plot = {
-        1: 'green',
-        2: 'orange',
-        3: 'blue'
-    }
-
     name = {
         1: 'Low risk',
         2: 'Medium risk',
@@ -107,7 +101,6 @@ class Info:
         self.currency = currency if currency else Info.currency_config[self.risk]
         self.weight_cov = Info.weight_cov[self.risk]
         self.name = Info.name[self.risk]
-        self.color_plot = f'tab:{Info.color_plot[self.risk]}'
         self.etf_list = Info.etf_list[self.currency]
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list)

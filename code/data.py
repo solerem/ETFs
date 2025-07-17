@@ -27,12 +27,14 @@ class Data:
     def drop_test_data_backtest(self, df):
 
         if self.backtest:
-            df = df.loc[self.backtest - pd.DateOffset(months=180): self.backtest]
+            #df = df.loc[self.backtest - pd.DateOffset(months=180): self.backtest]
+            df = df.loc[:self.backtest]
         return df
 
 
-    def get_test_data_backtest(self, cutoff):
-        return self.returns.loc[cutoff]
+    @staticmethod
+    def get_test_data_backtest(df, cutoff):
+        return df.loc[cutoff]
 
 
     def get_currency(self):

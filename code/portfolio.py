@@ -131,17 +131,17 @@ class Portfolio(Info):
 
         super().__init__(risk, cash_sgd, holdings, currency, allow_short)
 
-        self.liquidity, self.objective = None, None
+        self.liquidity, self.objective, self.cov_excess_returns = None, None, None
 
         self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
 
         self.drop_too_new()
-        self.cov_excess_returns = self.data.excess_returns.cov().values
+        #self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
         self.cash = self.cash_sgd # / self.data.sgd_rate
         self.drop_highly_correlated()
         self.get_liquidity()
-        self.cov_excess_returns = self.data.excess_returns.cov().values
+        #self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
 
 

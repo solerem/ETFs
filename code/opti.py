@@ -99,7 +99,7 @@ class Opti:
         drawdown = (cumulative - running_max) / running_max
         max_drawdown = round(drawdown.min()*100)
 
-        ax.set_title(f'In-Sample Performance ({pa_perf}% p.a., {max_drawdown}% max dd)')
+        ax.set_title(f'In-Sample ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()

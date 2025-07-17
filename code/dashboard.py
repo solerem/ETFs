@@ -180,7 +180,8 @@ class Dashboard(dash.Dash):
                 self.backtest = Backtest(self.opti)
                 return 0, html.Div([
                     self.backtest.plot_weights(),
-                    self.backtest.plot_backtest()
+                    self.backtest.plot_backtest(),
+                    self.backtest.plot_perf_attrib()
                 ])
             return 0, dash.no_update
 

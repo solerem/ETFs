@@ -49,16 +49,12 @@ class Opti:
             print(f"Optimization failed: {opt.message}")
             return None
 
-        self.w_opt = opt.x
-        self.w_opt = np.array([0. if abs(w) < .01 else float(w) for w in self.w_opt])
+        self.w_opt = np.array([0. if abs(w) < .01 else float(w) for w in opt.x])
         self.w_opt /= Opti.abs_sum(self.w_opt)
 
         self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
         self.goal = {ticker: self.optimum_all[ticker] * self.portfolio.liquidity for ticker in self.optimum_all}
-
-
-
 
 
     def plot_optimum(self):

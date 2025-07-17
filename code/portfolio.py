@@ -10,10 +10,7 @@ class Info:
 
     threshold_correlation = .95
 
-    etf_list = {
-        'SGD': ['VOO'],
-        'EUR': ['VOO', 'SMH', 'SGOL', 'SGOV'],
-        'USD': [
+    etf_list = [
             "VOO", "VTI", "QQQ", "VUG", "VEA", "IEFA", "VTV", "BND",
             "AGG", "IWF", "SGOL", "IJH", "VXUS", "VIG", "IEMG", "VGT", "VWO", "VO",
             "IJR", "RSP", "XLK", "SCHD", "ITOT",  "BNDX", "IWM", "VB",
@@ -26,10 +23,9 @@ class Info:
             "COWZ", "EFV", "XLC", "ACWI", "XLI", "JAAA", "IGSB",  "IUSV",
             "IYW", "SDY", "DVY", "IDEV", "IWP", "XLU", "VBK", "FBND",
             "VOE", "FNDX", "OEF", "EEM", "DYNF", "SCHA", "MTUM", "VOOG", "CGDV", "VOT",
-            "IEI", "XLP", "AVUV", "FNDF", "EMXC"]#['VOO', 'SMH'],
+            "IEI", "XLP", "AVUV", "FNDF", "EMXC"'VOO', 'SMH']
 
-    }
-    etf_list['USD'] = [
+    etf_list = [
     # Broad U.S. Equity
     "SPY",   # SPDR S&P 500 ETF Trust — launched Jan 22, 1993 :contentReference[oaicite:1]{index=1}
     "QQQ",   # Invesco QQQ Trust (NASDAQ‑100) — launched Mar 1999 :contentReference[oaicite:2]{index=2}
@@ -66,9 +62,6 @@ class Info:
     "VTI",   # Vanguard Total Stock Market ETF — launched 2001
 ]
 
-    etf_list['SGD'] = etf_list['USD']
-    etf_list['EUR'] = etf_list['USD']
-
     etf_preference = {
         'SGD': {},
         'EUR': {},
@@ -104,7 +97,7 @@ class Info:
         self.currency = currency if currency else Info.currency_config[self.risk]
         self.weight_cov = Info.weight_cov[self.risk]
         self.name = Info.name[self.risk]
-        self.etf_list = Info.etf_list[self.currency]
+        self.etf_list = Info.etf_list
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list)
         self.transform_etf_preference()

@@ -16,7 +16,7 @@ class Data:
 
     def __init__(self, currency, etf_list, static=False, backtest=None):
 
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names = None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
 
         self.get_currency()
@@ -24,6 +24,7 @@ class Data:
         self.get_nav_returns()
         self.get_spy()
         self.get_full_names()
+        self.get_exposure()
 
 
     def drop_test_data_backtest(self, df):
@@ -177,6 +178,11 @@ class Data:
             etf_full_names.to_csv(Data.data_dir_path + 'full_names.csv')
 
         self.etf_full_names = etf_full_names
+
+
+    def get_exposure(self):
+
+        self.exposure = pd.read_csv(Data.data_dir_path+'exposure.csv', index_col=0)
 
 
 

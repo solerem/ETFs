@@ -246,7 +246,11 @@ class Dashboard(dash.Dash):
             if display_exposure_n_click:
                 self.exposure = Exposure(self.opti)
                 return 0, html.Div([
-                    self.exposure.plot_currency()
+                    self.exposure.plot_currency(),
+                    self.exposure.plot_category(),
+                    self.exposure.plot_sector(),
+                    self.exposure.plot_type(),
+                    self.exposure.plot_geo()
                 ])
             return 0, dash.no_update
 

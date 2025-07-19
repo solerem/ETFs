@@ -6,7 +6,6 @@ import io
 import base64
 from dash import html
 
-'''currency/geographic/sector/asset class'''
 
 class Exposure:
 
@@ -14,6 +13,7 @@ class Exposure:
 
         self.opti = opti
         self.optimum = self.opti.optimum
+        self.exposure_df = self.opti.portfolio.data.exposure
 
 
     def plot_pie_chart(self, dico, title):
@@ -49,6 +49,44 @@ class Exposure:
         for ticker in self.optimum:
             currency_dict[etf_currency[ticker]] += self.optimum[ticker]
 
-        return self.plot_pie_chart(currency_dict, 'Currency exposure')
+        return self.plot_pie_chart(currency_dict, 'Currency')
 
+
+    def plot_other_exposure(self, name):
+
+        category_df = self.exposure_df[name].dropna()
+
+        category_dict = {cat: 0 for cat in category_df.unique()}
+        for ticker in self.optimum:
+            if ticker in category_df:
+                category_dict[category_df[ticker]] += self.optimum[ticker]
+
+        total = sum(category_dict.values())
+
+        if total == 0:
+            return None
+
+        for cat in category_dict:
+            category_dict[cat] /= total
+
+        return self.plot_pie_chart(category_dict, name)
+
+
+    def plot_category(self):
+
+        return self.plot_other_exposure('Asset Class')
+
+
+    def plot_sector(self):
+
+        return self.plot_other_exposure('Stock Sector')
+
+
+    def plot_type(self):
+
+        return self.plot_other_exposure('Bond Type')
+
+    def plot_geo(self):
+
+        return self.plot_other_exposure('Geography')
 

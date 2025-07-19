@@ -92,7 +92,7 @@ class Info:
         self.allow_short = allow_short
         self.currency = currency if currency else 'USD'#Info.currency_config[self.risk]
         self.get_weight_cov()
-        self.name = self.risk + 4
+        self.name = 'Risk ' + str(self.risk + 4)
         self.etf_list = Info.etf_list
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list)
@@ -111,7 +111,7 @@ class Info:
 
 
     def get_weight_cov(self):
-        self.weight_cov = np.exp(self.risk)
+        self.weight_cov = np.exp(self.risk-4)
 
 
     def get_color_map(self):
@@ -215,11 +215,6 @@ class Portfolio(Info):
             if single_ticker:
                 return - self.weight_cov * (prod ** (
                             1 / 20) - 1) - max_drawdown  # self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
-
-
-            penalty_weight = 10 # Tunable hyperparameter
-
-            objective = -(prod**(1/20)-1)
 
             return -self.weight_cov * (prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 

@@ -65,7 +65,7 @@ class Backtest:
         cumulative = (1 + self.returns).cumprod()
 
         fig, ax = plt.subplots()
-        ax.plot((cumulative - 1) * 100, label=self.portfolio.name + f' ({self.portfolio.currency})')
+        ax.plot((cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
 
         spy = self.portfolio.data.spy.copy()
         spy = spy.loc[self.index[self.cutoff]:]

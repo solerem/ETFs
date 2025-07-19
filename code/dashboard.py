@@ -44,22 +44,19 @@ class Dashboard(dash.Dash):
     def text_title():
         return [html.H1("ETF Rebalancer")]
 
-
     @staticmethod
     def radio_risk():
-        return [html.H4("Select risk level:"),
-        dcc.RadioItems(
-            id='radio-risk',
-            options=[
-                #{'label': 'Low', 'value': 1},
-                #{'label': 'Medium', 'value': 2},
-                #{'label': 'High', 'value': 3}
-                {'label': x, 'value': x-4} for x in range(10)
-
-            ],
-            value = 3
-        )]
-
+        return [
+            html.H4("Select risk level:"),
+            dcc.Input(
+                id='risk-input',
+                type='number',
+                value=5,
+                min=0,
+                max=10,
+                step=1
+            )
+        ]
 
     @staticmethod
     def radio_currency():
@@ -118,7 +115,7 @@ class Dashboard(dash.Dash):
 
 
         @self.callback(
-            Input('radio-risk', 'value'),
+            Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('switch-short', 'value'),
             Input('cash', 'value'),

@@ -21,7 +21,7 @@ class Dashboard(dash.Dash):
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
-            Dashboard.button_create_backtest
+            Dashboard.button_rebalance, Dashboard.button_create_backtest
                                  ]
 
         self.main_div = None
@@ -42,7 +42,8 @@ class Dashboard(dash.Dash):
 
     @staticmethod
     def text_title():
-        return [html.H1("ETF Rebalancer")]
+        return [html.H1("ETF Portfolio Optimization")]
+
 
     @staticmethod
     def radio_risk():
@@ -58,33 +59,34 @@ class Dashboard(dash.Dash):
             )
         ]
 
+
     @staticmethod
     def radio_currency():
         return [html.H4("Select currency:"),
-                dcc.RadioItems(
+                dcc.Dropdown(
                     id='radio-currency',
                     options=[{'label': x, 'value': x} for x in ['SGD', 'EUR', 'USD']],
-                    value='USD'
+                    value='USD',
+                    clearable=False,
+                    style={'width': '100px'}
                 )]
 
 
     @staticmethod
     def radio_short():
-        return [html.H4("Allow Short ?"),
-            dcc.RadioItems(
+        return [
+            dcc.Checklist(
                 id='switch-short',
-                options=[
-                    {'label': 'Yes', 'value': True},
-                    {'label': 'No', 'value': False}
-                ],
-                value=False,
+                options=[{'label': 'Allow Short', 'value': 'short'}],
+                value=[],  # empty list means unchecked
+                inputStyle={"margin-right": "5px"},
             )
         ]
 
 
     @staticmethod
     def input_cash():
-        return [html.H4("Input Cash (in SGD)"),
+        return [html.H4(id='cash-label'),
                 dcc.Input(id='cash', type='number', value=100, step='any')]
 
 
@@ -102,6 +104,13 @@ class Dashboard(dash.Dash):
         return [html.H4("Optimal Portfolio:"),
                 html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
                 html.Div(id='portfolio-distrib')]
+
+
+    @staticmethod
+    def button_rebalance():
+        return [html.H4("Portfolio Rebalancing:"),
+                html.Button("Rebalance", id='rebalance-button', n_clicks=0),
+                html.Div(id='rebalance-div')]
 
 
     @staticmethod
@@ -128,6 +137,14 @@ class Dashboard(dash.Dash):
             self.allow_short = allow_short
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
+
+
+        @self.callback(
+            Output('cash-label', 'children'),
+            Input('radio-currency', 'value')
+        )
+        def update_cash_label(selected_currency):
+            return f"Input Cash (in {selected_currency})"
 
 
         @self.callback(
@@ -182,6 +199,19 @@ class Dashboard(dash.Dash):
                     self.backtest.plot_weights(),
                     self.backtest.plot_backtest(),
                     self.backtest.plot_perf_attrib()
+                ])
+            return 0, dash.no_update
+
+
+        @self.callback(
+            Output('rebalance-button', 'n_clicks'),
+            Output('rebalance-div', 'children'),
+            Input('rebalance-button', 'n_clicks'),
+        )
+        def rebalance(rebalance_n_click):
+            if rebalance_n_click:
+                return 0, html.Div([
+
                 ])
             return 0, dash.no_update
 

@@ -18,13 +18,12 @@ class Opti:
 
     def __init__(self, portfolio):
 
-        self.optimum, self.optimum_all, self.w_opt, self.goal, self.difference, self.constraints, self.bounds = None, None, None, None, None, None, None
+        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds = None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1/self.portfolio.n)
         self.optimize()
-        self.rebalance()
 
 
     def get_bounds(self):
@@ -54,7 +53,6 @@ class Opti:
 
         self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
-        self.goal = {ticker: self.optimum_all[ticker] * self.portfolio.liquidity for ticker in self.optimum_all}
 
 
     def plot_optimum(self):
@@ -101,11 +99,11 @@ class Opti:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])
-        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100)
+        pa_perf = round(((cumulative.iloc[-1]) ** (1/nb_years) - 1)*100, 1)
 
         running_max = cumulative.cummax()
         drawdown = (cumulative - running_max) / running_max
-        max_drawdown = round(drawdown.min()*100)
+        max_drawdown = round(drawdown.min()*100, 1)
 
         ax.set_title(f'In-Sample ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
         ax.set_ylabel('%')
@@ -158,16 +156,7 @@ class Opti:
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
-    def rebalance(self):
-        self.difference = self.goal.copy()
 
-        for ticker in self.portfolio.holdings:
-            self.difference[ticker] -= self.portfolio.holdings[ticker]
-
-        for ticker in self.difference:
-            self.difference[ticker] = round(self.difference[ticker])
-
-        self.difference = {ticker: int(self.difference[ticker]) for ticker in self.difference if self.difference[ticker]}
 
 
 

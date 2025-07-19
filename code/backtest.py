@@ -78,11 +78,11 @@ class Backtest:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])*(1-Backtest.ratio_train_test)
-        pa_perf = round(((cumulative[-1]) ** (1/nb_years) - 1)*100)
+        pa_perf = round(((cumulative.iloc[-1]) ** (1/nb_years) - 1)*100, 1)
 
         running_max = cumulative.cummax()
         drawdown = (cumulative - running_max) / running_max
-        max_drawdown = round(drawdown.min()*100)
+        max_drawdown = round(drawdown.min()*100, 1)
         plt.setp(ax.get_xticklabels(), rotation=45)
 
         ax.set_title(f'Backtest ({pa_perf}% p.a., {max_drawdown}% max drawdown)')

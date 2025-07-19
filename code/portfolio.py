@@ -83,11 +83,11 @@ class Info:
     }
 
 
-    def __init__(self, risk, cash_sgd, holdings, currency, allow_short):
+    def __init__(self, risk, cash, holdings, currency, allow_short):
 
         self.color_map, self.weight_cov = None, None
         self.risk = risk
-        self.cash_sgd = cash_sgd
+        self.cash = cash
         self.holdings = holdings if holdings else {}
         self.allow_short = allow_short
         self.currency = currency if currency else 'USD'#Info.currency_config[self.risk]
@@ -122,9 +122,9 @@ class Info:
 class Portfolio(Info):
 
 
-    def __init__(self, risk=3, cash_sgd=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None):
+    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None):
 
-        super().__init__(risk, cash_sgd, holdings, currency, allow_short)
+        super().__init__(risk, cash, holdings, currency, allow_short)
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
 
@@ -133,7 +133,6 @@ class Portfolio(Info):
         self.drop_too_new()
         #self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
-        self.cash = self.cash_sgd # / self.data.sgd_rate
         self.drop_highly_correlated()
         self.get_liquidity()
         #self.cov_excess_returns = self.data.excess_returns.cov().values
@@ -148,6 +147,7 @@ class Portfolio(Info):
         self.data.excess_returns.drop(ticker, axis=1, inplace=True)
         self.etf_list = list(self.data.nav.columns)
         self.n -= 1
+
 
     def drop_too_new(self):
 

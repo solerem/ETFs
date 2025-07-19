@@ -60,7 +60,8 @@ class Info:
 
     # Broad-market Vanguard
     "VTI",   # Vanguard Total Stock Market ETF — launched 2001
-]
+]+['IWN', 'IUSG', 'IYJ', 'EWL', 'VHT', 'IWB', 'XLU', 'IGE', 'RTH', 'VWO', 'IWV', 'EWW', 'EWC', 'EWN', 'VPU', 'PWB', 'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW', 'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IVV', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV', 'EWT', 'IYW', 'IMCG', 'EWH', 'IGPT', 'PJP', 'SPYG', 'ITOT', 'FXI', 'EWI', 'XLE', 'XLY', 'EWA', 'ILCG', 'IMCV', 'XLI', 'IWM', 'DVY', 'VBK', 'EWG', 'IGV', 'IJS', 'XNTK', 'IYT', 'SPTM', 'PEY', 'VBR', 'EEM', 'PWV', 'TLT', 'VFH', 'IEV', 'VB', 'SPEU', 'VGK', 'IYG', 'IWP', 'VTI', 'FEZ', 'EZU', 'IWR', 'VV', 'XLB', 'EWU', 'IJJ', 'IJR', 'EFA', 'EPP', 'IEF', 'VDC', 'IBB', 'PBW', 'TIP', 'IWS', 'IYE', 'IWO', 'VUG', 'SUSA', 'ILCV', 'IYK', 'XMMO', 'XLV', 'ONEQ', 'SHY', 'ISCB', 'EWJ', 'VXF', 'EWQ', 'PSI', 'ILF', 'IYR', 'IXG', 'IWD', 'IXP', 'VO', 'IDU', 'VGT', 'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'IVE', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF', 'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK']
+    etf_list = sorted(list(set(etf_list)))
 
     etf_preference = {
         'SGD': {},
@@ -74,11 +75,6 @@ class Info:
         3: 'USD'
     }
 
-    weight_cov = {
-        #1: 0.0001,
-        2: 1,
-        3: 10
-    }
 
     name = {
         1: 'Low risk',
@@ -89,14 +85,14 @@ class Info:
 
     def __init__(self, risk, cash_sgd, holdings, currency, allow_short):
 
-        self.color_map = None
+        self.color_map, self.weight_cov = None, None
         self.risk = risk
         self.cash_sgd = cash_sgd
         self.holdings = holdings if holdings else {}
         self.allow_short = allow_short
-        self.currency = currency if currency else Info.currency_config[self.risk]
-        self.weight_cov = Info.weight_cov[self.risk]
-        self.name = Info.name[self.risk]
+        self.currency = currency if currency else 'USD'#Info.currency_config[self.risk]
+        self.get_weight_cov()
+        self.name = self.risk + 4
         self.etf_list = Info.etf_list
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list)
@@ -112,6 +108,10 @@ class Info:
             temp[self.etf_preference[preferred]] = False
 
         self.etf_preference = temp
+
+
+    def get_weight_cov(self):
+        self.weight_cov = np.exp(self.risk)
 
 
     def get_color_map(self):
@@ -148,7 +148,6 @@ class Portfolio(Info):
         self.data.excess_returns.drop(ticker, axis=1, inplace=True)
         self.etf_list = list(self.data.nav.columns)
         self.n -= 1
-
 
     def drop_too_new(self):
 
@@ -213,7 +212,16 @@ class Portfolio(Info):
             drawdown = (cumulative - running_max) / running_max
             max_drawdown = drawdown.min()
 
-            return -Info.weight_cov[self.risk] *(prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+            if single_ticker:
+                return - self.weight_cov * (prod ** (
+                            1 / 20) - 1) - max_drawdown  # self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+
+
+            penalty_weight = 10 # Tunable hyperparameter
+
+            objective = -(prod**(1/20)-1)
+
+            return -self.weight_cov * (prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         self.objective = f
 

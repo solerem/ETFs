@@ -15,7 +15,7 @@ from data import Data
 class Backtest:
 
     ratio_train_test = .95
-    #ratio_train_test = 17/20
+    ratio_train_test = 17/20
 
     def __init__(self, opti):
 
@@ -48,7 +48,7 @@ class Backtest:
         smoothed_df.iloc[0] = self.w_opt.iloc[0]
 
         for t in range(1, len(self.w_opt)):
-            smoothed_df.iloc[t] = (2*self.w_opt.iloc[t] + 8*smoothed_df.iloc[t - 1]) / 10
+            smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2*smoothed_df.iloc[t - 1]) / 3
 
         self.w_opt = smoothed_df
 
@@ -91,7 +91,7 @@ class Backtest:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/Backtest/backtest.png"
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()
@@ -117,9 +117,8 @@ class Backtest:
 
         ax.set_ylabel('%')
         ax.legend()
-        ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/Backtest/weights.png"
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()
@@ -151,7 +150,7 @@ class Backtest:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/Backtest/perf_attrib.png"
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()

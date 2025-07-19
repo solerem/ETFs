@@ -70,7 +70,7 @@ class Opti:
         )
         ax.set_title('Optimal Allocation')
 
-        output_path = Opti.graph_dir_path+f"{self.portfolio.currency}/{self.portfolio.name}/optimal_allocation.png"
+        output_path = Opti.graph_dir_path+f"{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()
@@ -90,7 +90,7 @@ class Opti:
         cumulative = (1 + returns @ weights).cumprod()
 
         fig, ax = plt.subplots()
-        ax.plot((cumulative-1)*100, label=self.portfolio.name + f' ({self.portfolio.currency})')
+        ax.plot((cumulative-1)*100, label= str(self.portfolio.name) + f' ({self.portfolio.currency})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
         ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
@@ -112,7 +112,7 @@ class Opti:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/in_sample.png"
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- in_sample.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()
@@ -144,7 +144,7 @@ class Opti:
         ax.set_ylabel('%')
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}/perf_attrib.png"
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png"
         plt.savefig(output_path, format="png", bbox_inches='tight')
 
         buf = io.BytesIO()

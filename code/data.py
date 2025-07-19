@@ -46,6 +46,7 @@ class Data:
             self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
         else:
             self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+            self.currency_rate.to_csv(Data.data_dir_path + f'currency_{self.currency}.csv')
 
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
@@ -65,15 +66,14 @@ class Data:
                 try:
                     return ticker, yf.Ticker(ticker).fast_info['currency']
                 except Exception:
-                    print('Cant retreive etf currency')
+                    print('Cant retreive etf currency', ticker)
                     return ticker, 'N/A'
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 results = executor.map(get_currency, self.etf_list)
 
-            print(results)
             self.etf_currency = dict(results)
-            #pd.Series(self.etf_currency).to_csv(Data.data_dir_path+'curr_etf.csv')
+            pd.Series(self.etf_currency).to_csv(Data.data_dir_path+'curr_etf.csv')
 
 
     def get_spy(self):
@@ -83,7 +83,7 @@ class Data:
             self.spy.index = pd.to_datetime(self.spy.index)
         else:
             self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
-            #self.spy['VTI'].to_csv(Data.data_dir_path+'spy.csv')
+            self.spy['VTI'].to_csv(Data.data_dir_path+'spy.csv')
 
         if self.currency != 'USD':
             self.spy['VTI'] /= self.currency_rate['USD']
@@ -98,11 +98,15 @@ class Data:
             irx.index = pd.to_datetime(irx.index, utc=True)
         else:
             irx = yf.Ticker("^IRX").history(period=self.period, interval="1d")['Close'] / 100
+            irx.to_csv(Data.data_dir_path + 'rf_rate.csv')
 
         rf_monthly = irx.resample("MS").first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
         self.rf_rate.index = self.rf_rate.index.tz_localize(None)
         self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
+
+        if self.static:
+            self.rf_rate = self.rf_rate['Close']
 
 
     def get_nav_returns(self):
@@ -112,6 +116,7 @@ class Data:
             self.nav.index = pd.to_datetime(self.nav.index)
         else:
             self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+            self.nav.to_csv(Data.data_dir_path + 'nav.csv')
 
         for ticker in self.nav.columns:
             curr = self.etf_currency[ticker]
@@ -127,7 +132,7 @@ class Data:
 
         self.returns = self.nav.pct_change().iloc[1:]
         self.log_returns = np.log(1+self.returns)
-        self.excess_returns = self.returns.subtract(self.rf_rate['Close'], axis=0)
+        self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 
 
     def add_btc(self):

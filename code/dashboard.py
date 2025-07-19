@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import dash
+import numpy as np
 from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
 
@@ -51,8 +52,10 @@ class Dashboard(dash.Dash):
             id='radio-risk',
             options=[
                 #{'label': 'Low', 'value': 1},
-                {'label': 'Medium', 'value': 2},
-                {'label': 'High', 'value': 3}
+                #{'label': 'Medium', 'value': 2},
+                #{'label': 'High', 'value': 3}
+                {'label': x, 'value': x-4} for x in range(10)
+
             ],
             value = 3
         )]
@@ -107,7 +110,7 @@ class Dashboard(dash.Dash):
     @staticmethod
     def button_create_backtest():
         return [html.H4("Backtest:"),
-                html.Button("Create Backtest", id='create-backtest', n_clicks=0),
+                html.Button("Launch Backtest", id='create-backtest', n_clicks=0),
                 html.Div(id='backtest-graphs')]
 
 

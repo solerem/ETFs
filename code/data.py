@@ -7,6 +7,7 @@ import pandas as pd
 import concurrent.futures
 
 
+
 class Data:
 
     period = '20y'
@@ -15,13 +16,14 @@ class Data:
 
     def __init__(self, currency, etf_list, static=False, backtest=None):
 
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy = None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names = None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
 
         self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
         self.get_spy()
+        self.get_full_names()
 
 
     def drop_test_data_backtest(self, df):
@@ -165,6 +167,17 @@ class Data:
         plt.grid()
         plt.legend()
         plt.show()
+
+
+    def get_full_names(self):
+
+        if self.static:
+            etf_full_names = pd.read_csv(Data.data_dir_path + 'full_names.csv', index_col=0)
+        else:
+            etf_full_names = pd.Series({ticker: yf.Ticker(ticker).info['longName'] for ticker in self.etf_list})
+            etf_full_names.to_csv(Data.data_dir_path + 'full_names.csv')
+
+        self.etf_full_names = etf_full_names
 
 
 

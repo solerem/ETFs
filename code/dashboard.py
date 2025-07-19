@@ -4,8 +4,10 @@ import dash
 import numpy as np
 from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
+from dash import dash_table
 
 from backtest import Backtest
+from rebalancer import Rebalancer
 from portfolio import Portfolio
 from opti import Opti
 import datetime
@@ -26,7 +28,7 @@ class Dashboard(dash.Dash):
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
-        self.portfolio, self.opti, self.backtest = None, None, None
+        self.portfolio, self.opti, self.backtest, self.rebalancer = None, None, None, None
         self.get_layout()
         self.callbacks()
 
@@ -207,12 +209,25 @@ class Dashboard(dash.Dash):
             Output('rebalance-button', 'n_clicks'),
             Output('rebalance-div', 'children'),
             Input('rebalance-button', 'n_clicks'),
+            Input('radio-currency', 'value')
         )
-        def rebalance(rebalance_n_click):
-            if rebalance_n_click:
-                return 0, html.Div([
 
-                ])
+
+        def rebalance(rebalance_n_click, selected_currency):
+            if rebalance_n_click:
+                self.rebalancer = Rebalancer(self.opti)
+                df = self.rebalancer.rebalance_df
+                df.rename(columns={'Buy/Sell': f'Buy/Sell ({selected_currency})'}, inplace=True)
+
+                return 0, html.Div([
+                    dash_table.DataTable(
+                        data=df.to_dict('records'),  # Convert DataFrame to dict for dash
+                        columns=[{"name": i, "id": i} for i in df.columns],
+                        style_table={'overflowX': 'auto'},  # Optional: adds horizontal scroll
+                        style_cell={'textAlign': 'left'},  # Optional: cell formatting
+                        page_size=10  # Optional: pagination
+                    )
+                ], style={'width': '50%'})
             return 0, dash.no_update
 
 

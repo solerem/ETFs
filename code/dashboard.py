@@ -211,8 +211,6 @@ class Dashboard(dash.Dash):
             Input('rebalance-button', 'n_clicks'),
             Input('radio-currency', 'value')
         )
-
-
         def rebalance(rebalance_n_click, selected_currency):
             if rebalance_n_click:
                 self.rebalancer = Rebalancer(self.opti)

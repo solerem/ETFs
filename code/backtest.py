@@ -15,7 +15,7 @@ from data import Data
 class Backtest:
 
     ratio_train_test = .95
-    ratio_train_test = 17/20
+    #ratio_train_test = 17/20
 
     def __init__(self, opti):
 
@@ -34,7 +34,7 @@ class Backtest:
         self.cutoff = round(Backtest.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
 
-        self.w_opt = pd.DataFrame({ticker: [] for ticker in self.portfolio.etf_list})
+        self.w_opt = pd.DataFrame({ticker: [] for ticker in Portfolio.etf_list})
         for i in tqdm(range(self.cutoff, self.n)):
             portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
                           allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
@@ -44,6 +44,7 @@ class Backtest:
 
     def smoothen_weights(self):
 
+        self.w_opt.fillna(0, inplace=True)
         smoothed_df = pd.DataFrame(index=self.w_opt.index, columns=self.w_opt.columns, dtype=float)
         smoothed_df.iloc[0] = self.w_opt.iloc[0]
 
@@ -51,6 +52,7 @@ class Backtest:
             smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2*smoothed_df.iloc[t - 1]) / 3
 
         self.w_opt = smoothed_df
+
 
 
     def get_returns(self):
@@ -107,9 +109,31 @@ class Backtest:
 
     def plot_weights(self):
 
+
+        included = set(self.to_consider)
+        all_tickers = set(self.w_opt.columns)
+        remaining = list(all_tickers - included)
+        mean_weights = self.w_opt.mean()
+        sorted_remaining = sorted(remaining, key=lambda x: mean_weights[x], reverse=True)
+
+        total_weight = mean_weights.sum()
+        included_weight = mean_weights[list(included)].sum()
+
+        while included_weight / total_weight < 0.9 and sorted_remaining:
+            next_ticker = sorted_remaining.pop(0)
+            included.add(next_ticker)
+            included_weight += mean_weights[next_ticker]
+
+        tickers_to_plot = list(included)
+        colors = [self.portfolio.color_map[ticker] for ticker in tickers_to_plot]
+
         fig, ax = plt.subplots()
-        colors = [self.portfolio.color_map[ticker] for ticker in self.to_consider]
-        ax.stackplot(self.w_opt.index, 100*self.w_opt[self.to_consider].T, labels=self.to_consider, colors=colors)
+        ax.stackplot(
+            self.w_opt.index,
+            100 * self.w_opt[tickers_to_plot].T,
+            labels=tickers_to_plot,
+            colors=colors
+        )
 
         plt.setp(ax.get_xticklabels(), rotation=45)
         ax.set_title(f'Weights history')

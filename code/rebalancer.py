@@ -29,10 +29,17 @@ class Rebalancer:
             if ticker not in self.original_weighted:
                 self.original_weighted[ticker] = 0
 
+        if not self.original:
+            self.original_weighted = None
+
 
     def get_difference(self):
 
-        self.goal = {ticker: (self.opti.optimum_all[ticker]/3 + self.original_weighted[ticker]) * self.opti.portfolio.liquidity for ticker in self.opti.optimum_all}
+        if not self.original_weighted:
+            self.goal = {ticker: self.opti.optimum_all[ticker] * self.opti.portfolio.liquidity for ticker in self.opti.optimum_all}
+        else:
+            self.goal = {ticker: (self.opti.optimum_all[ticker]/3 + self.original_weighted[ticker]) * self.opti.portfolio.liquidity for ticker in self.opti.optimum_all}
+
         self.difference = self.goal.copy()
 
         for ticker in self.opti.portfolio.holdings:

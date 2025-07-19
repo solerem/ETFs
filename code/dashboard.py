@@ -9,6 +9,7 @@ from dash import dash_table
 from backtest import Backtest
 from rebalancer import Rebalancer
 from portfolio import Portfolio
+from exposure import Exposure
 from opti import Opti
 import datetime
 
@@ -23,12 +24,12 @@ class Dashboard(dash.Dash):
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
-            Dashboard.button_rebalance, Dashboard.button_create_backtest
+            Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest
                                  ]
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
-        self.portfolio, self.opti, self.backtest, self.rebalancer = None, None, None, None
+        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.get_layout()
         self.callbacks()
 
@@ -113,6 +114,13 @@ class Dashboard(dash.Dash):
         return [html.H4("Portfolio Rebalancing:"),
                 html.Button("Rebalance", id='rebalance-button', n_clicks=0),
                 html.Div(id='rebalance-div')]
+
+
+    @staticmethod
+    def button_display_exposure():
+        return [html.H4("Exposure:"),
+                html.Button("Display exposure", id='display-exposure', n_clicks=0),
+                html.Div(id='exposure-graphs')]
 
 
     @staticmethod
@@ -226,6 +234,20 @@ class Dashboard(dash.Dash):
                         page_size=10  # Optional: pagination
                     )
                 ], style={'width': '50%'})
+            return 0, dash.no_update
+
+
+        @self.callback(
+            Output('display-exposure', 'n_clicks'),
+            Output('exposure-graphs', 'children'),
+            Input('display-exposure', 'n_clicks'),
+        )
+        def display_exposure(display_exposure_n_click):
+            if display_exposure_n_click:
+                self.exposure = Exposure(self.opti)
+                return 0, html.Div([
+                    self.exposure.plot_currency()
+                ])
             return 0, dash.no_update
 
 

@@ -54,7 +54,6 @@ class Backtest:
         self.w_opt = smoothed_df
 
 
-
     def get_returns(self):
 
         self.returns_decomp = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])

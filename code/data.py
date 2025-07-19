@@ -131,8 +131,7 @@ class Data:
 
         self.nav = self.drop_test_data_backtest(self.nav)
 
-
-        self.returns = self.nav.pct_change().iloc[1:]
+        self.returns = self.nav.pct_change().fillna(0)
         self.log_returns = np.log(1+self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 

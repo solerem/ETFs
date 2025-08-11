@@ -5,9 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import concurrent.futures
-from sklearn.linear_model import LinearRegression
-
-
+import statsmodels.api as sm
 
 
 class Data:
@@ -18,7 +16,7 @@ class Data:
 
     def __init__(self, currency, etf_list, static=False, backtest=None):
 
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.btc = None, None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
 
         self.get_currency()
@@ -129,64 +127,12 @@ class Data:
                 self.nav[ticker] /= self.currency_rate[curr]
         self.nav = self.nav.copy()
 
-        self.add_btc()
 
         self.nav = self.drop_test_data_backtest(self.nav)
 
         self.returns = self.nav.pct_change().fillna(0)
         self.log_returns = np.log(1+self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
-
-
-
-    def backfill_btc(self):
-
-        def to_logret(p):
-            return np.log(p).diff().dropna()
-
-        etf_r = to_logret(self.nav.copy())
-        btc_r = to_logret(self.btc['BTC-USD'].copy())
-
-        df = etf_r.join(btc_r.rename("BTC"), how="outer")
-
-        X, y = df[etf_r.columns], df["BTC"]
-        cutoff = self.btc.index[0]
-        mask_train = X.index > cutoff
-
-        model = LinearRegression()
-        model.fit(X[mask_train], y[mask_train])
-
-        # Predicted BTC returns for pre-2011 period
-        mask_back = X.index <= cutoff
-
-        btc_backfill = pd.Series(model.predict(X[mask_back]), index=X[mask_back].index, name="BTC_synthetic")
-        scale = y[mask_train].std() / btc_backfill.std()
-        btc_backfill *= scale
-
-        new_row = pd.Series({pd.Timestamp("2005-09-01"): btc_backfill.iloc[0]})
-        btc_backfill = pd.concat([new_row, btc_backfill]).sort_index()
-
-        # Combine synthetic pre-2011 with real post-2011
-        self.btc = pd.concat([btc_backfill, y[mask_train]]).sort_index()
-
-    def add_btc(self):
-
-
-        if self.static:
-            self.btc = pd.read_csv(Data.data_dir_path+'btc.csv', index_col=0)['0']
-            self.btc.index = pd.to_datetime(self.btc.index)
-        else:
-            self.btc = yf.download('BTC-USD', period=Data.period, interval='1mo', auto_adjust=True)['Close']#['BTC-USD']
-            self.backfill_btc()
-            self.btc.to_csv(Data.data_dir_path+'btc.csv')
-
-
-        if self.currency != 'USD':
-            self.btc /= self.currency_rate['USD']
-
-
-        #self.nav['BTC'] = self.btc
-        #self.etf_list.append('BTC')
 
 
     def plot(self, tickers):

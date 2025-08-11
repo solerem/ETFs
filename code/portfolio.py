@@ -95,7 +95,7 @@ class Info:
         self.name = 'Risk ' + str(self.risk + 4)
         self.etf_list = Info.etf_list
         self.etf_preference = Info.etf_preference[self.currency]
-        self.n = len(self.etf_list)#+1
+        self.n = len(self.etf_list)
         self.transform_etf_preference()
         self.get_color_map()
 

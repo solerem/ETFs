@@ -86,6 +86,7 @@ class Exposure:
 
         return self.plot_other_exposure('Bond Type')
 
+
     def plot_geo(self):
 
         return self.plot_other_exposure('Geography')

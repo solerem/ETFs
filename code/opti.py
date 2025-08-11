@@ -170,7 +170,6 @@ class Opti:
 
         ax.set_title(f'Drawdown')
         ax.set_ylabel('%')
-        ax.legend()
         ax.grid()
 
         output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- in_sample.png"

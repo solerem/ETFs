@@ -1,0 +1,156 @@
+Ticker,Asset Class,Stock Sector,Bond Type,Geography
+AGG,bonds,,Aggregate Bonds,Global/Other
+IEF,bonds,,Treasury Bonds,Global/Other
+LQD,bonds,,Corporate Bonds,Global/Other
+SHY,bonds,,Treasury Bonds,Global/Other
+TIP,bonds,,Inflation-Protected Bonds,Global/Other
+TLT,bonds,,Treasury Bonds,Global/Other
+GLD,commodities,,,Global/Other
+IGE,commodities,,,Global/Other
+DGT,stocks,Comprehensive/Other,,Global/Other
+DIA,stocks,Comprehensive/Other,,North America
+DVY,stocks,Comprehensive/Other,,North America
+EEM,stocks,Comprehensive/Other,,Asia
+EFA,stocks,Comprehensive/Other,,Asia
+EPP,stocks,Comprehensive/Other,,Asia
+EWA,stocks,Comprehensive/Other,,Asia
+EWC,stocks,Comprehensive/Other,,North America
+EWD,stocks,Comprehensive/Other,,Europe
+EWG,stocks,Comprehensive/Other,,Europe
+EWH,stocks,Comprehensive/Other,,Asia
+EWI,stocks,Comprehensive/Other,,Europe
+EWJ,stocks,Comprehensive/Other,,Asia
+EWL,stocks,Comprehensive/Other,,Europe
+EWM,stocks,Comprehensive/Other,,Asia
+EWN,stocks,Comprehensive/Other,,Europe
+EWP,stocks,Comprehensive/Other,,Europe
+EWQ,stocks,Comprehensive/Other,,Europe
+EWS,stocks,Comprehensive/Other,,Asia
+EWT,stocks,Comprehensive/Other,,Asia
+EWU,stocks,Comprehensive/Other,,Europe
+EWW,stocks,Comprehensive/Other,,Unclassified
+EWY,stocks,Comprehensive/Other,,Asia
+EWZ,stocks,Comprehensive/Other,,South America
+EZA,stocks,Comprehensive/Other,,Africa
+EZU,stocks,Comprehensive/Other,,Europe
+FEZ,stocks,Comprehensive/Other,,Europe
+FXI,stocks,Comprehensive/Other,,Asia
+IBB,stocks,Healthcare,,Global/Other
+ICF,stocks,Real Estate,,Global/Other
+IDU,stocks,Industrials,,Global/Other
+IEV,stocks,Comprehensive/Other,,Europe
+IGM,stocks,Technology,,Global/Other
+IGPT,stocks,Comprehensive/Other,,Global/Other
+IGV,stocks,Technology,,Global/Other
+IJH,stocks,Comprehensive/Other,,Unclassified
+IJJ,stocks,Comprehensive/Other,,Unclassified
+IJK,stocks,Comprehensive/Other,,Unclassified
+IJR,stocks,Comprehensive/Other,,North America
+IJS,stocks,Comprehensive/Other,,North America
+IJT,stocks,Comprehensive/Other,,North America
+ILCB,stocks,Comprehensive/Other,,Global/Other
+ILCG,stocks,Comprehensive/Other,,Global/Other
+ILCV,stocks,Comprehensive/Other,,Global/Other
+ILF,stocks,Comprehensive/Other,,North America
+IMCB,stocks,Comprehensive/Other,,Global/Other
+IMCG,stocks,Comprehensive/Other,,Global/Other
+IMCV,stocks,Comprehensive/Other,,Global/Other
+IOO,stocks,Comprehensive/Other,,Global/Other
+ISCB,stocks,Comprehensive/Other,,Global/Other
+ISCG,stocks,Comprehensive/Other,,Global/Other
+ISCV,stocks,Comprehensive/Other,,Global/Other
+ITOT,stocks,Comprehensive/Other,,Global/Other
+IUSG,stocks,Comprehensive/Other,,Global/Other
+IUSV,stocks,Comprehensive/Other,,Global/Other
+IVE,stocks,Comprehensive/Other,,Unclassified
+IVV,stocks,Comprehensive/Other,,North America
+IVW,stocks,Comprehensive/Other,,North America
+IWB,stocks,Comprehensive/Other,,North America
+IWD,stocks,Comprehensive/Other,,North America
+IWF,stocks,Comprehensive/Other,,North America
+IWM,stocks,Comprehensive/Other,,North America
+IWN,stocks,Comprehensive/Other,,North America
+IWO,stocks,Comprehensive/Other,,North America
+IWP,stocks,Comprehensive/Other,,Unclassified
+IWR,stocks,Comprehensive/Other,,Unclassified
+IWS,stocks,Comprehensive/Other,,Unclassified
+IWV,stocks,Comprehensive/Other,,Unclassified
+IXC,stocks,Comprehensive/Other,,Global/Other
+IXG,stocks,Comprehensive/Other,,Global/Other
+IXJ,stocks,Comprehensive/Other,,Global/Other
+IXN,stocks,Comprehensive/Other,,Global/Other
+IXP,stocks,Telecommunications,,Global/Other
+IYC,stocks,Comprehensive/Other,,Global/Other
+IYE,stocks,Energy,,Global/Other
+IYF,stocks,Financials,,Global/Other
+IYG,stocks,Financials,,Global/Other
+IYH,stocks,Healthcare,,Global/Other
+IYJ,stocks,Industrials,,Global/Other
+IYK,stocks,Consumer Staples,,Global/Other
+IYM,stocks,Materials,,Global/Other
+IYR,stocks,Real Estate,,Global/Other
+IYT,stocks,Transportation,,Global/Other
+IYW,stocks,Technology,,Global/Other
+IYY,stocks,Comprehensive/Other,,Global/Other
+IYZ,stocks,Comprehensive/Other,,Global/Other
+MDY,stocks,Comprehensive/Other,,North America
+OEF,stocks,Comprehensive/Other,,North America
+ONEQ,stocks,Comprehensive/Other,,North America
+PBW,stocks,Comprehensive/Other,,Global/Other
+PEJ,stocks,Consumer Discretionary,,Global/Other
+PEY,stocks,Comprehensive/Other,,Global/Other
+PJP,stocks,Healthcare,,Global/Other
+PSI,stocks,Technology,,Global/Other
+PWB,stocks,Comprehensive/Other,,Global/Other
+PWV,stocks,Comprehensive/Other,,Global/Other
+QQQ,stocks,Comprehensive/Other,,North America
+RSP,stocks,Comprehensive/Other,,North America
+RTH,stocks,Consumer Discretionary,,North America
+RWR,stocks,Real Estate,,North America
+SLYG,stocks,Comprehensive/Other,,Global/Other
+SLYV,stocks,Comprehensive/Other,,Global/Other
+SMH,stocks,Technology,,Global/Other
+SOXX,stocks,Comprehensive/Other,,Global/Other
+SPEU,stocks,Comprehensive/Other,,Europe
+SPTM,stocks,Comprehensive/Other,,Global/Other
+SPY,stocks,Comprehensive/Other,,North America
+SPYG,stocks,Comprehensive/Other,,Global/Other
+SPYV,stocks,Comprehensive/Other,,Global/Other
+SUSA,stocks,Comprehensive/Other,,North America
+VAW,stocks,Materials,,Global/Other
+VB,stocks,Comprehensive/Other,,North America
+VBK,stocks,Comprehensive/Other,,North America
+VBR,stocks,Comprehensive/Other,,North America
+VCR,stocks,Consumer Discretionary,,North America
+VDC,stocks,Consumer Staples,,North America
+VDE,stocks,Energy,,North America
+VFH,stocks,Financials,,North America
+VGK,stocks,Comprehensive/Other,,Europe
+VGT,stocks,Technology,,Global/Other
+VHT,stocks,Healthcare,,Global/Other
+VIS,stocks,Industrials,,North America
+VNQ,stocks,Real Estate,,Global/Other
+VO,stocks,Comprehensive/Other,,North America
+VOX,stocks,Telecommunications,,North America
+VPL,stocks,Comprehensive/Other,,Asia
+VPU,stocks,Utilities,,North America
+VTI,stocks,Comprehensive/Other,,North America
+VTV,stocks,Comprehensive/Other,,Global/Other
+VUG,stocks,Comprehensive/Other,,Global/Other
+VV,stocks,Comprehensive/Other,,North America
+VWO,stocks,Comprehensive/Other,,Global/Other
+VXF,stocks,Comprehensive/Other,,Global/Other
+XLB,stocks,Materials,,Global/Other
+XLE,stocks,Energy,,North America
+XLF,stocks,Financials,,North America
+XLG,stocks,Comprehensive/Other,,Global/Other
+XLI,stocks,Industrials,,North America
+XLK,stocks,Technology,,North America
+XLP,stocks,Consumer Staples,,North America
+XLU,stocks,Utilities,,North America
+XLV,stocks,Healthcare,,North America
+XLY,stocks,Consumer Discretionary,,North America
+XMMO,stocks,Comprehensive/Other,,Global/Other
+XMVM,stocks,Comprehensive/Other,,Global/Other
+XNTK,stocks,Technology,,Global/Other
+XSMO,stocks,Comprehensive/Other,,Global/Other

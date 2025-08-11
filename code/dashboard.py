@@ -192,7 +192,8 @@ class Dashboard(dash.Dash):
                 return 0, html.Div([
                     self.opti.plot_optimum(),
                     self.opti.plot_in_sample(),
-                    self.opti.plot_weighted_perf()
+                    self.opti.plot_weighted_perf(),
+                    self.opti.plot_drawdown()
                 ])
             return 0, dash.no_update
 

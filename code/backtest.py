@@ -15,7 +15,7 @@ from data import Data
 class Backtest:
 
     ratio_train_test = .95
-    #ratio_train_test = 17/20
+    ratio_train_test = 17/20
 
     def __init__(self, opti):
 

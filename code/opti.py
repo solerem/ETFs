@@ -18,12 +18,13 @@ class Opti:
 
     def __init__(self, portfolio):
 
-        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds = None, None, None, None, None
+        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative = None, None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1/self.portfolio.n)
         self.optimize()
+        self.get_cumulative()
 
 
     def get_bounds(self):
@@ -55,6 +56,12 @@ class Opti:
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if self.optimum_all[ticker] != 0}
 
 
+    def get_cumulative(self):
+        returns = self.portfolio.data.returns[self.optimum.keys()]
+        weights = list(self.optimum.values())
+        self.cumulative = (1 + returns @ weights).cumprod()
+
+
     def plot_optimum(self):
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
 
@@ -83,12 +90,9 @@ class Opti:
 
 
     def plot_in_sample(self):
-        returns = self.portfolio.data.returns[self.optimum.keys()]
-        weights = list(self.optimum.values())
-        cumulative = (1 + returns @ weights).cumprod()
 
         fig, ax = plt.subplots()
-        ax.plot((cumulative-1)*100, label= str(self.portfolio.name) + f' ({self.portfolio.currency})')
+        ax.plot((self.cumulative-1)*100, label= str(self.portfolio.name) + f' ({self.portfolio.currency})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
         ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
@@ -99,10 +103,10 @@ class Opti:
         ax.axhline(0, color='black')
 
         nb_years = int(Data.period[:-1])
-        pa_perf = round(((cumulative.iloc[-1]) ** (1/nb_years) - 1)*100, 1)
+        pa_perf = round(((self.cumulative.iloc[-1]) ** (1/nb_years) - 1)*100, 1)
 
-        running_max = cumulative.cummax()
-        drawdown = (cumulative - running_max) / running_max
+        running_max = self.cumulative.cummax()
+        drawdown = (self.cumulative - running_max) / running_max
         max_drawdown = round(drawdown.min()*100, 1)
 
         ax.set_title(f'In-Sample ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
@@ -154,6 +158,35 @@ class Opti:
         img_src = f"data:image/png;base64,{encoded}"
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+
+
+    def plot_drawdown(self):
+
+        rolling_max = self.cumulative.cummax()
+        drawdown = self.cumulative / rolling_max - 1
+
+        fig, ax = plt.subplots()
+        ax.plot(drawdown*100)
+
+        ax.set_title(f'Drawdown')
+        ax.set_ylabel('%')
+        ax.legend()
+        ax.grid()
+
+        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- in_sample.png"
+        plt.savefig(output_path, format="png", bbox_inches='tight')
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+
+
 
 
 

@@ -93,9 +93,9 @@ class Info:
         self.currency = currency if currency else 'USD'#Info.currency_config[self.risk]
         self.get_weight_cov()
         self.name = 'Risk ' + str(self.risk + 4)
-        self.etf_list = Info.etf_list
+        self.etf_list = Info.etf_list + [f'RF_RATE_{curr}' for curr in ['EUR', 'SGD', 'USD']]
         self.etf_preference = Info.etf_preference[self.currency]
-        self.n = len(self.etf_list)
+        self.n = len(self.etf_list) #+ 1
         self.transform_etf_preference()
         self.get_color_map()
 
@@ -131,6 +131,7 @@ class Portfolio(Info):
         self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
 
         self.drop_too_new()
+
         #self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
         self.drop_highly_correlated()

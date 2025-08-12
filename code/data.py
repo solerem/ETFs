@@ -126,9 +126,13 @@ class Data:
             if self.currency != curr:
                 self.nav[ticker] /= self.currency_rate[curr]
         self.nav = self.nav.copy()
-
-
         self.nav = self.drop_test_data_backtest(self.nav)
+
+        true_rf = (self.rf_rate + 1).cumprod()
+
+        self.nav[f'RF_RATE_{self.currency}'] = true_rf.copy()
+        for curr in self.currency_rate.columns:
+            self.nav[f'RF_RATE_{curr}'] = true_rf.copy() * self.currency_rate[curr]
 
         self.returns = self.nav.pct_change().fillna(0)
         self.log_returns = np.log(1+self.returns)
@@ -169,6 +173,5 @@ class Data:
     def get_exposure(self):
 
         self.exposure = pd.read_csv(Data.data_dir_path+'exposure.csv', index_col=0)
-
 
 

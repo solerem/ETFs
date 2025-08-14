@@ -5,6 +5,7 @@ import numpy as np
 from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
 from dash import dash_table
+from data import Data
 
 from backtest import Backtest
 from rebalancer import Rebalancer
@@ -68,7 +69,7 @@ class Dashboard(dash.Dash):
         return [html.H4("Select currency:"),
                 dcc.Dropdown(
                     id='radio-currency',
-                    options=[{'label': x, 'value': x} for x in ['SGD', 'EUR', 'USD']],
+                    options=[{'label': x, 'value': x} for x in Data.possible_currencies],
                     value='USD',
                     clearable=False,
                     style={'width': '100px'}

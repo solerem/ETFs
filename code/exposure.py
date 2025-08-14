@@ -1,4 +1,5 @@
 from opti import Opti
+from data import Data
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
@@ -45,7 +46,7 @@ class Exposure:
 
         etf_currency = self.opti.portfolio.data.etf_currency
 
-        currency_dict = {curr: 0 for curr in ['SGD', 'EUR', 'USD']}
+        currency_dict = {curr: 0 for curr in Data.possible_currencies}
         for ticker in self.optimum:
             currency_dict[etf_currency[ticker]] += self.optimum[ticker]
 

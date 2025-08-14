@@ -11,7 +11,7 @@ import statsmodels.api as sm
 class Data:
 
     period = '20y'
-    possible_currencies = ['USD', 'EUR', 'SGD']
+    possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CHF', 'CNY', 'HKD']
     data_dir_path = '/Users/maximesolere/PycharmProjects/ETF/data_dir/'
 
     def __init__(self, currency, etf_list, static=False, backtest=None):
@@ -54,8 +54,8 @@ class Data:
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
 
-        if self.currency == 'SGD':
-            self.currency_rate['EUR'] = self.currency_rate['EUR'].bfill()
+        for curr in self.currency_rate:
+            self.currency_rate[curr] = self.currency_rate[curr].bfill()
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
@@ -128,6 +128,9 @@ class Data:
                 self.nav[ticker] /= self.currency_rate[curr]
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
+
+        for curr in self.currency_rate:
+            self.nav[curr] = self.currency_rate[curr]
 
         self.returns = self.nav.pct_change().fillna(0)
         self.log_returns = np.log(1+self.returns)

@@ -58,7 +58,7 @@ class Dashboard(dash.Dash):
                 type='number',
                 value=5,
                 min=0,
-                max=10,
+                max=15,
                 step=1
             )
         ]

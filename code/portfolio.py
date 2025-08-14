@@ -87,7 +87,7 @@ class Info:
         self.get_weight_cov()
         self.name = 'Risk ' + str(self.risk + 4)
         self.etf_list = Info.etf_list
-        self.n = len(self.etf_list) + len([ticker for ticker in Data.possible_currencies if ticker != self.currency])
+        self.n = len(self.etf_list)
         self.get_color_map()
 
 
@@ -95,6 +95,7 @@ class Info:
 
     def get_weight_cov(self):
         self.weight_cov = np.exp(self.risk-4)
+        self.weight_cov = (self.risk/20)
 
 
     def get_color_map(self):
@@ -113,6 +114,10 @@ class Portfolio(Info):
 
         self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
         self.etf_list += [ticker for ticker in Data.possible_currencies if ticker != self.currency]
+        self.etf_list = sorted(list(set(self.etf_list)))
+        self.n = len(self.etf_list)
+
+
 
 
         self.drop_too_new()
@@ -151,6 +156,7 @@ class Portfolio(Info):
 
         threshold = 1 - Portfolio.threshold_correlation
         clusters = fcluster(linkage_matrix, threshold, criterion='distance')
+
 
         cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
 
@@ -197,8 +203,9 @@ class Portfolio(Info):
             cumulative = (1 + returns).cumprod()
             running_max = cumulative.cummax()
             drawdown = (cumulative - running_max) / running_max
-            max_drawdown = drawdown.min()
+            max_drawdown = drawdown.mean()
 
+            #return -self.weight_cov(prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
             return -self.weight_cov * (prod**(1/20)-1) - max_drawdown #self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         self.objective = f

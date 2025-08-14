@@ -66,6 +66,7 @@ class Data:
         else:
 
             def get_currency(ticker):
+
                 try:
                     return ticker, yf.Ticker(ticker).fast_info['currency']
                 except Exception:
@@ -128,12 +129,6 @@ class Data:
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
 
-        true_rf = (self.rf_rate + 1).cumprod()
-
-        self.nav[f'RF_RATE_{self.currency}'] = true_rf.copy()
-        for curr in self.currency_rate.columns:
-            self.nav[f'RF_RATE_{curr}'] = true_rf.copy() * self.currency_rate[curr]
-
         self.returns = self.nav.pct_change().fillna(0)
         self.log_returns = np.log(1+self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
@@ -164,7 +159,7 @@ class Data:
         if self.static:
             etf_full_names = pd.read_csv(Data.data_dir_path + 'full_names.csv', index_col=0)
         else:
-            etf_full_names = pd.Series({ticker: yf.Ticker(ticker).info['longName'] for ticker in self.etf_list})
+            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName'] ) for ticker in self.etf_list})
             etf_full_names.to_csv(Data.data_dir_path + 'full_names.csv')
 
         self.etf_full_names = etf_full_names

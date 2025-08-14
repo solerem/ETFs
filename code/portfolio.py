@@ -93,7 +93,7 @@ class Info:
         self.currency = currency if currency else 'USD'#Info.currency_config[self.risk]
         self.get_weight_cov()
         self.name = 'Risk ' + str(self.risk + 4)
-        self.etf_list = Info.etf_list + [f'RF_RATE_{curr}' for curr in ['EUR', 'SGD', 'USD']]
+        self.etf_list = Info.etf_list
         self.etf_preference = Info.etf_preference[self.currency]
         self.n = len(self.etf_list) #+ 1
         self.transform_etf_preference()

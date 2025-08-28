@@ -154,3 +154,11 @@ XMMO,stocks,Comprehensive/Other,,Global/Other
 XMVM,stocks,Comprehensive/Other,,Global/Other
 XNTK,stocks,Technology,,Global/Other
 XSMO,stocks,Comprehensive/Other,,Global/Other
+EUR,cash,,,Europe
+USD,cash,,,North America
+GBP,cash,,,Europe
+SGD,cash,,,Asia
+HKD,cash,,,Asia
+JPY,cash,,,Asia
+CHF,cash,,,Europe
+CNY,cash,,,Asia

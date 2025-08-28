@@ -128,6 +128,7 @@ class Portfolio(Info):
         self.get_liquidity()
         #self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
+        self.crypto_opti = self.data.crypto_opti
 
 
     def remove_etf(self, ticker):
@@ -174,6 +175,8 @@ class Portfolio(Info):
     def get_liquidity(self):
 
         self.liquidity = self.cash + sum(self.holdings.values())
+
+
 
 
     def get_objective(self):

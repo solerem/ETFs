@@ -48,7 +48,10 @@ class Exposure:
 
         currency_dict = {curr: 0 for curr in Data.possible_currencies}
         for ticker in self.optimum:
-            currency_dict[etf_currency[ticker]] += self.optimum[ticker]
+            if ticker in Data.possible_currencies:
+                currency_dict[ticker] += self.optimum[ticker]
+            else:
+                currency_dict[etf_currency[ticker]] += self.optimum[ticker]
 
         return self.plot_pie_chart(currency_dict, 'Currency')
 

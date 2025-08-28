@@ -25,7 +25,7 @@ class Dashboard(dash.Dash):
         self.layout_functions = [
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
-            Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest
+            Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest, Dashboard.button_crypto
                                  ]
 
         self.main_div = None
@@ -129,6 +129,12 @@ class Dashboard(dash.Dash):
         return [html.H4("Backtest:"),
                 html.Button("Launch Backtest", id='create-backtest', n_clicks=0),
                 html.Div(id='backtest-graphs')]
+
+    @staticmethod
+    def button_crypto():
+        return [html.H4("Cryptos (beta):"),
+                html.Button("Get crypto sharpe", id='crypto-sharpe', n_clicks=0),
+                html.Div(id='crypto-opti')]
 
 
     def callbacks(self):
@@ -255,6 +261,21 @@ class Dashboard(dash.Dash):
                     self.exposure.plot_geo()
                 ])
             return 0, dash.no_update
+
+
+        @self.callback(
+            Output('crypto-sharpe', 'n_clicks'),
+            Output('crypto-opti', 'children'),
+            Input('crypto-sharpe', 'n_clicks'),
+        )
+        def crypto_sharpe(crypto_sharpe_n_click):
+            if crypto_sharpe_n_click:
+                return 0, [html.Span(str(self.portfolio.crypto_opti))]
+            return 0, dash.no_update
+
+
+
+
 
 
 

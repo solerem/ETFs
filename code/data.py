@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import concurrent.futures
-import statsmodels.api as sm
-
+from scipy.optimize import minimize
 
 class Data:
 
@@ -16,7 +15,7 @@ class Data:
 
     def __init__(self, currency, etf_list, static=False, backtest=None):
 
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti = None, None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
 
         self.get_currency()
@@ -25,6 +24,7 @@ class Data:
         self.get_spy()
         self.get_full_names()
         self.get_exposure()
+        self.get_crypto()
 
 
     def drop_test_data_backtest(self, df):
@@ -113,6 +113,66 @@ class Data:
             self.rf_rate = self.rf_rate['Close']
 
 
+    def get_crypto(self):
+        rf = 0.
+
+        if self.static:
+            nav = pd.read_csv(Data.data_dir_path+'crypto.csv', index_col=0)
+            nav.index = pd.to_datetime(nav.index)
+        else:
+            nav = yf.download([f'{t}-USD' for t in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'DOGE', 'TRX']], period='max',
+                             interval='1mo')['Close'].loc['2017-11-01 00:00:00':]
+            nav.to_csv(Data.data_dir_path+'crypto.csv')
+
+
+        if self.currency != 'USD':
+            for col in nav:
+                nav[col] /= self.currency_rate['USD']
+
+
+        rets_m = nav.pct_change().dropna(how='all')  # simple monthly returns
+        rets_m = rets_m.dropna(axis=1)  # drop assets with all-NaN returns
+        mu = rets_m.mean() * 12  # annualized mean returns
+        Sigma = rets_m.cov() * 12  # annualized covariance
+        assets = mu.index.to_list()
+        n = len(assets)
+
+        # --- Helpers ------------------------------------------------------------
+        def portfolio_stats(w, mu, Sigma, rf):
+            mu_p = float(np.dot(w, mu))
+            var_p = float(np.dot(w, Sigma @ w))
+            vol_p = np.sqrt(var_p)
+            sharpe = (mu_p - rf) / vol_p if vol_p > 0 else -np.inf
+            return mu_p, vol_p, sharpe
+
+        # Objective: negative Sharpe (for minimization)
+        def neg_sharpe(w, mu, Sigma, rf):
+            _, vol, _ = portfolio_stats(w, mu, Sigma, rf)
+            if vol <= 0:
+                return 1e6
+            return - (np.dot(w, mu) - rf) / vol
+
+        # --- A) Long-only max-Sharpe via SLSQP ----------------------------------
+        w0 = np.repeat(1.0 / n, n)
+        constraints = (
+            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0},  # fully invested
+        )
+        bounds = tuple((0.0, 1.0) for _ in range(n))  # long-only
+
+        res = minimize(
+            fun=neg_sharpe,
+            x0=w0,
+            args=(mu.values, Sigma.values, rf),
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options={"maxiter": 10_000, "ftol": 1e-12, "disp": False},
+        )
+
+        w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)
+        self.crypto_opti = {x[:3]: int(w_star_long[x]*100) for x in w_star_long.index}
+
+
     def get_nav_returns(self):
 
         if self.static:
@@ -163,6 +223,8 @@ class Data:
             etf_full_names = pd.read_csv(Data.data_dir_path + 'full_names.csv', index_col=0)
         else:
             etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName'] ) for ticker in self.etf_list})
+            for ticker in Data.possible_currencies:
+                etf_full_names[ticker] = ticker
             etf_full_names.to_csv(Data.data_dir_path + 'full_names.csv')
 
         self.etf_full_names = etf_full_names

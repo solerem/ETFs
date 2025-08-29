@@ -30,7 +30,6 @@ class Data:
     def drop_test_data_backtest(self, df):
 
         if self.backtest:
-            #df = df.loc[self.backtest - pd.DateOffset(months=180): self.backtest]
             df = df.loc[:self.backtest]
         return df
 
@@ -108,10 +107,10 @@ class Data:
             irx = pd.read_csv(Data.data_dir_path + 'rf_rate.csv', index_col=0)
             irx.index = pd.to_datetime(irx.index, utc=True)
         else:
-            irx = yf.Ticker("^IRX").history(period=self.period, interval="1d")['Close'] / 100
+            irx = yf.Ticker('^IRX').history(period=self.period, interval='1d')['Close'] / 100
             irx.to_csv(Data.data_dir_path + 'rf_rate.csv')
 
-        rf_monthly = irx.resample("MS").first()
+        rf_monthly = irx.resample('MS').first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
         self.rf_rate.index = self.rf_rate.index.tz_localize(None)
         self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
@@ -136,14 +135,13 @@ class Data:
             for col in nav:
                 nav[col] /= self.currency_rate['USD']
 
-        rets_m = nav.pct_change(fill_method=None).dropna(how='all') # simple monthly returns
-        rets_m = rets_m.dropna(axis=1)  # drop assets with all-NaN returns
-        mu = rets_m.mean() * 12  # annualized mean returns
-        Sigma = rets_m.cov() * 12  # annualized covariance
+        rets_m = nav.pct_change(fill_method=None).dropna(how='all')
+        rets_m = rets_m.dropna(axis=1)
+        mu = rets_m.mean() * 12
+        Sigma = rets_m.cov() * 12
         assets = mu.index.to_list()
         n = len(assets)
 
-        # --- Helpers ------------------------------------------------------------
         def portfolio_stats(w, mu, Sigma, rf):
             mu_p = float(np.dot(w, mu))
             var_p = float(np.dot(w, Sigma @ w))
@@ -151,28 +149,26 @@ class Data:
             sharpe = (mu_p - rf) / vol_p if vol_p > 0 else -np.inf
             return mu_p, vol_p, sharpe
 
-        # Objective: negative Sharpe (for minimization)
         def neg_sharpe(w, mu, Sigma, rf):
             _, vol, _ = portfolio_stats(w, mu, Sigma, rf)
             if vol <= 0:
                 return 1e6
             return - (np.dot(w, mu) - rf) / vol
 
-        # --- A) Long-only max-Sharpe via SLSQP ----------------------------------
         w0 = np.repeat(1.0 / n, n)
         constraints = (
-            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0},  # fully invested
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0},
         )
-        bounds = tuple((0.0, 1.0) for _ in range(n))  # long-only
+        bounds = tuple((0.0, 1.0) for _ in range(n))
 
         res = minimize(
             fun=neg_sharpe,
             x0=w0,
             args=(mu.values, Sigma.values, rf),
-            method="SLSQP",
+            method='SLSQP',
             bounds=bounds,
             constraints=constraints,
-            options={"maxiter": 10_000, "ftol": 1e-12, "disp": False},
+            options={'maxiter': 10_000, 'ftol': 1e-12, 'disp': False},
         )
 
         w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)

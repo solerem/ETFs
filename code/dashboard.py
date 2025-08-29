@@ -47,13 +47,13 @@ class Dashboard(dash.Dash):
 
     @staticmethod
     def text_title():
-        return [html.H1("ETF Portfolio Optimization")]
+        return [html.H1('ETF Portfolio Optimization')]
 
 
     @staticmethod
     def radio_risk():
         return [
-            html.H4("Select risk level:"),
+            html.H4('Select risk level:'),
             dcc.Input(
                 id='risk-input',
                 type='number',
@@ -67,7 +67,7 @@ class Dashboard(dash.Dash):
 
     @staticmethod
     def radio_currency():
-        return [html.H4("Select currency:"),
+        return [html.H4('Select currency:'),
                 dcc.Dropdown(
                     id='radio-currency',
                     options=[{'label': x, 'value': x} for x in Data.possible_currencies],
@@ -84,7 +84,7 @@ class Dashboard(dash.Dash):
                 id='switch-short',
                 options=[{'label': 'Allow Short', 'value': 'short'}],
                 value=[],  # empty list means unchecked
-                inputStyle={"margin-right": "5px"},
+                inputStyle={'margin-right': '5px'},
             )
         ]
 
@@ -98,51 +98,51 @@ class Dashboard(dash.Dash):
     @staticmethod
     def button_holdings():
         return [
-            html.H4("Current Holdings:"),
-            html.Button("Add Holding", id='button-holdings', n_clicks=0),
+            html.H4('Current Holdings:'),
+            html.Button('Add Holding', id='button-holdings', n_clicks=0),
             html.Div(id='holdings-container', children=[])
         ]
 
 
     @staticmethod
     def button_create_portfolio():
-        return [html.H4("Optimal Portfolio:"),
-                html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
+        return [html.H4('Optimal Portfolio:'),
+                html.Button('Create Portfolio', id='create-portfolio', n_clicks=0),
                 dcc.Loading(
-                    id="loading-portfolio",
-                    type="default",
-                    children=html.Div(id="portfolio-distrib"))]
+                    id='loading-portfolio',
+                    type='default',
+                    children=html.Div(id='portfolio-distrib'))]
 
 
     @staticmethod
     def button_rebalance():
-        return [html.H4("Portfolio Rebalancing:"),
-                html.Button("Rebalance", id='rebalance-button', n_clicks=0),
+        return [html.H4('Portfolio Rebalancing:'),
+                html.Button('Rebalance', id='rebalance-button', n_clicks=0),
                 html.Div(id='rebalance-div')]
 
 
     @staticmethod
     def button_display_exposure():
-        return [html.H4("Exposure:"),
-                html.Button("Display exposure", id='display-exposure', n_clicks=0),
+        return [html.H4('Exposure:'),
+                html.Button('Display exposure', id='display-exposure', n_clicks=0),
                 html.Div(id='exposure-graphs')]
 
 
     @staticmethod
     def button_create_backtest():
-        return [html.H4("Backtest:"),
-                html.Button("Launch Backtest", id='create-backtest', n_clicks=0),
+        return [html.H4('Backtest:'),
+                html.Button('Launch Backtest', id='create-backtest', n_clicks=0),
                 dcc.Loading(
-                    id="loading-backtest",
-                    type="default",
-                    children=html.Div(id="backtest-graphs")
+                    id='loading-backtest',
+                    type='default',
+                    children=html.Div(id='backtest-graphs')
                 )]
 
 
     @staticmethod
     def button_crypto():
-        return [html.H4("Cryptos (beta):"),
-                html.Button("Get crypto sharpe", id='crypto-sharpe', n_clicks=0),
+        return [html.H4('Cryptos (beta):'),
+                html.Button('Get crypto sharpe', id='crypto-sharpe', n_clicks=0),
                 html.Div(id='crypto-opti')]
 
 
@@ -170,7 +170,7 @@ class Dashboard(dash.Dash):
             Input('radio-currency', 'value')
         )
         def update_cash_label(selected_currency):
-            return f"Input Cash (in {selected_currency})"
+            return f'Input Cash (in {selected_currency})'
 
 
         @self.callback(
@@ -245,11 +245,11 @@ class Dashboard(dash.Dash):
 
                 return 0, html.Div([
                     dash_table.DataTable(
-                        data=df.to_dict('records'),  # Convert DataFrame to dict for dash
-                        columns=[{"name": i, "id": i} for i in df.columns],
-                        style_table={'overflowX': 'auto'},  # Optional: adds horizontal scroll
-                        style_cell={'textAlign': 'left'},  # Optional: cell formatting
-                        page_size=10  # Optional: pagination
+                        data=df.to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in df.columns],
+                        style_table={'overflowX': 'auto'},
+                        style_cell={'textAlign': 'left'},
+                        page_size=10
                     )
                 ], style={'width': '40%'})
             return 0, dash.no_update
@@ -288,11 +288,11 @@ class Dashboard(dash.Dash):
 
                 return 0, html.Div([
                     dash_table.DataTable(
-                        data=df.to_dict('records'),  # Convert DataFrame to dict for dash
-                        columns=[{"name": i, "id": i} for i in df.columns],
-                        style_table={'overflowX': 'auto'},  # Optional: adds horizontal scroll
-                        style_cell={'textAlign': 'left'},  # Optional: cell formatting
-                        page_size=10  # Optional: pagination
+                        data=df.to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in df.columns],
+                        style_table={'overflowX': 'auto'},
+                        style_cell={'textAlign': 'left'},
+                        page_size=10
                     )
                 ], style={'width': '15%'})
             return 0, dash.no_update

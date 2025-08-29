@@ -24,7 +24,7 @@ class Backtest:
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
         self.parse_data()
-        self.smoothen_weights()
+        #self.smoothen_weights()
         self.get_returns()
 
 
@@ -51,7 +51,7 @@ class Backtest:
         for t in range(1, len(self.w_opt)):
             smoothed_df.iloc[t] = (self.w_opt.iloc[t]  + 2*smoothed_df.iloc[t - 1]) / 3
 
-        #self.w_opt = smoothed_df
+        self.w_opt = smoothed_df
 
 
     def get_returns(self):
@@ -92,18 +92,18 @@ class Backtest:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_weights(self):
@@ -141,18 +141,18 @@ class Backtest:
         ax.set_ylabel('%')
         ax.legend()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_perf_attrib(self):
@@ -173,18 +173,18 @@ class Backtest:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
 

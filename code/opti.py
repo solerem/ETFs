@@ -46,7 +46,7 @@ class Opti:
         opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds, constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
 
         if not opt.success:
-            print(f"Optimization failed: {opt.message}")
+            print(f'Optimization failed: {opt.message}')
             return None
 
         self.w_opt = np.array([0. if abs(w) < .01 else float(w) for w in opt.x])
@@ -75,18 +75,18 @@ class Opti:
         )
         ax.set_title('Optimal Allocation')
 
-        output_path = Opti.graph_dir_path+f"{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path+f'{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_in_sample(self):
@@ -114,18 +114,18 @@ class Opti:
         ax.legend()
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- in_sample.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_weighted_perf(self):
@@ -146,18 +146,18 @@ class Opti:
         ax.set_ylabel('%')
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_drawdown(self):
@@ -172,18 +172,18 @@ class Opti:
         ax.set_ylabel('%')
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f"{self.portfolio.currency}/{self.portfolio.name}- in_sample.png"
-        plt.savefig(output_path, format="png", bbox_inches='tight')
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
+        plt.savefig(output_path, format='png', bbox_inches='tight')
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches='tight')
+        plt.savefig(buf, format='png', bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
 
         encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f"data:image/png;base64,{encoded}"
+        img_src = f'data:image/png;base64,{encoded}'
 
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
 

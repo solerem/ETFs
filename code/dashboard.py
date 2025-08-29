@@ -2,6 +2,7 @@ from datetime import datetime
 
 import dash
 import numpy as np
+import pandas as pd
 from dash import html, dcc, Input, Output, ctx, State
 from dash.dependencies import ALL
 from dash import dash_table
@@ -129,6 +130,7 @@ class Dashboard(dash.Dash):
         return [html.H4("Backtest:"),
                 html.Button("Launch Backtest", id='create-backtest', n_clicks=0),
                 html.Div(id='backtest-graphs')]
+
 
     @staticmethod
     def button_crypto():
@@ -269,8 +271,22 @@ class Dashboard(dash.Dash):
             Input('crypto-sharpe', 'n_clicks'),
         )
         def crypto_sharpe(crypto_sharpe_n_click):
+
             if crypto_sharpe_n_click:
-                return 0, [html.Span(str(self.portfolio.crypto_opti))]
+
+                df = (pd.Series(self.portfolio.crypto_opti, name='Weight').rename_axis('Ticker').reset_index())
+                df = df[df['Weight'] != 0]
+                df['Weight'] = [f'{x}%' for x in df['Weight']]
+
+                return 0, html.Div([
+                    dash_table.DataTable(
+                        data=df.to_dict('records'),  # Convert DataFrame to dict for dash
+                        columns=[{"name": i, "id": i} for i in df.columns],
+                        style_table={'overflowX': 'auto'},  # Optional: adds horizontal scroll
+                        style_cell={'textAlign': 'left'},  # Optional: cell formatting
+                        page_size=10  # Optional: pagination
+                    )
+                ], style={'width': '15%'})
             return 0, dash.no_update
 
 

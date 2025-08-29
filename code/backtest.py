@@ -49,9 +49,9 @@ class Backtest:
         smoothed_df.iloc[0] = self.w_opt.iloc[0]
 
         for t in range(1, len(self.w_opt)):
-            smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2*smoothed_df.iloc[t - 1]) / 3
+            smoothed_df.iloc[t] = (self.w_opt.iloc[t]  + 2*smoothed_df.iloc[t - 1]) / 3
 
-        self.w_opt = smoothed_df
+        #self.w_opt = smoothed_df
 
 
     def get_returns(self):

@@ -128,7 +128,7 @@ class Data:
             nav.index = pd.to_datetime(nav.index)
         else:
             nav = yf.download([f'{t}-USD' for t in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'DOGE', 'TRX']], period='max',
-                             interval='1mo')['Close'].loc['2017-11-01 00:00:00':]
+                             interval='1mo', auto_adjust=True)['Close'].loc['2017-11-01 00:00:00':]
             nav.to_csv(Data.data_dir_path+'crypto.csv')
 
 
@@ -136,8 +136,7 @@ class Data:
             for col in nav:
                 nav[col] /= self.currency_rate['USD']
 
-
-        rets_m = nav.pct_change().dropna(how='all')  # simple monthly returns
+        rets_m = nav.pct_change(fill_method=None).dropna(how='all') # simple monthly returns
         rets_m = rets_m.dropna(axis=1)  # drop assets with all-NaN returns
         mu = rets_m.mean() * 12  # annualized mean returns
         Sigma = rets_m.cov() * 12  # annualized covariance
@@ -177,7 +176,7 @@ class Data:
         )
 
         w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)
-        self.crypto_opti = {x[:3]: float(round(w_star_long[x]*100,1)) for x in w_star_long.index}
+        self.crypto_opti = {x.replace('-USD',''): round(float(w_star_long[x]*100),1) for x in w_star_long.index}
 
 
     def get_nav_returns(self):

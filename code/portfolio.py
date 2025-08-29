@@ -91,11 +91,10 @@ class Info:
         self.get_color_map()
 
 
-
-
     def get_weight_cov(self):
         self.weight_cov = 52*np.exp(-0.3259*self.risk)-2
         #self.weight_cov = 20-2*self.risk
+
 
     def get_color_map(self):
         cmap = cm.get_cmap('tab20', self.n)
@@ -174,8 +173,6 @@ class Portfolio(Info):
     def get_liquidity(self):
 
         self.liquidity = self.cash + sum(self.holdings.values())
-
-
 
 
     def get_objective(self):

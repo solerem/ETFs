@@ -177,7 +177,7 @@ class Data:
         )
 
         w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)
-        self.crypto_opti = {x[:3]: int(w_star_long[x]*100) for x in w_star_long.index}
+        self.crypto_opti = {x[:3]: float(round(w_star_long[x]*100,1)) for x in w_star_long.index}
 
 
     def get_nav_returns(self):

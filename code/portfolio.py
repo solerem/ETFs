@@ -94,10 +94,8 @@ class Info:
 
 
     def get_weight_cov(self):
-        self.weight_cov = np.exp(self.risk-4)
-        self.weight_cov = (self.risk/20)
-        self.weight_cov = (self.risk)
-
+        self.weight_cov = 52*np.exp(-0.3259*self.risk)-2
+        #self.weight_cov = 20-2*self.risk
 
     def get_color_map(self):
         cmap = cm.get_cmap('tab20', self.n)
@@ -192,7 +190,7 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            return (20-2*self.weight_cov) * (w @ self.cov_excess_returns @ w) - mean
+            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         def old_f(w=np.zeros(self.n), single_ticker=None):
 

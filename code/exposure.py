@@ -29,17 +29,8 @@ class Exposure:
             autopct=lambda pct: f'{int(round(pct))}%'
         )
         ax.set_title(title)
+        return Opti.save_fig_as_dash_img(fig, output_path=None)
 
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
     def plot_currency(self):

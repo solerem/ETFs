@@ -42,7 +42,7 @@ class Info:
         self.allow_short = allow_short
         self.currency = currency if currency else 'USD'
         self.get_weight_cov()
-        self.name = 'Risk ' + str(self.risk + 4)
+        self.name = 'Risk ' + str(self.risk)
         self.etf_list = Info.etf_list
         self.n = len(self.etf_list)
         self.get_color_map()

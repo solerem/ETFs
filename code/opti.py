@@ -9,6 +9,7 @@ import io
 import base64
 from dash import html
 import pandas as pd
+from pathlib import Path
 
 
 class Opti:
@@ -36,6 +37,25 @@ class Opti:
 
         return sum([abs(x) for x in lst])
 
+
+    @staticmethod
+    def save_fig_as_dash_img(fig, output_path):
+
+        if output_path:
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            fig.savefig(output_path, format="png", bbox_inches="tight")
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+
+        encoded = base64.b64encode(buf.read()).decode("utf-8")
+        img_src = f"data:image/png;base64,{encoded}"
+
+        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
     def get_constraints(self):
         func = Opti.abs_sum if self.portfolio.allow_short else sum
@@ -76,18 +96,7 @@ class Opti:
         ax.set_title('Optimal Allocation')
 
         output_path = Opti.graph_dir_path+f'{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
-
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_in_sample(self):
 
@@ -115,17 +124,7 @@ class Opti:
         ax.grid()
 
         output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
 
     def plot_weighted_perf(self):
@@ -147,18 +146,7 @@ class Opti:
         ax.grid()
 
         output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
-
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_drawdown(self):
 
@@ -172,27 +160,8 @@ class Opti:
         ax.set_ylabel('%')
         ax.grid()
 
-        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
-
-
-
-
-
-
-
-
-
+        output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
 
 

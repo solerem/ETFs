@@ -93,18 +93,7 @@ class Backtest:
         ax.grid()
 
         output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
-
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_weights(self):
 
@@ -142,18 +131,7 @@ class Backtest:
         ax.legend()
 
         output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
-
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_perf_attrib(self):
 
@@ -174,17 +152,8 @@ class Backtest:
         ax.grid()
 
         output_path = Opti.graph_dir_path + f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
-        plt.savefig(output_path, format='png', bbox_inches='tight')
+        return Opti.save_fig_as_dash_img(fig, output_path)
 
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode('utf-8')
-        img_src = f'data:image/png;base64,{encoded}'
-
-        return html.Img(src=img_src, style={'maxWidth': '100%', 'height': 'auto'})
 
 
 

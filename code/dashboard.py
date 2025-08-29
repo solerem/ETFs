@@ -148,7 +148,6 @@ class Dashboard(dash.Dash):
 
     def callbacks(self):
 
-
         @self.callback(
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
@@ -296,10 +295,6 @@ class Dashboard(dash.Dash):
                     )
                 ], style={'width': '15%'})
             return 0, dash.no_update
-
-
-
-
 
 
 

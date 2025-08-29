@@ -206,8 +206,8 @@ class Dashboard(dash.Dash):
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short, static=self.static)
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
-                    self.opti.plot_optimum(),
                     self.opti.plot_in_sample(),
+                    self.opti.plot_optimum(),
                     self.opti.plot_weighted_perf(),
                     self.opti.plot_drawdown()
                 ])
@@ -251,7 +251,7 @@ class Dashboard(dash.Dash):
                         style_cell={'textAlign': 'left'},  # Optional: cell formatting
                         page_size=10  # Optional: pagination
                     )
-                ], style={'width': '50%'})
+                ], style={'width': '40%'})
             return 0, dash.no_update
 
 

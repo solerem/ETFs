@@ -166,7 +166,7 @@ class Opti:
         drawdown = self.cumulative / rolling_max - 1
 
         fig, ax = plt.subplots()
-        ax.fill_between(range(len(drawdown)), drawdown*100, 0, color='red', alpha=.5)
+        ax.fill_between(drawdown.index, drawdown*100, 0, color='red', alpha=.5)
 
         ax.set_title(f'Drawdown')
         ax.set_ylabel('%')

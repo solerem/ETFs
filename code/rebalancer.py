@@ -43,7 +43,10 @@ class Rebalancer:
         self.difference = self.goal.copy()
 
         for ticker in self.opti.portfolio.holdings:
-            self.difference[ticker] -= self.opti.portfolio.holdings[ticker]
+            if ticker in self.difference:
+                self.difference[ticker] -= self.opti.portfolio.holdings[ticker]
+            else:
+                self.difference[ticker] = -self.opti.portfolio.holdings[ticker]
 
         for ticker in self.difference:
             self.difference[ticker] = round(self.difference[ticker])
@@ -61,7 +64,7 @@ class Rebalancer:
         goal = self.goal.copy()
         for ticker in goal:
             goal[ticker] = str(round(100*goal[ticker]/self.opti.portfolio.liquidity)) + '%'
-        goal = {ticker: goal[ticker] for ticker in goal if goal[ticker] != '0%'}
+        goal = {ticker: goal[ticker] for ticker in goal if (goal[ticker] != '0%' or (ticker in self.difference and self.difference[ticker] != 0))}
 
         self.rebalance_df = pd.DataFrame({
             'ETF': self.full_names,

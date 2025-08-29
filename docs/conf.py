@@ -8,8 +8,8 @@
 root_doc = "index"        # NOT "docs/index", NOT an absolute path
 
 import os, sys
-sys.path.insert(0, os.path.abspath("../.."))        # repo root
-sys.path.insert(0, os.path.abspath("../../etf_code"))   # your source folder (adjust if different)
+sys.path.insert(0, os.path.abspath(".."))        # repo root
+sys.path.insert(0, os.path.abspath("../etf_code"))   # your source folder (adjust if different)
 
 
 

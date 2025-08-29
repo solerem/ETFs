@@ -24,8 +24,10 @@ release = '1.0'
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",  # for Google/NumPy-style docstrings
+    "sphinx.ext.autosummary",
     "sphinx.ext.viewcode"
 ]
+autosummary_generate = True
 
 templates_path = ['_templates']
 exclude_patterns = []

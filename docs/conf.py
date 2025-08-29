@@ -5,6 +5,7 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+root_doc = "index"        # NOT "docs/index", NOT an absolute path
 
 import os, sys
 sys.path.insert(0, os.path.abspath(".."))        # repo root

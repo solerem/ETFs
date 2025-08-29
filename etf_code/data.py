@@ -66,12 +66,6 @@ class Data:
 
     Attributes
     ----------
-    period : str
-        Lookback period used for downloads (default: ``"20y"``).
-    possible_currencies : list[str]
-        Allowed ISO currency codes used for FX download/detection.
-    data_dir_path : pathlib.Path
-        Root directory for cached CSV files.
     currency_rate : pandas.DataFrame | None
         Monthly FX rates normalized to the base currency. Columns are other
         currencies; values express the conversion **into** the base currency.

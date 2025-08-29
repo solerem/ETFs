@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AnalysisUIOptions">
+    <option name="ANALYZE_INJECTED_CODE" value="false" />
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="doc &amp; readme" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Rebase.Settings">
+    <option name="NEW_BASE" value="origin/main" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="MIXED" />
+    <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
+    <option name="UPDATE_TYPE" value="REBASE" />
+    <option name="WARN_ABOUT_CRLF" value="false" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;solerem&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/solerem/ETFs.git&quot;,
+    &quot;accountId&quot;: &quot;0dc1c417-57af-4aca-b15e-e8324f029e69&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="2wqZjDJkJcFShOvquvoCvQbvsKp" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.dashboard.executor": "Run",
+    "Python.data.executor": "Run",
+    "Python.info.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.opti.executor": "Run",
+    "Python.portfolio.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "run.code.analysis.last.selected.profile": "aDefault",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/code" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-98f27166c754-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.21829.153" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="" />
+      <created>1746771197217</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1746771197217</updated>
+    </task>
+    <task id="LOCAL-00012" summary="dash plots">
+      <option name="closed" value="true" />
+      <created>1752446252902</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1752446252902</updated>
+    </task>
+    <task id="LOCAL-00013" summary="!! LAISSÉ SUR BUG">
+      <option name="closed" value="true" />
+      <created>1752466038637</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1752466038637</updated>
+    </task>
+    <task id="LOCAL-00014" summary="debug">
+      <option name="closed" value="true" />
+      <created>1752517243234</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1752517243234</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Fix drop_highly_correlated objective">
+      <option name="closed" value="true" />
+      <created>1752517877492</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1752517877492</updated>
+    </task>
+    <task id="LOCAL-00016" summary="fix columns order">
+      <option name="closed" value="true" />
+      <created>1752523696025</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1752523696025</updated>
+    </task>
+    <task id="LOCAL-00017" summary="new plot">
+      <option name="closed" value="true" />
+      <created>1752525121166</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1752525121166</updated>
+    </task>
+    <task id="LOCAL-00018" summary="added currency effect">
+      <option name="closed" value="true" />
+      <created>1752530171624</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1752530171624</updated>
+    </task>
+    <task id="LOCAL-00019" summary="fixed currency effect">
+      <option name="closed" value="true" />
+      <created>1752534730334</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1752534730335</updated>
+    </task>
+    <task id="LOCAL-00020" summary="fixed pref attrib graph">
+      <option name="closed" value="true" />
+      <created>1752535684030</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1752535684030</updated>
+    </task>
+    <task id="LOCAL-00021" summary="clean">
+      <option name="closed" value="true" />
+      <created>1752536613501</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1752536613501</updated>
+    </task>
+    <task id="LOCAL-00022" summary="Speed up currency yf">
+      <option name="closed" value="true" />
+      <created>1752551186900</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1752551186900</updated>
+    </task>
+    <task id="LOCAL-00023" summary="20 years">
+      <option name="closed" value="true" />
+      <created>1752554806943</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1752554806943</updated>
+    </task>
+    <task id="LOCAL-00024" summary="static data">
+      <option name="closed" value="true" />
+      <created>1752623783287</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1752623783287</updated>
+    </task>
+    <task id="LOCAL-00025" summary="stats">
+      <option name="closed" value="true" />
+      <created>1752625130868</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1752625130868</updated>
+    </task>
+    <task id="LOCAL-00026" summary="new ojective: pa/maxDD">
+      <option name="closed" value="true" />
+      <created>1752626888374</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1752626888374</updated>
+    </task>
+    <task id="LOCAL-00027" summary="skeleton backtest">
+      <option name="closed" value="true" />
+      <created>1752697086740</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1752697086740</updated>
+    </task>
+    <task id="LOCAL-00028" summary="commit static data">
+      <option name="closed" value="true" />
+      <created>1752697147311</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1752697147312</updated>
+    </task>
+    <task id="LOCAL-00029" summary="basic 1st backtest graph">
+      <option name="closed" value="true" />
+      <created>1752706361392</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1752706361392</updated>
+    </task>
+    <task id="LOCAL-00030" summary="fix backtest">
+      <option name="closed" value="true" />
+      <created>1752777968453</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1752777968453</updated>
+    </task>
+    <task id="LOCAL-00031" summary="fix backtest">
+      <option name="closed" value="true" />
+      <created>1752778435489</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1752778435489</updated>
+    </task>
+    <task id="LOCAL-00032" summary="pie chart">
+      <option name="closed" value="true" />
+      <created>1752784874484</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1752784874484</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Save graphs">
+      <option name="closed" value="true" />
+      <created>1752786946974</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1752786946974</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Fixed backtest">
+      <option name="closed" value="true" />
+      <created>1752790483327</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1752790483327</updated>
+    </task>
+    <task id="LOCAL-00035" summary="weights history">
+      <option name="closed" value="true" />
+      <created>1752793172150</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1752793172150</updated>
+    </task>
+    <task id="LOCAL-00036" summary="backtest perf attrib">
+      <option name="closed" value="true" />
+      <created>1752796066157</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1752796066157</updated>
+    </task>
+    <task id="LOCAL-00037" summary="New risk logic">
+      <option name="closed" value="true" />
+      <created>1752886281967</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1752886281967</updated>
+    </task>
+    <task id="LOCAL-00038" summary="+- risk input">
+      <option name="closed" value="true" />
+      <created>1752902682725</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1752902682725</updated>
+    </task>
+    <task id="LOCAL-00039" summary="rebalance">
+      <option name="closed" value="true" />
+      <created>1752907527065</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1752907527065</updated>
+    </task>
+    <task id="LOCAL-00040" summary="rebalance output">
+      <option name="closed" value="true" />
+      <created>1752912565673</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1752912565673</updated>
+    </task>
+    <task id="LOCAL-00041" summary="better weights history">
+      <option name="closed" value="true" />
+      <created>1752934181870</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1752934181870</updated>
+    </task>
+    <task id="LOCAL-00042" summary="exposure skeleton + currency">
+      <option name="closed" value="true" />
+      <created>1752935519488</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1752935519488</updated>
+    </task>
+    <task id="LOCAL-00043" summary="finish exposure">
+      <option name="closed" value="true" />
+      <created>1752939087863</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1752939087863</updated>
+    </task>
+    <task id="LOCAL-00044" summary="dd graph">
+      <option name="closed" value="true" />
+      <created>1754926008872</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1754926008872</updated>
+    </task>
+    <task id="LOCAL-00045" summary="Basic add bitcoin backfill">
+      <option name="closed" value="true" />
+      <created>1754935248503</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1754935248503</updated>
+    </task>
+    <task id="LOCAL-00046" summary="delete btc">
+      <option name="closed" value="true" />
+      <created>1754953372970</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1754953372970</updated>
+    </task>
+    <task id="LOCAL-00047" summary="basic add rf_rate">
+      <option name="closed" value="true" />
+      <created>1754988605041</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1754988605041</updated>
+    </task>
+    <task id="LOCAL-00048" summary="delete rf_rate">
+      <option name="closed" value="true" />
+      <created>1755130892318</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1755130892318</updated>
+    </task>
+    <task id="LOCAL-00049" summary="Add currencies as actif">
+      <option name="closed" value="true" />
+      <created>1755132943548</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1755132943548</updated>
+    </task>
+    <task id="LOCAL-00050" summary="other curr and new weight cov">
+      <option name="closed" value="true" />
+      <created>1755134075990</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1755134075992</updated>
+    </task>
+    <task id="LOCAL-00051" summary="basic crypto side">
+      <option name="closed" value="true" />
+      <created>1756378784498</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1756378784499</updated>
+    </task>
+    <task id="LOCAL-00052" summary="back to mean-var">
+      <option name="closed" value="true" />
+      <created>1756439513164</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1756439513164</updated>
+    </task>
+    <task id="LOCAL-00053" summary="weight_cov transform function">
+      <option name="closed" value="true" />
+      <created>1756441482187</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1756441482187</updated>
+    </task>
+    <task id="LOCAL-00054" summary="checkpoint before tqdm">
+      <option name="closed" value="true" />
+      <created>1756443736350</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1756443736350</updated>
+    </task>
+    <task id="LOCAL-00055" summary="loading">
+      <option name="closed" value="true" />
+      <created>1756444801666</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1756444801666</updated>
+    </task>
+    <task id="LOCAL-00056" summary="graph fix">
+      <option name="closed" value="true" />
+      <created>1756448057819</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1756448057819</updated>
+    </task>
+    <task id="LOCAL-00057" summary="format">
+      <option name="closed" value="true" />
+      <created>1756448530744</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1756448530744</updated>
+    </task>
+    <task id="LOCAL-00058" summary="graph helper">
+      <option name="closed" value="true" />
+      <created>1756449579631</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1756449579631</updated>
+    </task>
+    <task id="LOCAL-00059" summary="doc">
+      <option name="closed" value="true" />
+      <created>1756460594239</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1756460594239</updated>
+    </task>
+    <task id="LOCAL-00060" summary="doc &amp; readme">
+      <option name="closed" value="true" />
+      <created>1756490826474</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1756490826474</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="backtest perf attrib" />
+    <MESSAGE value="New risk logic" />
+    <MESSAGE value="+- risk input" />
+    <MESSAGE value="rebalance" />
+    <MESSAGE value="rebalance output" />
+    <MESSAGE value="better weights history" />
+    <MESSAGE value="exposure skeleton + currency" />
+    <MESSAGE value="finish exposure" />
+    <MESSAGE value="dd graph" />
+    <MESSAGE value="Basic add bitcoin backfill" />
+    <MESSAGE value="delete btc" />
+    <MESSAGE value="basic add rf_rate" />
+    <MESSAGE value="delete rf_rate" />
+    <MESSAGE value="Add currencies as actif" />
+    <MESSAGE value="other curr and new weight cov" />
+    <MESSAGE value="basic crypto side" />
+    <MESSAGE value="back to mean-var" />
+    <MESSAGE value="weight_cov transform function" />
+    <MESSAGE value="checkpoint before tqdm" />
+    <MESSAGE value="loading" />
+    <MESSAGE value="graph fix" />
+    <MESSAGE value="format" />
+    <MESSAGE value="graph helper" />
+    <MESSAGE value="doc" />
+    <MESSAGE value="doc &amp; readme" />
+    <option name="LAST_COMMIT_MESSAGE" value="doc &amp; readme" />
+  </component>
+</project>

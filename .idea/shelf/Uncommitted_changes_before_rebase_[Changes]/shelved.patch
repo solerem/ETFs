@@ -1,0 +1,2720 @@
+Index: code/main.py
+===================================================================
+diff --git a/code/main.py b/code/main.py
+deleted file mode 100644
+--- a/code/main.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,40 +0,0 @@
+-"""
+-Application entry point for the Dash ETF Portfolio Optimizer.
+-
+-This module launches the :class:`dashboard.Dashboard` app. By default it starts
+-the server with cached/static data reads enabled (``static=True``).
+-
+-Usage
+------
+-Run the module as a script to start the server:
+-
+-.. code-block:: bash
+-
+-    python run.py
+-
+-Or import and call :func:`main` from another module:
+-
+-.. code-block:: python
+-
+-    from run import main
+-    main(debug=True)
+-"""
+-
+-from dashboard import Dashboard
+-
+-
+-def main(debug: bool = False) -> None:
+-    """
+-    Launch the Dash application.
+-
+-    :param debug: If ``True``, enable Dash/Flask debug mode (auto-reload, extra logs).
+-    :type debug: bool
+-    :returns: ``None``.
+-    :rtype: None
+-    """
+-    db = Dashboard(static=True)
+-    db.run(debug=debug)
+-
+-
+-if __name__ == '__main__':
+-    main(debug=False)
+Index: code/rebalancer.py
+===================================================================
+diff --git a/code/rebalancer.py b/code/rebalancer.py
+deleted file mode 100644
+--- a/code/rebalancer.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,180 +0,0 @@
+-"""
+-Rebalancing utilities to translate optimal weights into actionable trades.
+-
+-This module exposes :class:`Rebalancer`, which takes an optimized portfolio
+-(:class:`~opti.Opti`) and computes:
+-
+-* Target currency amounts per ticker from optimal weights and total liquidity.
+-* Dollar (or base-currency) buy/sell differences versus current holdings.
+-* A tidy pandas DataFrame summarizing the rebalance plan with human-readable
+-  before/after allocations.
+-
+-Workflow
+---------
+-1. Construct :class:`Rebalancer` with an :class:`~opti.Opti` instance.
+-2. It extracts the original holdings, computes target amounts and differences,
+-   resolves long names, and assembles :attr:`rebalance_df`.
+-"""
+-
+-import pandas as pd
+-
+-
+-class Rebalancer:
+-    """
+-    Build a rebalance plan from an optimized portfolio.
+-
+-    Parameters
+-    ----------
+-    opti : Opti
+-        An optimizer instance exposing:
+-        * ``optimum_all`` — mapping ``{ticker: weight}`` over the current universe.
+-        * ``portfolio.holdings`` — current position values (same currency as liquidity).
+-        * ``portfolio.liquidity`` — cash + current holdings total value.
+-        * ``portfolio.data.etf_full_names`` — pandas Series mapping ticker -> long name.
+-
+-    Attributes
+-    ----------
+-    opti : Opti
+-        Reference to the optimizer/portfolio wrapper.
+-    goal : dict[str, float] | None
+-        Target currency amounts per ticker (weight × liquidity).
+-    difference : dict[str, float] | None
+-        Rounded currency deltas to trade (positive = buy, negative = sell).
+-        Only non-zero entries are kept.
+-    rebalance_df : pandas.DataFrame | None
+-        Summary table with columns:
+-        ``['Ticker', 'ETF', 'Buy/Sell', 'Before', 'After']``.
+-    full_names : dict[str, str] | None
+-        Mapping from ticker to long display name for tickers in :attr:`difference`.
+-    original : dict[str, str | float] | None
+-        Baseline allocation per ticker. For tickers present in current holdings,
+-        values are formatted percentage strings like ``'12%'``; for new tickers
+-        not currently held, the value is ``0``.
+-    """
+-
+-    def __init__(self, opti):
+-        """
+-        Initialize and compute the rebalance plan artifacts.
+-
+-        Calls, in order: :meth:`get_original`, :meth:`get_difference`,
+-        :meth:`get_full_names`, :meth:`get_df`.
+-
+-        :param opti: Optimizer instance with optimal weights and portfolio data.
+-        :type opti: Opti
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.opti = opti
+-        self.goal, self.difference, self.rebalance_df, self.full_names, self.original = None, None, None, None, None
+-
+-        self.get_original()
+-        self.get_difference()
+-        self.get_full_names()
+-        self.get_df()
+-
+-    def get_original(self):
+-        """
+-        Build the baseline (current) allocation dictionary.
+-
+-        Converts current holdings ``{ticker: value}`` into percentage strings
+-        relative to the total, e.g., ``'8%'``. For tickers that appear in the
+-        optimized universe but are not currently held, inserts ``0``.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`original`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.original = self.opti.portfolio.holdings.copy()
+-        total = sum(self.original.values())
+-
+-        for ticker in self.original:
+-            self.original[ticker] /= total
+-            self.original[ticker] = str(round(100 * self.original[ticker])) + '%'
+-
+-        for ticker in self.opti.optimum_all:
+-            if ticker not in self.original:
+-                self.original[ticker] = 0
+-
+-    def get_difference(self):
+-        """
+-        Compute target amounts and buy/sell differences versus current holdings.
+-
+-        * Target amount per ticker: ``goal[t] = weight[t] * liquidity``.
+-        * Difference per ticker: ``goal[t] - current_value[t]`` (rounded to int).
+-        * Removes zero (after rounding) entries.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`goal` and :attr:`difference`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.goal = {ticker: self.opti.optimum_all[ticker] * self.opti.portfolio.liquidity for ticker in
+-                         self.opti.optimum_all}
+-
+-        self.difference = self.goal.copy()
+-
+-        for ticker in self.opti.portfolio.holdings:
+-            if ticker in self.difference:
+-                self.difference[ticker] -= self.opti.portfolio.holdings[ticker]
+-            else:
+-                self.difference[ticker] = -self.opti.portfolio.holdings[ticker]
+-
+-        for ticker in self.difference:
+-            self.difference[ticker] = round(self.difference[ticker])
+-
+-        self.difference = {ticker: self.difference[ticker] for ticker in self.difference if self.difference[ticker]}
+-
+-    def get_full_names(self):
+-        """
+-        Resolve long ETF names for tickers that require trades.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`full_names` using ``portfolio.data.etf_full_names`` for the
+-        tickers present in :attr:`difference`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.full_names = {ticker: self.opti.portfolio.data.etf_full_names.loc[ticker] for ticker in self.difference}
+-
+-    def get_df(self):
+-        """
+-        Assemble the rebalance summary DataFrame.
+-
+-        The resulting table includes:
+-        * ``Ticker`` — symbol,
+-        * ``ETF`` — long name,
+-        * ``Buy/Sell`` — currency amount to trade (rounded int),
+-        * ``Before`` — current allocation as a percentage string or ``0``,
+-        * ``After`` — target allocation as a percentage string.
+-
+-        Rows with an empty target (NaN) **and** ``Before == 0`` are dropped.
+-        The table is sorted by ``Buy/Sell`` descending.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`rebalance_df`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        goal = self.goal.copy()
+-        for ticker in goal:
+-            goal[ticker] = str(round(100 * goal[ticker] / self.opti.portfolio.liquidity)) + '%'
+-        goal = {ticker: goal[ticker] for ticker in goal if (goal[ticker] != '0%')}
+-
+-        self.rebalance_df = pd.DataFrame({
+-            'ETF': self.full_names,
+-            'Buy/Sell': self.difference,
+-            'Before': self.original,
+-            'After': goal
+-        }).reset_index().sort_values(by='Buy/Sell', ascending=False)
+-
+-        self.rebalance_df = self.rebalance_df[(~self.rebalance_df['After'].isna()) | (self.rebalance_df['Before'] != 0)]
+-        self.rebalance_df.rename(columns={'index': 'Ticker'}, inplace=True)
+Index: code/exposure.py
+===================================================================
+diff --git a/code/exposure.py b/code/exposure.py
+deleted file mode 100644
+--- a/code/exposure.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,178 +0,0 @@
+-"""
+-Exposure breakdown plots for optimized portfolios.
+-
+-This module defines :class:`Exposure`, which produces pie charts showing the
+-portfolio's composition across:
+-
+-* Trading currencies (via ETF native currency and FX pseudo-tickers),
+-* Asset class,
+-* Equity sector,
+-* Bond type,
+-* Geography.
+-
+-The underlying exposures are sourced from ``opti.portfolio.data.exposure`` and
+-optimal weights from :class:`~opti.Opti`. Figures are returned as Dash-ready
+-``html.Img`` elements using :meth:`opti.Opti.save_fig_as_dash_img`.
+-"""
+-
+-from opti import Opti
+-from data import Data
+-import matplotlib
+-
+-matplotlib.use('Agg')
+-from matplotlib import pyplot as plt
+-
+-
+-class Exposure:
+-    """
+-    Build exposure pie charts from an optimized portfolio.
+-
+-    :param opti: Optimizer instance providing:
+-
+-        - ``optimum``: mapping ``{ticker: weight}`` of optimized weights.
+-        - ``portfolio.data.exposure``: pandas DataFrame with categorical
+-          exposure columns (e.g., ``Asset Class``, ``Stock Sector``,
+-          ``Bond Type``, ``Geography``).
+-        - ``portfolio.data.etf_currency``: mapping ticker → native trading currency.
+-        - ``portfolio.currency`` and ``Data.possible_currencies`` for FX pseudo-tickers.
+-    :type opti: Opti
+-
+-    :attribute opti: Reference to the optimizer.
+-    :attribute optimum: Optimized weight mapping used to aggregate exposures.
+-    :attribute exposure_df: Table of categorical exposures (indexed by ticker).
+-    :vartype optimum: dict[str, float]
+-    :vartype exposure_df: pandas.DataFrame
+-    """
+-
+-
+-    def __init__(self, opti):
+-        """
+-        Initialize the exposure helper and capture required references.
+-
+-        :param opti: Optimizer instance with optimal weights and exposure data.
+-        :type opti: Opti
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.opti = opti
+-        self.optimum = self.opti.optimum
+-        self.exposure_df = self.opti.portfolio.data.exposure
+-
+-    def plot_pie_chart(self, dico, title):
+-        """
+-        Render a pie chart from a category-to-weight dictionary.
+-
+-        Zero-weight categories are removed. The figure is converted to a Dash
+-        ``html.Img`` via :meth:`opti.Opti.save_fig_as_dash_img`.
+-
+-        :param dico: Mapping from category label to (non-normalized) weight.
+-        :type dico: dict[str, float]
+-        :param title: Chart title.
+-        :type title: str
+-        :returns: Dash image component for embedding in a layout.
+-        :rtype: dash.html.Img
+-        """
+-        dico = {key: dico[key] for key in dico if dico[key] != 0}
+-        sorted_dico = dict(sorted(dico.items(), key=lambda item: item[1], reverse=True))
+-
+-        fig, ax = plt.subplots()
+-        ax.pie(
+-            sorted_dico.values(),
+-            labels=sorted_dico.keys(),
+-            autopct=lambda pct: f'{int(round(pct))}%'
+-        )
+-        ax.set_title(title)
+-        return Opti.save_fig_as_dash_img(fig, output_path=None)
+-
+-    def plot_currency(self):
+-        """
+-        Plot exposure by trading currency (including FX pseudo-tickers).
+-
+-        Logic
+-        -----
+-        * If a key in ``optimum`` is itself a currency code in
+-          :data:`data.Data.possible_currencies`, treat it directly as currency
+-          exposure (FX pseudo-ticker).
+-        * Otherwise, look up the ETF's native trading currency in
+-          ``portfolio.data.etf_currency`` and attribute the weight accordingly.
+-
+-        :returns: Dash image component for the currency pie chart.
+-        :rtype: dash.html.Img
+-        """
+-        etf_currency = self.opti.portfolio.data.etf_currency
+-
+-        currency_dict = {curr: 0 for curr in Data.possible_currencies}
+-        for ticker in self.optimum:
+-            if ticker in Data.possible_currencies:
+-                currency_dict[ticker] += self.optimum[ticker]
+-            else:
+-                currency_dict[etf_currency[ticker]] += self.optimum[ticker]
+-
+-        return self.plot_pie_chart(currency_dict, 'Currency')
+-
+-    def plot_other_exposure(self, name):
+-        """
+-        Generic pie chart for an exposure category column.
+-
+-        The method aggregates optimized weights by the category in
+-        ``exposure_df[name]`` (e.g., ``'Asset Class'``, ``'Stock Sector'``,
+-        ``'Bond Type'``, ``'Geography'``). If the total weight for that
+-        category set is zero, returns ``None``.
+-
+-        :param name: Column name in :attr:`exposure_df` to aggregate by.
+-        :type name: str
+-        :returns: Dash image component, or ``None`` if there is no exposure.
+-        :rtype: dash.html.Img | None
+-        """
+-        category_df = self.exposure_df[name].dropna()
+-
+-        category_dict = {cat: 0 for cat in category_df.unique()}
+-        for ticker in self.optimum:
+-            if ticker in category_df:
+-                category_dict[category_df[ticker]] += self.optimum[ticker]
+-
+-        total = sum(category_dict.values())
+-
+-        if total == 0:
+-            return None
+-
+-        for cat in category_dict:
+-            category_dict[cat] /= total
+-
+-        return self.plot_pie_chart(category_dict, name)
+-
+-    def plot_category(self):
+-        """
+-        Plot exposure by high-level asset class.
+-
+-        :returns: Dash image component, or ``None`` if there is no exposure.
+-        :rtype: dash.html.Img | None
+-        """
+-        return self.plot_other_exposure('Asset Class')
+-
+-    def plot_sector(self):
+-        """
+-        Plot exposure by equity sector.
+-
+-        :returns: Dash image component, or ``None`` if there is no exposure.
+-        :rtype: dash.html.Img | None
+-        """
+-        return self.plot_other_exposure('Stock Sector')
+-
+-    def plot_type(self):
+-        """
+-        Plot exposure by bond type.
+-
+-        :returns: Dash image component, or ``None`` if there is no exposure.
+-        :rtype: dash.html.Img | None
+-        """
+-        return self.plot_other_exposure('Bond Type')
+-
+-    def plot_geo(self):
+-        """
+-        Plot exposure by geography.
+-
+-        :returns: Dash image component, or ``None`` if there is no exposure.
+-        :rtype: dash.html.Img | None
+-        """
+-        return self.plot_other_exposure('Geography')
+Index: code/portfolio.py
+===================================================================
+diff --git a/code/portfolio.py b/code/portfolio.py
+deleted file mode 100644
+--- a/code/portfolio.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,386 +0,0 @@
+-"""
+-Portfolio construction utilities with correlation clustering and a mean–variance
+-objective.
+-
+-This module defines:
+-
+-* :class:`Info` — configuration and utilities (risk scaling, colors, ticker universe).
+-* :class:`Portfolio` — data wiring and feature engineering over :class:`~data.Data`,
+-  including de-duplication of highly correlated tickers via hierarchical clustering
+-  and a convex mean–variance-style objective you can pass to optimizers.
+-
+-The workflow is:
+-
+-1. Instantiate :class:`Portfolio` with a target risk level, currency, holdings, etc.
+-2. It loads market data through :class:`data.Data`.
+-3. It removes too-new tickers (with missing history) and prunes clusters of
+-   highly correlated names, keeping the one with the best (lowest) objective
+-   value.
+-4. It exposes :attr:`Portfolio.objective`, a callable that computes
+-   ``weight_cov * variance - mean_excess`` for a weight vector, suitable for
+-   SLSQP/L-BFGS-B minimization.
+-
+-Notes
+------
+-* Correlation clustering uses average linkage on the distance matrix
+-  ``1 - |corr|`` with threshold ``1 - threshold_correlation``.
+-* Colors are assigned deterministically from Matplotlib's ``tab20`` colormap,
+-  extended with FX pseudo-tickers for non-base currencies.
+-"""
+-
+-from data import Data
+-from scipy.cluster.hierarchy import linkage, fcluster
+-from scipy.spatial.distance import squareform
+-import pandas as pd
+-import matplotlib.cm as cm
+-import matplotlib.colors as mcolors
+-import numpy as np
+-
+-
+-class Info:
+-    """
+-    Shared portfolio information and utilities (risk scaling, color maps, universe).
+-
+-    Class Attributes
+-    ----------------
+-    threshold_correlation : float
+-        Minimum absolute correlation to be considered the "same cluster".
+-        Used as ``1 - threshold_correlation`` on the correlation distance.
+-    etf_list : list[str]
+-        Canonical ETF universe (deduplicated and sorted at import time).
+-    name : dict[int, str]
+-        Human labels for discrete risk tiers (may be overridden per instance).
+-
+-    Parameters
+-    ----------
+-    risk : int
+-        Discrete risk appetite (e.g., 1=low, 2=medium, 3=high). Drives
+-        :attr:`weight_cov`.
+-    cash : float
+-        Available cash (used in :meth:`Portfolio.get_liquidity`).
+-    holdings : dict[str, float] | None
+-        Current positions as a mapping ``{ticker: current_value}``. Optional.
+-    currency : str | None
+-        Base currency (one of :attr:`data.Data.possible_currencies`). Defaults to
+-        ``"USD"`` when ``None``.
+-    allow_short : bool
+-        Whether shorting is conceptually allowed (does not alter logic here,
+-        but exposed for downstream optimizers).
+-
+-    Attributes
+-    ----------
+-    color_map : dict[str, str] | None
+-        Mapping from ticker to HEX color for plotting (set by :meth:`get_color_map`).
+-    weight_cov : float | None
+-        Coefficient in the mean–variance objective (set by :meth:`get_weight_cov`).
+-    risk, cash, holdings, allow_short, currency : see parameters
+-    n : int
+-        Current universe size (set after :attr:`etf_list` finalization).
+-    """
+-
+-    threshold_correlation = .95
+-
+-    etf_list = [
+-        'SPY', 'QQQ', 'DIA', 'MDY', 'IWM', 'XLY', 'XLP', 'XLE', 'XLV', 'XLF', 'XLI', 'XLB', 'XLK', 'XLU', 'EFA', 'EEM',
+-        'EWA', 'EWC', 'EWH', 'EWG', 'EWI', 'EWJ', 'EWU', 'EWM', 'EWS', 'EWP', 'EWD', 'LQD', 'TLT', 'TIP', 'GLD', 'VTI',
+-        'IWN', 'IUSG', 'IYJ', 'EWL', 'VHT', 'IWB', 'XLU', 'IGE', 'RTH', 'VWO', 'IWV', 'EWW', 'EWC', 'EWN', 'VPU', 'PWB',
+-        'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW',
+-        'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IVV', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV',
+-        'EWT', 'IYW', 'IMCG', 'EWH', 'IGPT', 'PJP', 'SPYG', 'ITOT', 'FXI', 'EWI', 'XLE', 'XLY', 'EWA', 'ILCG', 'IMCV',
+-        'XLI', 'IWM', 'DVY', 'VBK', 'EWG', 'IGV', 'IJS', 'XNTK', 'IYT', 'SPTM', 'PEY', 'VBR', 'EEM', 'PWV', 'TLT',
+-        'VFH', 'IEV', 'VB', 'SPEU', 'VGK', 'IYG', 'IWP', 'VTI', 'FEZ', 'EZU', 'IWR', 'VV', 'XLB', 'EWU', 'IJJ', 'IJR',
+-        'EFA', 'EPP', 'IEF', 'VDC', 'IBB', 'PBW', 'TIP', 'IWS', 'IYE', 'IWO', 'VUG', 'SUSA', 'ILCV', 'IYK', 'XMMO',
+-        'XLV', 'ONEQ', 'SHY', 'ISCB', 'EWJ', 'VXF', 'EWQ', 'PSI', 'ILF', 'IYR', 'IXG', 'IWD', 'IXP', 'VO', 'IDU', 'VGT',
+-        'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'IVE', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
+-        'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK'
+-    ]
+-
+-    etf_list = sorted(list(set(etf_list)))
+-
+-    name = {
+-        1: 'Low risk',
+-        2: 'Medium risk',
+-        3: 'High risk'
+-    }
+-
+-    def __init__(self, risk, cash, holdings, currency, allow_short):
+-        """
+-        Construct an :class:`Info` object and derive risk/plotting utilities.
+-
+-        :param risk: Discrete risk appetite (1–3 recommended).
+-        :type risk: int
+-        :param cash: Cash on hand (for liquidity calculations).
+-        :type cash: float
+-        :param holdings: Current holdings as ``{ticker: value}``.
+-        :type holdings: dict[str, float] | None
+-        :param currency: Base currency (defaults to ``"USD"`` if ``None``).
+-        :type currency: str | None
+-        :param allow_short: Whether shorting is allowed conceptually.
+-        :type allow_short: bool
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.color_map, self.weight_cov = None, None
+-        self.risk = risk
+-        self.cash = cash
+-        self.holdings = holdings if holdings else {}
+-        self.allow_short = allow_short
+-        self.currency = currency if currency else 'USD'
+-        self.get_weight_cov()
+-        self.name = 'Risk ' + str(self.risk)
+-        self.etf_list = Info.etf_list
+-        self.n = len(self.etf_list)
+-        self.get_color_map()
+-
+-    def get_weight_cov(self):
+-        """
+-        Derive the risk-aversion coefficient used in the objective.
+-
+-        The coefficient is computed from the discrete :attr:`risk` as::
+-
+-            weight_cov = 52 * exp(-0.3259 * risk) - 2
+-
+-        Larger ``risk`` implies a smaller penalty on variance.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.weight_cov = 52 * np.exp(-0.3259 * self.risk) - 2
+-
+-    def get_color_map(self):
+-        """
+-        Build a deterministic HEX color mapping for the current universe.
+-
+-        Colors are drawn from Matplotlib's ``tab20`` colormap. FX pseudo-tickers
+-        for all non-base currencies are appended so that currency series can be
+-        plotted alongside ETFs.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        cmap = cm.get_cmap('tab20', self.n)
+-        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(
+-            self.etf_list + [ticker for ticker in Data.possible_currencies if ticker != self.currency])}
+-
+-
+-class Portfolio(Info):
+-    """
+-    Portfolio wrapper that loads data, prunes redundancy, and exposes an objective.
+-
+-    Parameters
+-    ----------
+-    risk : int, optional
+-        Discrete risk appetite (default: ``3``).
+-    cash : float, optional
+-        Cash on hand (default: ``100``).
+-    holdings : dict[str, float] | None, optional
+-        Current positions as a mapping ``{ticker: value}`` (default: ``None``).
+-    currency : str | None, optional
+-        Base currency (defaults to ``"USD"`` if ``None``).
+-    allow_short : bool, optional
+-        Whether shorting is allowed conceptually (default: ``False``).
+-    static : bool, optional
+-        If ``True``, read cached CSVs instead of downloading (passed to
+-        :class:`data.Data`).
+-    backtest : pandas.Timestamp | str | None, optional
+-        If provided, all series are truncated to ``.loc[:backtest]`` for
+-        in-sample preparation (passed to :class:`data.Data`).
+-
+-    Attributes
+-    ----------
+-    data : data.Data
+-        Data access object (FX, RF, ETF prices/returns, crypto weights, etc.).
+-    etf_list : list[str]
+-        Working universe (ETF list plus FX pseudo-tickers for non-base currencies).
+-    n : int
+-        Current universe size.
+-    liquidity : float | None
+-        Cash plus current holdings value (set by :meth:`get_liquidity`).
+-    objective : callable | None
+-        Mean–variance-style objective function (set by :meth:`get_objective`).
+-    cov_excess_returns : numpy.ndarray | None
+-        Covariance matrix of excess returns (set during initialization).
+-    crypto_opti : dict[str, float]
+-        Crypto tangency-portfolio weights copied from :attr:`data.Data.crypto_opti`.
+-    """
+-
+-    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None):
+-        """
+-        Initialize a :class:`Portfolio`, load data, and prune the universe.
+-
+-        The constructor performs the following steps:
+-
+-        1. Initialize super class (:class:`Info`) to set risk, currency, colors.
+-        2. Load market data via :class:`data.Data`.
+-        3. Extend the universe with FX pseudo-tickers (non-base currencies).
+-        4. Drop tickers that are too new (contain missing history).
+-        5. Instantiate the mean–variance objective.
+-        6. Cluster by absolute correlation and keep one representative per cluster
+-           (the one minimizing the objective).
+-        7. Compute covariance of excess returns and finalize the objective.
+-        8. Copy crypto-optimized weights from :class:`data.Data`.
+-
+-        :param risk: Discrete risk appetite.
+-        :type risk: int
+-        :param cash: Cash on hand.
+-        :type cash: float
+-        :param holdings: Current holdings mapping.
+-        :type holdings: dict[str, float] | None
+-        :param currency: Base currency (defaults to ``"USD"`` if ``None``).
+-        :type currency: str | None
+-        :param allow_short: Whether shorting is allowed conceptually.
+-        :type allow_short: bool
+-        :param static: Use cached CSVs instead of downloading if ``True``.
+-        :type static: bool
+-        :param backtest: In-sample cutoff (inclusive) for training data.
+-        :type backtest: pandas.Timestamp | str | None
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        super().__init__(risk, cash, holdings, currency, allow_short)
+-
+-        self.liquidity, self.objective, self.cov_excess_returns = None, None, None
+-
+-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
+-        self.etf_list += [ticker for ticker in Data.possible_currencies if ticker != self.currency]
+-        self.etf_list = sorted(list(set(self.etf_list)))
+-        self.n = len(self.etf_list)
+-
+-        self.drop_too_new()
+-
+-        self.get_objective()
+-        self.drop_highly_correlated()
+-        self.get_liquidity()
+-        self.cov_excess_returns = self.data.excess_returns.cov().values
+-        self.get_objective()
+-        self.crypto_opti = self.data.crypto_opti
+-
+-    def remove_etf(self, ticker):
+-        """
+-        Remove a ticker from the working universe and all derived tables.
+-
+-        This method drops the column from :attr:`data.nav`, :attr:`data.returns`,
+-        :attr:`data.log_returns`, and :attr:`data.excess_returns`, updates
+-        :attr:`etf_list`, and decrements :attr:`n`.
+-
+-        :param ticker: Ticker symbol to remove.
+-        :type ticker: str
+-        :returns: ``None``.
+-        :rtype: None
+-        :raises KeyError: If the ticker is not present in the tables.
+-        """
+-        self.data.nav.drop(ticker, axis=1, inplace=True)
+-        self.data.returns.drop(ticker, axis=1, inplace=True)
+-        self.data.log_returns.drop(ticker, axis=1, inplace=True)
+-        self.data.excess_returns.drop(ticker, axis=1, inplace=True)
+-        self.etf_list = list(self.data.nav.columns)
+-        self.n -= 1
+-
+-    def drop_too_new(self):
+-        """
+-        Prune tickers with insufficient history (i.e., containing NaNs).
+-
+-        Any column in :attr:`data.nav` that contains missing values is removed
+-        via :meth:`remove_etf`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        to_drop = self.data.nav.columns[self.data.nav.isna().any()].tolist()
+-        for col in to_drop:
+-            self.remove_etf(col)
+-
+-    def drop_highly_correlated(self):
+-        """
+-        Cluster highly correlated tickers and keep one representative per cluster.
+-
+-        Procedure
+-        ---------
+-        1. Compute ``corr = |corr(log_returns)|``.
+-        2. Convert to a distance matrix ``1 - corr`` and run average-linkage
+-           hierarchical clustering.
+-        3. Cut the dendrogram at distance ``1 - threshold_correlation``.
+-        4. Within each cluster, evaluate :attr:`objective` as a single-ticker
+-           portfolio and **keep the ticker that minimizes the objective**, drop
+-           the others.
+-
+-        Side Effects
+-        ------------
+-        Updates :attr:`etf_list`, :attr:`n`, and removes columns from the data
+-        frames via :meth:`remove_etf`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        correlation_matrix = self.data.log_returns.corr().abs()
+-
+-        distance_matrix = 1 - correlation_matrix
+-        linkage_matrix = linkage(squareform(distance_matrix), method='average')
+-
+-        threshold = 1 - Portfolio.threshold_correlation
+-        clusters = fcluster(linkage_matrix, threshold, criterion='distance')
+-
+-        cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
+-
+-        obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
+-        obj_values = pd.Series(obj_values, name='obj_values')
+-
+-        cluster_df = cluster_df.set_index('ETF').join(obj_values)
+-        best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
+-
+-        to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
+-        for ticker in to_drop:
+-            self.remove_etf(ticker)
+-
+-    def get_liquidity(self):
+-        """
+-        Compute total liquidity as cash plus current holdings value.
+-
+-        :returns: Total liquidity.
+-        :rtype: float
+-        """
+-        self.liquidity = self.cash + sum(self.holdings.values())
+-
+-    def get_objective(self):
+-        """
+-        Define and store the mean–variance-style objective function.
+-
+-        The objective is designed for *minimization* and is defined as::
+-
+-            f(w) = weight_cov * (w^T Σ_excess w) - mean(ExcessReturns @ w)
+-
+-        For convenience, the callable also supports a single-ticker evaluation
+-        mode via ``single_ticker='SPY'`` which computes the same quantity using
+-        that column's excess returns.
+-
+-        Notes
+-        -----
+-        * :attr:`weight_cov` controls the variance penalty relative to mean.
+-        * :attr:`cov_excess_returns` is set after data-dependent pruning.
+-
+-        :returns: ``None`` (sets :attr:`objective` to a callable).
+-        :rtype: None
+-        """
+-        def f(w=np.zeros(self.n), single_ticker=None):
+-            """
+-            Objective function handle.
+-
+-            :param w: Portfolio weights (ignored when ``single_ticker`` is set).
+-            :type w: numpy.ndarray
+-            :param single_ticker: If provided, evaluate the objective for a
+-                                  single column as a 1-asset portfolio.
+-            :type single_ticker: str | None
+-            :returns: Objective value (lower is better).
+-            :rtype: float
+-            """
+-            if single_ticker:
+-                excess_series = self.data.excess_returns[single_ticker]
+-                mean = excess_series.mean()
+-                var = excess_series.var()
+-                return self.weight_cov * var - mean
+-
+-            excess_series = self.data.excess_returns @ w
+-            mean = excess_series.mean()
+-            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+-
+-        self.objective = f
+Index: code/backtest.py
+===================================================================
+diff --git a/code/backtest.py b/code/backtest.py
+deleted file mode 100644
+--- a/code/backtest.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,292 +0,0 @@
+-"""
+-Rolling backtest utilities for an optimized portfolio.
+-
+-This module defines :class:`Backtest`, which:
+-
+-* Walks forward through monthly dates and re-optimizes the portfolio at each step
+-  using in-sample data up to that date (via :class:`~portfolio.Portfolio` and
+-  :class:`~opti.Opti` in *static* mode with an in-sample cutoff).
+-* Optionally smooths the resulting weight paths.
+-* Computes out-of-sample (test) returns from the held-out period.
+-* Produces diagnostic plots (equity curve, weights stack, and performance
+-  attribution) as Dash-ready images while saving PNGs to disk.
+-
+-Notes
+------
+-* The train/test split is controlled by :attr:`Backtest.ratio_train_test`
+-  (default ``17/20`` i.e., 85% train, 15% test).
+-* Re-optimization loops over months from the cutoff to the end of the data,
+-  constructing a fresh :class:`~portfolio.Portfolio` with ``static=True`` and
+-  ``backtest=<current_date>`` at each step.
+-"""
+-
+-import pandas as pd
+-from portfolio import Portfolio
+-from opti import Opti
+-from tqdm import tqdm
+-import matplotlib
+-
+-matplotlib.use('Agg')
+-from matplotlib import pyplot as plt
+-from data import Data
+-
+-
+-class Backtest:
+-    """
+-    Rolling re-optimization backtest.
+-
+-    Class Attributes
+-    ----------------
+-    ratio_train_test : float
+-        Fraction of the sample used for training/in-sample (default: ``17/20``).
+-
+-    Parameters
+-    ----------
+-    opti : Opti
+-        A fully-initialized optimizer instance whose portfolio defines the
+-        configuration (universe, risk, currency, shorting, etc.) and whose
+-        optimized constituents (:attr:`Opti.optimum`) seed the initial
+-        ``to_consider`` set for plots.
+-
+-    Attributes
+-    ----------
+-    opti : Opti
+-        The reference optimizer object passed in.
+-    portfolio : Portfolio
+-        Convenience alias to ``opti.portfolio``.
+-    to_consider : dict_keys[str]
+-        The keys of ``opti.optimum``; used to focus attribution plots.
+-    w_opt : pandas.DataFrame | None
+-        Time-indexed weights per ticker for the walk-forward re-optimizations.
+-    returns : pandas.Series | None
+-        Out-of-sample (test) portfolio returns.
+-    n : int | None
+-        Number of rows (time points) in the underlying NAV table.
+-    cutoff : int | None
+-        Index position separating train/test based on :attr:`ratio_train_test`.
+-    index : list[pandas.Timestamp] | None
+-        Copy of the underlying ``DatetimeIndex`` for iteration.
+-    returns_decomp : pandas.DataFrame | None
+-        Per-asset contributions to test-period returns (weights × returns).
+-    """
+-
+-    ratio_train_test = .95
+-    ratio_train_test = 17 / 20
+-
+-    def __init__(self, opti):
+-        """
+-        Initialize the backtest, compute rolling weights, and derive returns.
+-
+-        The constructor:
+-        1) Parses data and builds a time-series of optimal weights by repeatedly
+-           re-optimizing up to each test date in *static* mode.
+-        2) (Optional) allows weight smoothing via :meth:`smoothen_weights`
+-           (currently commented out).
+-        3) Computes test-period returns via :meth:`get_returns`.
+-
+-        :param opti: Optimizer instance providing the baseline portfolio.
+-        :type opti: Opti
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.opti = opti
+-        self.portfolio = self.opti.portfolio
+-        self.to_consider = self.opti.optimum.keys()
+-        self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
+-        self.parse_data()
+-        # self.smoothen_weights()
+-        self.get_returns()
+-
+-    def parse_data(self):
+-        """
+-        Build rolling optimal weights by re-optimizing through time.
+-
+-        Steps
+-        -----
+-        1. Determine the train/test split using :attr:`ratio_train_test`.
+-        2. For each test date ``t`` (from cutoff to end):
+-
+-           - Create a new :class:`~portfolio.Portfolio` with ``static=True`` and
+-             ``backtest=index[t]`` so that all data are truncated to in-sample
+-             up to that date.
+-           - Run :class:`~opti.Opti` on that portfolio and store the optimal
+-             weight vector into :attr:`w_opt` at timestamp ``index[t]``.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`n`, :attr:`cutoff`, :attr:`index`, and fills :attr:`w_opt`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-
+-        self.n = len(self.portfolio.data.nav)
+-        self.cutoff = round(Backtest.ratio_train_test * self.n)
+-        self.index = list(self.portfolio.data.nav.index)
+-
+-        self.w_opt = pd.DataFrame({ticker: [] for ticker in Portfolio.etf_list})
+-        for i in tqdm(range(self.cutoff, self.n)):
+-            portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
+-                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
+-            optimum = Opti(portfolio).optimum_all
+-            self.w_opt.loc[self.index[i]] = optimum
+-
+-    def smoothen_weights(self):
+-        """
+-        Apply simple exponential smoothing (2/3 previous + 1/3 current).
+-
+-        This can reduce churn in the weights before computing test returns.
+-
+-        Side Effects
+-        ------------
+-        Overwrites :attr:`w_opt` with the smoothed series.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.w_opt.fillna(0, inplace=True)
+-        smoothed_df = pd.DataFrame(index=self.w_opt.index, columns=self.w_opt.columns, dtype=float)
+-        smoothed_df.iloc[0] = self.w_opt.iloc[0]
+-
+-        for t in range(1, len(self.w_opt)):
+-            smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2 * smoothed_df.iloc[t - 1]) / 3
+-
+-        self.w_opt = smoothed_df
+-
+-    def get_returns(self):
+-        """
+-        Compute out-of-sample (test) returns and decomposition.
+-
+-        * Select the test-period rows from the full return matrix using
+-          :meth:`data.Data.get_test_data_backtest` with the cutoff timestamp.
+-        * Multiply by time-aligned weights to obtain per-asset contributions.
+-        * Sum across columns to obtain the total test return series.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`returns_decomp` and :attr:`returns`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.returns_decomp = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])
+-        self.returns_decomp *= self.w_opt
+-        self.returns = self.returns_decomp.sum(axis=1)
+-
+-    def plot_backtest(self):
+-        """
+-        Plot the backtest equity curve vs. benchmark and risk-free leg.
+-
+-        The title includes annualized performance (p.a.) and maximum drawdown
+-        over the test window.
+-
+-        :returns: Dash image component with the figure embedded.
+-        :rtype: dash.html.Img
+-        """
+-        cumulative = (1 + self.returns).cumprod()
+-
+-        fig, ax = plt.subplots()
+-        ax.plot((cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
+-
+-        spy = self.portfolio.data.spy.copy()
+-        spy = spy.loc[self.index[self.cutoff]:]
+-        spy = (spy / spy.iloc[0] - 1) * 100
+-        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
+-
+-        rf_rate = ((self.portfolio.data.rf_rate.loc[self.index[self.cutoff]:] + 1).cumprod() - 1) * 100
+-        ax.plot(rf_rate, label='Rate', linestyle='--')
+-
+-        ax.axhline(0, color='black')
+-
+-        nb_years = int(Data.period[:-1]) * (1 - Backtest.ratio_train_test)
+-        pa_perf = round(((cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
+-
+-        running_max = cumulative.cummax()
+-        drawdown = (cumulative - running_max) / running_max
+-        max_drawdown = round(drawdown.min() * 100, 1)
+-        plt.setp(ax.get_xticklabels(), rotation=45)
+-
+-        ax.set_title(f'Backtest ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
+-
+-        ax.set_ylabel('%')
+-        ax.legend()
+-        ax.grid()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+-
+-    def plot_weights(self):
+-        """
+-        Plot a stacked weight history for the most material tickers.
+-
+-        Heuristic
+-        ---------
+-        Start with the *current* optimized constituents (:attr:`to_consider`).
+-        Greedily add other tickers by descending average weight until the
+-        cumulative mean weight of the plotted set reaches at least 90%.
+-
+-        :returns: Dash image component with the figure embedded.
+-        :rtype: dash.html.Img
+-        """
+-        included = set(self.to_consider)
+-        all_tickers = set(self.w_opt.columns)
+-        remaining = list(all_tickers - included)
+-        mean_weights = self.w_opt.mean()
+-        sorted_remaining = sorted(remaining, key=lambda x: mean_weights[x], reverse=True)
+-
+-        total_weight = mean_weights.sum()
+-        included_weight = mean_weights[list(included)].sum()
+-
+-        while included_weight / total_weight < 0.9 and sorted_remaining:
+-            next_ticker = sorted_remaining.pop(0)
+-            included.add(next_ticker)
+-            included_weight += mean_weights[next_ticker]
+-
+-        tickers_to_plot = list(included)
+-        colors = [self.portfolio.color_map[ticker] for ticker in tickers_to_plot]
+-
+-        fig, ax = plt.subplots()
+-        ax.stackplot(
+-            self.w_opt.index,
+-            100 * self.w_opt[tickers_to_plot].T,
+-            labels=tickers_to_plot,
+-            colors=colors
+-        )
+-
+-        plt.setp(ax.get_xticklabels(), rotation=45)
+-        ax.set_title(f'Weights history')
+-        ax.axhline(100, color='black')
+-
+-        ax.set_ylabel('%')
+-        ax.legend()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+-
+-    def plot_perf_attrib(self):
+-        """
+-        Plot cumulative performance attribution for selected tickers.
+-
+-        Uses the per-asset return contributions in :attr:`returns_decomp` and
+-        accumulates them through time, plotted in percent.
+-
+-        :returns: Dash image component with the figure embedded.
+-        :rtype: dash.html.Img
+-        """
+-        returns = self.returns_decomp[self.to_consider]
+-
+-        fig, ax = plt.subplots()
+-        for col in self.to_consider:
+-            ax.plot(returns.index, (returns[col].cumsum()) * 100, label=col, color=self.portfolio.color_map[col])
+-
+-        ax.axhline(0, color='black')
+-        plt.setp(ax.get_xticklabels(), rotation=45)
+-
+-        ax.set_title(f'Backtest Performance Attribution')
+-
+-        ax.set_ylabel('%')
+-        ax.legend()
+-        ax.grid()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+Index: code/dashboard.py
+===================================================================
+diff --git a/code/dashboard.py b/code/dashboard.py
+deleted file mode 100644
+--- a/code/dashboard.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,505 +0,0 @@
+-"""
+-Dash application to build, optimize, backtest, and rebalance an ETF portfolio.
+-
+-This module wires together the core components:
+-
+-* :class:`portfolio.Portfolio` — data preparation, universe pruning, objective.
+-* :class:`opti.Opti` — portfolio optimization and performance/diagnostic plots.
+-* :class:`rebalancer.Rebalancer` — converts optimal weights to a rebalance plan.
+-* :class:`backtest.Backtest` — rolling walk-forward re-optimization backtest.
+-* :class:`exposure.Exposure` — exposure breakdown charts.
+-
+-The :class:`Dashboard` class builds a small UI with:
+-- Risk, currency, and shorting controls,
+-- Cash and current holdings inputs,
+-- Buttons to create an optimal portfolio, show exposures, rebalance, and run a backtest,
+-- A "crypto Sharpe" helper that shows tangency-portfolio weights for a small crypto universe.
+-
+-Notes
+------
+-* The app uses multiple Dash callbacks. Each callback resets its triggering
+-  button's ``n_clicks`` to ``0`` after use to allow retriggering.
+-* Images are returned as Dash-ready components via :meth:`opti.Opti.save_fig_as_dash_img`.
+-"""
+-
+-import dash
+-import pandas as pd
+-from dash import html, dcc, Input, Output, State
+-from dash.dependencies import ALL
+-from dash import dash_table
+-from data import Data
+-from backtest import Backtest
+-from rebalancer import Rebalancer
+-from portfolio import Portfolio
+-from exposure import Exposure
+-from opti import Opti
+-
+-
+-class Dashboard(dash.Dash):
+-    """
+-    Minimal Dash UI for ETF portfolio workflows.
+-
+-    Parameters
+-    ----------
+-    static : bool, optional
+-        If ``True``, downstream components load cached CSVs instead of
+-        downloading fresh data (default: ``False``).
+-
+-    Attributes
+-    ----------
+-    static : bool
+-        Passed to :class:`portfolio.Portfolio` / :class:`data.Data`.
+-    layout_functions : list[callable]
+-        Functions that return UI chunks used to compose the main layout.
+-    main_div : list | None
+-        Flat list of components used as children for the top-level ``html.Div``.
+-    risk : int | None
+-        Risk level from the UI.
+-    currency : str | None
+-        Selected base currency from the UI.
+-    allow_short : list[str] | None
+-        Checklist values; empty list means no shorting (long-only).
+-    cash_sgd : float | None
+-        Cash input (denominated in the selected currency).
+-    holdings : dict[str, float] | None
+-        Mapping of user-provided holdings (ticker -> value in base currency).
+-    portfolio : Portfolio | None
+-        Portfolio object created after clicking "Create Portfolio".
+-    opti : Opti | None
+-        Optimizer object tied to :attr:`portfolio`.
+-    backtest : Backtest | None
+-        Backtest object created after clicking "Launch Backtest".
+-    rebalancer : Rebalancer | None
+-        Rebalancer object created after clicking "Rebalance".
+-    exposure : Exposure | None
+-        Exposure object created after clicking "Display exposure".
+-    """
+-
+-    def __init__(self, static=False):
+-        """
+-        Construct the Dash app, build the layout, and register callbacks.
+-
+-        :param static: Use cached data instead of fetching if ``True``.
+-        :type static: bool
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        super().__init__()
+-        self.static = static
+-
+-        self.layout_functions = [
+-            Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
+-            Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
+-            Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest,
+-            Dashboard.button_crypto
+-        ]
+-
+-        self.main_div = None
+-        self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
+-        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
+-        self.get_layout()
+-        self.callbacks()
+-
+-    def get_layout(self):
+-        """
+-        Compose the static layout sections from :attr:`layout_functions`.
+-
+-        :returns: ``None`` (sets :attr:`layout`).
+-        :rtype: None
+-        """
+-        self.main_div = []
+-        for func in self.layout_functions:
+-            self.main_div.extend(func())
+-
+-        self.layout = html.Div(self.main_div)
+-
+-    @staticmethod
+-    def text_title():
+-        """
+-        Create the app title.
+-
+-        :returns: Title component list.
+-        :rtype: list[dash.html.H1]
+-        """
+-        return [html.H1('ETF Portfolio Optimization')]
+-
+-    @staticmethod
+-    def radio_risk():
+-        """
+-        Numeric input for risk level.
+-
+-        :returns: A label and numeric input for risk.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [
+-            html.H4('Select risk level:'),
+-            dcc.Input(
+-                id='risk-input',
+-                type='number',
+-                value=5,
+-                min=0,
+-                max=10,
+-                step=1
+-            )
+-        ]
+-
+-    @staticmethod
+-    def radio_currency():
+-        """
+-        Dropdown for base currency selection.
+-
+-        :returns: H4 label and currency dropdown.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Select currency:'),
+-                dcc.Dropdown(
+-                    id='radio-currency',
+-                    options=[{'label': x, 'value': x} for x in Data.possible_currencies],
+-                    value='USD',
+-                    clearable=False,
+-                    style={'width': '100px'}
+-                )]
+-
+-    @staticmethod
+-    def radio_short():
+-        """
+-        Checklist to allow/disallow shorting.
+-
+-        :returns: Checklist component; empty value implies long-only.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [
+-            dcc.Checklist(
+-                id='switch-short',
+-                options=[{'label': 'Allow Short', 'value': 'short'}],
+-                value=[],  # empty list means unchecked
+-                inputStyle={'margin-right': '5px'},
+-            )
+-        ]
+-
+-    @staticmethod
+-    def input_cash():
+-        """
+-        Cash input whose label reflects the selected currency.
+-
+-        :returns: Label and numeric input for cash.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4(id='cash-label'),
+-                dcc.Input(id='cash', type='number', value=100, step='any')]
+-
+-    @staticmethod
+-    def button_holdings():
+-        """
+-        Holdings input section with an "Add Holding" button.
+-
+-        :returns: Header, button, and container div.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [
+-            html.H4('Current Holdings:'),
+-            html.Button('Add Holding', id='button-holdings', n_clicks=0),
+-            html.Div(id='holdings-container', children=[])
+-        ]
+-
+-    @staticmethod
+-    def button_create_portfolio():
+-        """
+-        Section to create and display an optimal portfolio.
+-
+-        :returns: Header, button, and a loading wrapper for result graphs.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Optimal Portfolio:'),
+-                html.Button('Create Portfolio', id='create-portfolio', n_clicks=0),
+-                dcc.Loading(
+-                    id='loading-portfolio',
+-                    type='default',
+-                    children=html.Div(id='portfolio-distrib'))]
+-
+-    @staticmethod
+-    def button_rebalance():
+-        """
+-        Section to build and display a rebalance table.
+-
+-        :returns: Header, button, and result container.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Portfolio Rebalancing:'),
+-                html.Button('Rebalance', id='rebalance-button', n_clicks=0),
+-                html.Div(id='rebalance-div')]
+-
+-    @staticmethod
+-    def button_display_exposure():
+-        """
+-        Section to render exposure breakdown charts.
+-
+-        :returns: Header, button, and graph container.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Exposure:'),
+-                html.Button('Display exposure', id='display-exposure', n_clicks=0),
+-                html.Div(id='exposure-graphs')]
+-
+-    @staticmethod
+-    def button_create_backtest():
+-        """
+-        Section to run and display a rolling backtest.
+-
+-        :returns: Header, button, and loading wrapper for backtest graphs.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Backtest:'),
+-                html.Button('Launch Backtest', id='create-backtest', n_clicks=0),
+-                dcc.Loading(
+-                    id='loading-backtest',
+-                    type='default',
+-                    children=html.Div(id='backtest-graphs')
+-                )]
+-
+-    @staticmethod
+-    def button_crypto():
+-        """
+-        Section to show crypto tangency-portfolio weights.
+-
+-        :returns: Header, button, and table container.
+-        :rtype: list[dash.development.base_component.Component]
+-        """
+-        return [html.H4('Cryptos (beta):'),
+-                html.Button('Get crypto sharpe', id='crypto-sharpe', n_clicks=0),
+-                html.Div(id='crypto-opti')]
+-
+-    def callbacks(self):
+-        """
+-        Register all Dash callbacks (inputs, buttons, and renderers).
+-
+-        Each nested function has its own docstring describing inputs/outputs.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-
+-        @self.callback(
+-            Input('risk-input', 'value'),
+-            Input('radio-currency', 'value'),
+-            Input('switch-short', 'value'),
+-            Input('cash', 'value'),
+-            Input({'type': 'ticker-input', 'index': ALL}, 'value'),
+-            Input({'type': 'value-input', 'index': ALL}, 'value'),
+-        )
+-        def input_callbacks(risk, currency, allow_short, cash_sgd, holdings_tickers, holdings_values):
+-            """
+-            Capture form inputs and cache them on the instance.
+-
+-            :param risk: Risk level numeric value.
+-            :type risk: int | float | None
+-            :param currency: Selected base currency (e.g., ``'USD'``).
+-            :type currency: str | None
+-            :param allow_short: Checklist values; empty list means long-only.
+-            :type allow_short: list[str]
+-            :param cash_sgd: Cash amount in selected currency.
+-            :type cash_sgd: float | int | None
+-            :param holdings_tickers: List of ticker strings from dynamic fields.
+-            :type holdings_tickers: list[str] | None
+-            :param holdings_values: List of numeric values aligned to tickers.
+-            :type holdings_values: list[float] | None
+-            :returns: ``None`` (state is stored on ``self``).
+-            :rtype: None
+-            """
+-            self.risk = risk
+-            self.currency = currency
+-            self.allow_short = allow_short
+-            self.cash_sgd = cash_sgd
+-            self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
+-
+-        @self.callback(
+-            Output('cash-label', 'children'),
+-            Input('radio-currency', 'value')
+-        )
+-        def update_cash_label(selected_currency):
+-            """
+-            Update the "Input Cash" label with the current currency.
+-
+-            :param selected_currency: Newly selected currency code.
+-            :type selected_currency: str
+-            :returns: Label text.
+-            :rtype: str
+-            """
+-            return f'Input Cash (in {selected_currency})'
+-
+-        @self.callback(
+-            Output('holdings-container', 'children'),
+-            Input('button-holdings', 'n_clicks'),
+-            Input('radio-currency', 'value'),
+-            State({'type': 'ticker-input', 'index': ALL}, 'value'),
+-            State({'type': 'value-input', 'index': ALL}, 'value'),
+-        )
+-        def update_holdings(n_clicks, currency, tickers, values):
+-            """
+-            Render the dynamic list of holding rows.
+-
+-            :param n_clicks: Count of "Add Holding" button clicks.
+-            :type n_clicks: int
+-            :param currency: Base currency for the value placeholder.
+-            :type currency: str
+-            :param tickers: Existing ticker field values (by index).
+-            :type tickers: list[str] | None
+-            :param values: Existing value field entries (by index).
+-            :type values: list[float] | None
+-            :returns: List of holding row components.
+-            :rtype: list[dash.development.base_component.Component]
+-            """
+-            holdings = []
+-            for i in range(n_clicks):
+-                ticker_val = tickers[i] if i < len(tickers) else ''
+-                value_val = values[i] if i < len(values) else ''
+-                holdings.append(
+-                    html.Div([
+-                        dcc.Input(id={'type': 'ticker-input', 'index': i}, type='text', placeholder='Ticker',
+-                                  value=ticker_val),
+-                        dcc.Input(id={'type': 'value-input', 'index': i}, type='number',
+-                                  placeholder=f'Value (in {currency})', step='any', value=value_val)
+-                    ])
+-                )
+-            return holdings
+-
+-        @self.callback(
+-            Output('create-portfolio', 'n_clicks'),
+-            Output('portfolio-distrib', 'children'),
+-            Input('create-portfolio', 'n_clicks'),
+-        )
+-        def create_portfolio(create_portfolio_n_click):
+-            """
+-            Build an optimal portfolio and render its graphs.
+-
+-            Resets the button's ``n_clicks`` to 0 after rendering so the user
+-            can click again.
+-
+-            :param create_portfolio_n_click: Click counter for the button.
+-            :type create_portfolio_n_click: int
+-            :returns: Tuple of (button reset, graphs container or no update).
+-            :rtype: tuple[int, dash.development.base_component.Component]
+-            """
+-            if create_portfolio_n_click:
+-                self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short,
+-                                           static=self.static)
+-                self.opti = Opti(self.portfolio)
+-                return 0, html.Div([
+-                    self.opti.plot_in_sample(),
+-                    self.opti.plot_optimum(),
+-                    self.opti.plot_weighted_perf(),
+-                    self.opti.plot_drawdown()
+-                ])
+-            return 0, dash.no_update
+-
+-        @self.callback(
+-            Output('create-backtest', 'n_clicks'),
+-            Output('backtest-graphs', 'children'),
+-            Input('create-backtest', 'n_clicks'),
+-            prevent_initial_call=True
+-        )
+-        def create_backtest(create_backtest_n_click):
+-            """
+-            Run a rolling backtest and render its graphs.
+-
+-            :param create_backtest_n_click: Click counter for the backtest button.
+-            :type create_backtest_n_click: int
+-            :returns: Tuple of (button reset, graphs container or no update).
+-            :rtype: tuple[int, dash.development.base_component.Component]
+-            """
+-            if create_backtest_n_click:
+-                self.backtest = Backtest(self.opti)
+-                return 0, html.Div([
+-                    self.backtest.plot_weights(),
+-                    self.backtest.plot_backtest(),
+-                    self.backtest.plot_perf_attrib()
+-                ])
+-            return 0, dash.no_update
+-
+-        @self.callback(
+-            Output('rebalance-button', 'n_clicks'),
+-            Output('rebalance-div', 'children'),
+-            Input('rebalance-button', 'n_clicks'),
+-            Input('radio-currency', 'value')
+-        )
+-        def rebalance(rebalance_n_click, selected_currency):
+-            """
+-            Compute a rebalance plan and show it as a table.
+-
+-            :param rebalance_n_click: Click counter for the rebalance button.
+-            :type rebalance_n_click: int
+-            :param selected_currency: Currency code to annotate the table column.
+-            :type selected_currency: str
+-            :returns: Tuple of (button reset, table container or no update).
+-            :rtype: tuple[int, dash.development.base_component.Component]
+-            """
+-            if rebalance_n_click:
+-                self.rebalancer = Rebalancer(self.opti)
+-                df = self.rebalancer.rebalance_df
+-                df.rename(columns={'Buy/Sell': f'Buy/Sell ({selected_currency})'}, inplace=True)
+-
+-                return 0, html.Div([
+-                    dash_table.DataTable(
+-                        data=df.to_dict('records'),
+-                        columns=[{'name': i, 'id': i} for i in df.columns],
+-                        style_table={'overflowX': 'auto'},
+-                        style_cell={'textAlign': 'left'},
+-                        page_size=10
+-                    )
+-                ], style={'width': '40%'})
+-            return 0, dash.no_update
+-
+-        @self.callback(
+-            Output('display-exposure', 'n_clicks'),
+-            Output('exposure-graphs', 'children'),
+-            Input('display-exposure', 'n_clicks'),
+-        )
+-        def display_exposure(display_exposure_n_click):
+-            """
+-            Render exposure breakdown charts for the optimized portfolio.
+-
+-            :param display_exposure_n_click: Click counter for the exposure button.
+-            :type display_exposure_n_click: int
+-            :returns: Tuple of (button reset, graphs container or no update).
+-            :rtype: tuple[int, dash.development.base_component.Component]
+-            """
+-            if display_exposure_n_click:
+-                self.exposure = Exposure(self.opti)
+-                return 0, html.Div([
+-                    self.exposure.plot_currency(),
+-                    self.exposure.plot_category(),
+-                    self.exposure.plot_sector(),
+-                    self.exposure.plot_type(),
+-                    self.exposure.plot_geo()
+-                ])
+-            return 0, dash.no_update
+-
+-        @self.callback(
+-            Output('crypto-sharpe', 'n_clicks'),
+-            Output('crypto-opti', 'children'),
+-            Input('crypto-sharpe', 'n_clicks'),
+-        )
+-        def crypto_sharpe(crypto_sharpe_n_click):
+-            """
+-            Display crypto tangency-portfolio weights as a table.
+-
+-            :param crypto_sharpe_n_click: Click counter for the crypto button.
+-            :type crypto_sharpe_n_click: int
+-            :returns: Tuple of (button reset, table container or no update).
+-            :rtype: tuple[int, dash.development.base_component.Component]
+-            """
+-            if crypto_sharpe_n_click:
+-                df = (pd.Series(self.portfolio.crypto_opti, name='Weight').rename_axis('Ticker').reset_index())
+-                df = df[df['Weight'] != 0]
+-                df['Weight'] = [f'{x}%' for x in df['Weight']]
+-
+-                return 0, html.Div([
+-                    dash_table.DataTable(
+-                        data=df.to_dict('records'),
+-                        columns=[{'name': i, 'id': i} for i in df.columns],
+-                        style_table={'overflowX': 'auto'},
+-                        style_cell={'textAlign': 'left'},
+-                        page_size=10
+-                    )
+-                ], style={'width': '15%'})
+-            return 0, dash.no_update
+Index: code/opti.py
+===================================================================
+diff --git a/code/opti.py b/code/opti.py
+deleted file mode 100644
+--- a/code/opti.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,330 +0,0 @@
+-"""
+-Optimization and plotting for portfolio weights.
+-
+-This module defines :class:`Opti`, a small helper that:
+-
+-* Builds bounds and constraints for a portfolio optimization (long-only or
+-  long/short with L1 weight budget).
+-* Minimizes a user-provided mean–variance-style objective exposed by a
+-  :class:`~portfolio.Portfolio` instance.
+-* Computes in-sample cumulative performance and a few diagnostic plots
+-  (allocation pie, cumulative vs. benchmark, contribution, and drawdown),
+-  returning each plot as a Dash-ready ``html.Img`` element while also saving
+-  PNGs to disk.
+-
+-Notes
+------
+-* The solver is SciPy's ``minimize`` with SLSQP by default.
+-* For long/short, the equality constraint is ``sum(|w|) = 1``; for long-only,
+-  it is ``sum(w) = 1``.
+-"""
+-
+-import numpy as np
+-import matplotlib
+-
+-matplotlib.use('Agg')
+-from matplotlib import pyplot as plt
+-from data import Data
+-from scipy.optimize import minimize
+-import io
+-import base64
+-from dash import html
+-import pandas as pd
+-from pathlib import Path
+-
+-
+-class Opti:
+-    """
+-    Portfolio optimizer and plotting utility.
+-
+-    Class Attributes
+-    ----------------
+-    solver_method : str
+-        Optimization algorithm passed to :func:`scipy.optimize.minimize`
+-        (default: ``"SLSQP"``).
+-    graph_dir_path : pathlib.Path
+-        Root directory where PNG plots will be saved.
+-
+-    Parameters
+-    ----------
+-    portfolio : Portfolio
+-        A portfolio object exposing:
+-        * ``n`` (universe size),
+-        * ``allow_short`` (bool),
+-        * ``objective(w=...)`` (callable for minimization),
+-        * ``etf_list`` (tickers),
+-        * ``color_map`` (ticker -> HEX),
+-        * ``data`` with ``returns``, ``spy``, and ``rf_rate``,
+-        * ``currency`` (base currency code),
+-        * ``name`` (label for titles).
+-
+-    Attributes
+-    ----------
+-    optimum : dict[str, float] | None
+-        Sparse weight mapping after thresholding small weights and renormalizing.
+-    optimum_all : dict[str, float] | None
+-        Full weight vector (including zeros) as a mapping.
+-    w_opt : numpy.ndarray | None
+-        Optimized weight vector.
+-    constraints : list[dict] | None
+-        Nonlinear equality constraint(s) for the optimizer.
+-    bounds : list[tuple[float, float]] | None
+-        Per-asset bounds, long-only or long/short per portfolio settings.
+-    cumulative : pandas.Series | None
+-        In-sample cumulative performance of the optimized portfolio.
+-    portfolio : Portfolio
+-        Reference to the provided portfolio object.
+-    w0 : numpy.ndarray
+-        Starting point for optimization (uniform weights).
+-    """
+-
+-    solver_method = 'SLSQP'
+-    graph_dir_path = Path(__file__).resolve().parent.parent / "graphs"
+-
+-    def __init__(self, portfolio):
+-        """
+-        Initialize the optimizer, solve for weights, and compute performance.
+-
+-        The constructor:
+-        1) builds bounds and constraints,
+-        2) sets a uniform initial guess,
+-        3) runs the optimization,
+-        4) computes cumulative in-sample performance.
+-
+-        :param portfolio: Portfolio-like object exposing an ``objective`` and data.
+-        :type portfolio: Portfolio
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative = None, None, None, None, None, None
+-        self.portfolio = portfolio
+-        self.get_bounds()
+-        self.get_constraints()
+-        self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
+-        self.optimize()
+-        self.get_cumulative()
+-
+-    def get_bounds(self):
+-        """
+-        Build per-asset bounds based on shorting permission.
+-
+-        * If shorting is allowed: ``(-1, 1)``.
+-        * If long-only: ``(0, 1)``.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
+-
+-    @staticmethod
+-    def abs_sum(lst):
+-        """
+-        L1 norm (sum of absolute values).
+-
+-        :param lst: Iterable of numbers.
+-        :type lst: list[float] | numpy.ndarray | tuple[float, ...]
+-        :returns: Sum of absolute values.
+-        :rtype: float
+-        """
+-        return sum([abs(x) for x in lst])
+-
+-    @staticmethod
+-    def save_fig_as_dash_img(fig, output_path):
+-        """
+-        Convert a Matplotlib figure to a Dash ``html.Img`` (and save to disk).
+-
+-        If ``output_path`` is not ``None``, the PNG is written to that path.
+-        The function always returns an inline base64-encoded ``html.Img`` element.
+-
+-        :param fig: Matplotlib figure to serialize.
+-        :type fig: matplotlib.figure.Figure
+-        :param output_path: File path for saving the PNG (or ``None``).
+-        :type output_path: str | pathlib.Path | None
+-        :returns: Dash image component with the figure embedded.
+-        :rtype: dash.html.Img
+-        """
+-        if output_path:
+-            output_path = Path(output_path)
+-            output_path.parent.mkdir(parents=True, exist_ok=True)
+-
+-            fig.savefig(output_path, format="png", bbox_inches="tight")
+-
+-        buf = io.BytesIO()
+-        fig.savefig(buf, format="png", bbox_inches="tight")
+-        plt.close(fig)
+-        buf.seek(0)
+-
+-        encoded = base64.b64encode(buf.read()).decode("utf-8")
+-        img_src = f"data:image/png;base64,{encoded}"
+-
+-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
+-
+-    def get_constraints(self):
+-        """
+-        Construct the weight-budget equality constraint.
+-
+-        * Long-only: enforce ``sum(w) = 1``.
+-        * Long/short: enforce ``sum(|w|) = 1``.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        func = Opti.abs_sum if self.portfolio.allow_short else sum
+-        self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
+-
+-    def optimize(self):
+-        """
+-        Solve the portfolio optimization problem.
+-
+-        Minimizes ``self.portfolio.objective(w=w)`` under the configured
+-        bounds and equality constraint. Post-processes the solution by:
+-        * thresholding very small absolute weights (< 1%) to zero, then
+-        * renormalizing by the L1 norm so the budget equals 1.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`w_opt`, :attr:`optimum_all`, and :attr:`optimum`. Prints a
+-        message if SciPy reports failure.
+-
+-        :returns: ``None`` (updates instance attributes).
+-        :rtype: None
+-        """
+-        opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds,
+-                       constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
+-
+-        if not opt.success:
+-            print(f'Optimization failed: {opt.message}')
+-            return None
+-
+-        self.w_opt = np.array([0. if abs(w) < .01 else float(w) for w in opt.x])
+-        self.w_opt /= Opti.abs_sum(self.w_opt)
+-
+-        self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
+-        self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if
+-                        self.optimum_all[ticker] != 0}
+-
+-    def get_cumulative(self):
+-        """
+-        Compute in-sample cumulative performance for the optimized weights.
+-
+-        Uses simple returns from ``self.portfolio.data.returns`` and the
+-        sparse weight mapping in :attr:`optimum`.
+-
+-        :returns: ``None`` (sets :attr:`cumulative`).
+-        :rtype: None
+-        """
+-        returns = self.portfolio.data.returns[self.optimum.keys()]
+-        weights = list(self.optimum.values())
+-        self.cumulative = (1 + returns @ weights).cumprod()
+-
+-    def plot_optimum(self):
+-        """
+-        Plot the optimized allocation as a pie chart.
+-
+-        Colors are pulled from ``self.portfolio.color_map``. The image is saved
+-        under ``graphs/<currency>/<name>- optimal_allocation.png`` and also
+-        returned as a Dash image.
+-
+-        :returns: Dash image component for embedding in a layout.
+-        :rtype: dash.html.Img
+-        """
+-        sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
+-
+-        fig, ax = plt.subplots()
+-        colors = [self.portfolio.color_map[k] for k in sorted_optimum.keys()]
+-        ax.pie(
+-            sorted_optimum.values(),
+-            labels=sorted_optimum.keys(),
+-            colors=colors,
+-            autopct=lambda pct: f'{int(round(pct))}%'
+-        )
+-        ax.set_title('Optimal Allocation')
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+-
+-    def plot_in_sample(self):
+-        """
+-        Plot in-sample cumulative performance vs. market proxy and RF leg.
+-
+-        The title includes the annualized performance (p.a.) and maximum
+-        drawdown computed from :attr:`cumulative`.
+-
+-        :returns: Dash image component for embedding in a layout.
+-        :rtype: dash.html.Img
+-        """
+-        fig, ax = plt.subplots()
+-        ax.plot((self.cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
+-
+-        spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
+-        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
+-
+-        rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
+-        ax.plot(rf_rate, label='Rate', linestyle='--')
+-
+-        ax.axhline(0, color='black')
+-
+-        nb_years = int(Data.period[:-1])
+-        pa_perf = round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
+-
+-        running_max = self.cumulative.cummax()
+-        drawdown = (self.cumulative - running_max) / running_max
+-        max_drawdown = round(drawdown.min() * 100, 1)
+-
+-        ax.set_title(f'In-Sample ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
+-        ax.set_ylabel('%')
+-        ax.legend()
+-        ax.grid()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+-
+-    def plot_weighted_perf(self):
+-        """
+-        Plot in-sample performance attribution by constituent.
+-
+-        The contribution per asset is the weighted cumulative excess over 1
+-        (in percent). Colors follow the portfolio color map.
+-
+-        :returns: Dash image component for embedding in a layout.
+-        :rtype: dash.html.Img
+-        """
+-        returns = self.portfolio.data.returns[self.optimum.keys()]
+-        weights = pd.Series(self.optimum)
+-
+-        cumulative_returns = (1 + returns).cumprod()
+-        weighted_cumulative = cumulative_returns.multiply(weights, axis=1)
+-        contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100
+-
+-        fig, ax = plt.subplots()
+-        for col in contribution.columns:
+-            ax.plot(contribution.index, contribution[col], label=col, color=self.portfolio.color_map[col])
+-
+-        ax.legend()
+-        ax.set_title('In-Sample Performance Attribution')
+-        ax.axhline(0, color='black')
+-        ax.set_ylabel('%')
+-        ax.grid()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+-
+-    def plot_drawdown(self):
+-        """
+-        Plot the portfolio drawdown curve (area below zero).
+-
+-        :returns: Dash image component for embedding in a layout.
+-        :rtype: dash.html.Img
+-        """
+-        rolling_max = self.cumulative.cummax()
+-        drawdown = self.cumulative / rolling_max - 1
+-
+-        fig, ax = plt.subplots()
+-        ax.fill_between(drawdown.index, drawdown * 100, 0, color='red', alpha=.5)
+-
+-        ax.set_title(f'Drawdown')
+-        ax.set_ylabel('%')
+-        ax.grid()
+-
+-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
+-        return Opti.save_fig_as_dash_img(fig, output_path)
+Index: code/data.py
+===================================================================
+diff --git a/code/data.py b/code/data.py
+deleted file mode 100644
+--- a/code/data.py	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
++++ /dev/null	(revision 91ea0e9a863fc085d057759c38f50ce122db0e06)
+@@ -1,528 +0,0 @@
+-"""
+-Data acquisition and preprocessing utilities for multi-asset portfolio work.
+-
+-This module centers around :class:`Data`, which downloads (or loads cached)
+-time series for:
+-
+-* Foreign exchange (FX) rates to convert assets into a chosen base currency.
+-* A risk-free rate proxy from ``^IRX`` (13-week T-bill), converted to a
+-  monthly rate.
+-* ETF NAV/Close series and derived simple, log, and excess returns.
+-* A total U.S. equity market proxy (VTI) for benchmarking.
+-* A simple long-only tangency portfolio over a small crypto universe.
+-
+-It supports a *static* mode that reads/writes CSV caches under
+-``data_dir_path`` to avoid repeated network calls, and optional backtest
+-truncation where series are sliced up to a specified date.
+-
+-Dependencies
+-------------
+-``yfinance``, ``pandas``, ``numpy``, ``matplotlib``, and ``scipy`` are used
+-for retrieval, manipulation, plotting, and optimization.
+-
+-Examples
+---------
+-Create a dataset in EUR with cached files only:
+-
+->>> d = Data(currency="EUR", etf_list=["VWRA.L", "EUNA.L"], static=True)
+-
+-Create a dataset in USD, download fresh data, and trim in-sample up to
+-January 2020:
+-
+->>> d = Data(currency="USD", etf_list=["VT", "BND"], static=False, backtest="2020-01-01")
+-
+-"""
+-
+-import yfinance as yf
+-import matplotlib.pyplot as plt
+-import numpy as np
+-import pandas as pd
+-import concurrent.futures
+-from pathlib import Path
+-from scipy.optimize import minimize
+-
+-
+-class Data:
+-    """
+-    Container for market datasets (FX, risk-free, ETFs, crypto) with helpers to
+-    compute returns, perform currency conversion, and plot series.
+-
+-    Parameters
+-    ----------
+-    currency : str
+-        Target/base currency code (one of :attr:`possible_currencies`) used to
+-        express all prices and returns.
+-    etf_list : list[str]
+-        List of ETF tickers understood by *yfinance*.
+-    static : bool, optional
+-        If ``True``, read from and write to cached CSVs under
+-        :attr:`data_dir_path` instead of fetching from the network (default:
+-        ``False``).
+-    backtest : pandas.Timestamp | str | None, optional
+-        If provided, time series loaded by this instance are truncated to
+-        ``.loc[:backtest]`` to form an in-sample set for backtesting. Use
+-        :meth:`get_test_data_backtest` to obtain the complementary out-of-sample
+-        slice.
+-
+-    Attributes
+-    ----------
+-    period : str
+-        Lookback period used for downloads (default: ``"20y"``).
+-    possible_currencies : list[str]
+-        Allowed ISO currency codes used for FX download/detection.
+-    data_dir_path : pathlib.Path
+-        Root directory for cached CSV files.
+-    currency_rate : pandas.DataFrame | None
+-        Monthly FX rates normalized to the base currency. Columns are other
+-        currencies; values express the conversion **into** the base currency.
+-        Populated by :meth:`get_currency`.
+-    etf_currency : dict[str, str] | pandas.Series | None
+-        Mapping from ETF ticker to its trading currency. Populated by
+-        :meth:`get_currency`.
+-    nav : pandas.DataFrame | None
+-        Monthly close/NAV series for requested ETFs, converted into the base
+-        currency. Populated by :meth:`get_nav_returns`.
+-    returns : pandas.DataFrame | None
+-        Simple monthly returns from :attr:`nav`. Populated by
+-        :meth:`get_nav_returns`.
+-    log_returns : pandas.DataFrame | None
+-        Log monthly returns from :attr:`nav`. Populated by
+-        :meth:`get_nav_returns`.
+-    rf_rate : pandas.Series | None
+-        Monthly risk-free rates aligned to month starts. Populated by
+-        :meth:`get_rf_rate`.
+-    excess_returns : pandas.DataFrame | None
+-        Simple returns in excess of :attr:`rf_rate` (broadcast across columns).
+-        Populated by :meth:`get_nav_returns`.
+-    spy : pandas.Series | pandas.DataFrame | None
+-        Total U.S. market proxy (VTI) in the base currency. Populated by
+-        :meth:`get_spy`.
+-    etf_full_names : pandas.Series | None
+-        Long names for tickers (and passthrough for currency columns). Populated
+-        by :meth:`get_full_names`.
+-    exposure : pandas.DataFrame | None
+-        Exposures table loaded from cache. Populated by :meth:`get_exposure`.
+-    crypto_opti : dict[str, float] | None
+-        Long-only tangency portfolio weights (percent, rounded to 0.1) for the
+-        crypto universe. Populated by :meth:`get_crypto`.
+-    """
+-
+-    period = '20y'
+-    possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CHF', 'CNY', 'HKD']
+-    data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
+-
+-    def __init__(self, currency, etf_list, static=False, backtest=None):
+-        """
+-        Initialize and eagerly load core datasets.
+-
+-        This constructor immediately calls, in order:
+-        :meth:`get_currency`, :meth:`get_rf_rate`, :meth:`get_nav_returns`,
+-        :meth:`get_spy`, :meth:`get_full_names`, :meth:`get_exposure`,
+-        :meth:`get_crypto`.
+-
+-        :param currency: Base currency code.
+-        :type currency: str
+-        :param etf_list: ETF tickers to download.
+-        :type etf_list: list[str]
+-        :param static: If ``True``, use cached CSVs; otherwise fetch and cache.
+-        :type static: bool
+-        :param backtest: If set, truncate series to ``.loc[:backtest]``.
+-        :type backtest: pandas.Timestamp | str | None
+-        """
+-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti = None, None, None, None, None, None, None, None, None, None, None
+-        self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
+-
+-        self.get_currency()
+-        self.get_rf_rate()
+-        self.get_nav_returns()
+-        self.get_spy()
+-        self.get_full_names()
+-        self.get_exposure()
+-        self.get_crypto()
+-
+-    def drop_test_data_backtest(self, df):
+-        """
+-        Trim an object to the in-sample (training) slice for backtesting.
+-
+-        If :attr:`backtest` is set, this returns ``df.loc[:self.backtest]``;
+-        otherwise the input is returned unchanged.
+-
+-        :param df: Time-indexed data (``DatetimeIndex`` recommended).
+-        :type df: pandas.Series | pandas.DataFrame
+-        :returns: The trimmed object (same type as ``df``).
+-        :rtype: pandas.Series | pandas.DataFrame
+-        """
+-        if self.backtest:
+-            df = df.loc[:self.backtest]
+-        return df
+-
+-    @staticmethod
+-    def get_test_data_backtest(df, cutoff):
+-        """
+-        Obtain the out-of-sample (test) slice for backtesting.
+-
+-        This is a convenience wrapper equivalent to ``df.loc[cutoff:]``.
+-
+-        :param df: Time-indexed data to slice.
+-        :type df: pandas.Series | pandas.DataFrame
+-        :param cutoff: Inclusive start label of the test period.
+-        :type cutoff: pandas.Timestamp | str
+-        :returns: The out-of-sample slice from ``cutoff`` onward.
+-        :rtype: pandas.Series | pandas.DataFrame
+-        """
+-        return df.loc[cutoff:]
+-
+-    def get_currency(self):
+-        """
+-        Fetch or load monthly FX rates and detect each ETF's trading currency.
+-
+-        Behavior
+-        --------
+-        * If :attr:`static` is ``True``, read ``currency.csv`` and
+-          ``curr_etf.csv`` from :attr:`data_dir_path`.
+-        * Otherwise, download monthly FX rates for all currencies listed in
+-          :attr:`possible_currencies` (vs. USD), normalize everything into the
+-          base :attr:`currency`, and cache to CSV. ETF trading currencies are
+-          detected via ``yfinance.Ticker(...).fast_info['currency']`` and cached.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`currency_rate` (``DataFrame``) and :attr:`etf_currency`
+-        (``dict`` or ``Series``).
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        if self.static:
+-            self.currency_rate = pd.read_csv(Data.data_dir_path / 'currency.csv', index_col=0)
+-            self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
+-        else:
+-            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies if ticker != 'USD']
+-            self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+-            self.currency_rate.to_csv(Data.data_dir_path / 'currency.csv')
+-
+-        self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
+-        self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
+-
+-        for curr in self.currency_rate:
+-            self.currency_rate[curr] = self.currency_rate[curr].bfill()
+-
+-        self.currency_rate['USD'] = [1.] * len(self.currency_rate)
+-        my_curr_rate = self.currency_rate[self.currency].copy()
+-        for col in self.currency_rate.columns:
+-            self.currency_rate[col] /= my_curr_rate
+-
+-        self.currency_rate.drop(self.currency, axis=1, inplace=True)
+-
+-        for curr in self.currency_rate:
+-            self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
+-
+-        if self.static:
+-            self.etf_currency = pd.Series(pd.read_csv(Data.data_dir_path / 'curr_etf.csv', index_col=0)['0'])
+-
+-        else:
+-            def get_currency(ticker):
+-                """
+-                Helper to retrieve the trading currency for a single ticker.
+-
+-                :param ticker: The ETF ticker symbol.
+-                :type ticker: str
+-                :returns: Pair ``(ticker, currency_code)``; ``'N/A'`` on failure.
+-                :rtype: tuple[str, str]
+-                """
+-                try:
+-                    return ticker, yf.Ticker(ticker).fast_info['currency']
+-                except Exception:
+-                    print('Cant retreive etf currency', ticker)
+-                    return ticker, 'N/A'
+-
+-            with concurrent.futures.ThreadPoolExecutor() as executor:
+-                results = executor.map(get_currency, self.etf_list)
+-
+-            self.etf_currency = dict(results)
+-            pd.Series(self.etf_currency).to_csv(Data.data_dir_path / 'curr_etf.csv')
+-
+-    def get_spy(self):
+-        """
+-        Fetch or load a total market proxy (VTI) and convert to base currency.
+-
+-        * If :attr:`static` is ``True``, read ``spy.csv`` (VTI close series)
+-          from :attr:`data_dir_path`.
+-        * Otherwise, download monthly close for ``'VTI'`` and cache it.
+-
+-        The series is converted to the instance's base :attr:`currency` using
+-        :attr:`currency_rate` when that base is not USD.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`spy` and writes/reads ``spy.csv``.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        if self.static:
+-            self.spy = pd.read_csv(Data.data_dir_path / 'spy.csv', index_col=0)
+-            self.spy.index = pd.to_datetime(self.spy.index)
+-        else:
+-            self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
+-            self.spy['VTI'].to_csv(Data.data_dir_path / 'spy.csv')
+-
+-        if self.currency != 'USD':
+-            self.spy['VTI'] /= self.currency_rate['USD']
+-
+-        self.spy = self.drop_test_data_backtest(self.spy)
+-
+-    def get_rf_rate(self):
+-        """
+-        Fetch or load daily ``^IRX`` and compute a monthly risk-free rate.
+-
+-        Steps
+-        -----
+-        1. Load daily close for ``^IRX`` (in decimal form) or read from cache.
+-        2. Resample to month starts (``'MS'``) taking the first valid value.
+-        3. Convert to an equivalent monthly rate via ``(1 + r) ** (1/12) - 1``.
+-        4. Drop timezone info and apply backtest truncation if configured.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`rf_rate` and writes/reads ``rf_rate.csv``.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        if self.static:
+-            irx = pd.read_csv(Data.data_dir_path / 'rf_rate.csv', index_col=0)
+-            irx.index = pd.to_datetime(irx.index, utc=True)
+-        else:
+-            irx = yf.Ticker('^IRX').history(period=self.period, interval='1d')['Close'] / 100
+-            irx.to_csv(Data.data_dir_path / 'rf_rate.csv')
+-
+-        rf_monthly = irx.resample('MS').first()
+-        self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
+-        self.rf_rate.index = self.rf_rate.index.tz_localize(None)
+-        self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
+-
+-        if self.static:
+-            self.rf_rate = self.rf_rate['Close']
+-
+-    def get_crypto(self):
+-        """
+-        Compute a long-only tangency portfolio over a small crypto universe.
+-
+-        Universe
+-        --------
+-        BTC, ETH, XRP, BNB, ADA, DOGE, TRX (USD pairs), sampled monthly from
+-        November 2017 onward. Data are converted into the base :attr:`currency`
+-        if needed.
+-
+-        Optimization
+-        ------------
+-        Maximize Sharpe ratio::
+-
+-            max_w  (w^T μ − rf) / sqrt(w^T Σ w)
+-            s.t.   ∑ w = 1,  0 ≤ w ≤ 1
+-
+-        where μ (annualized means) and Σ (annualized covariance) are estimated
+-        from monthly returns. The solver uses ``scipy.optimize.minimize`` with
+-        SLSQP.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`crypto_opti` as a ``dict`` mapping symbols to their weight
+-        in percent (rounded to 0.1), and caches/loads ``crypto.csv``.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        rf = 0.
+-
+-        if self.static:
+-            nav = pd.read_csv(Data.data_dir_path / 'crypto.csv', index_col=0)
+-            nav.index = pd.to_datetime(nav.index)
+-        else:
+-            nav = yf.download([f'{t}-USD' for t in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'DOGE', 'TRX']], period='max',
+-                              interval='1mo', auto_adjust=True)['Close'].loc['2017-11-01 00:00:00':]
+-            nav.to_csv(Data.data_dir_path / 'crypto.csv')
+-
+-        if self.currency != 'USD':
+-            for col in nav:
+-                nav[col] /= self.currency_rate['USD']
+-
+-        rets_m = nav.pct_change(fill_method=None).dropna(how='all')
+-        rets_m = rets_m.dropna(axis=1)
+-        mu = rets_m.mean() * 12
+-        Sigma = rets_m.cov() * 12
+-        assets = mu.index.to_list()
+-        n = len(assets)
+-
+-        def portfolio_stats(w, mu, Sigma, rf):
+-            """
+-            Compute portfolio mean, volatility, and Sharpe ratio.
+-
+-            :param w: Weights vector.
+-            :type w: numpy.ndarray
+-            :param mu: Expected returns (annualized).
+-            :type mu: numpy.ndarray
+-            :param Sigma: Covariance matrix (annualized).
+-            :type Sigma: numpy.ndarray
+-            :param rf: Risk-free rate (annualized).
+-            :type rf: float
+-            :returns: Tuple ``(expected_return, volatility, sharpe)``.
+-            :rtype: tuple[float, float, float]
+-            """
+-            mu_p = float(np.dot(w, mu))
+-            var_p = float(np.dot(w, Sigma @ w))
+-            vol_p = np.sqrt(var_p)
+-            sharpe = (mu_p - rf) / vol_p if vol_p > 0 else -np.inf
+-            return mu_p, vol_p, sharpe
+-
+-        def neg_sharpe(w, mu, Sigma, rf):
+-            """
+-            Negative Sharpe ratio objective for minimization.
+-
+-            :param w: Weights vector.
+-            :type w: numpy.ndarray
+-            :param mu: Expected returns (annualized).
+-            :type mu: numpy.ndarray
+-            :param Sigma: Covariance matrix (annualized).
+-            :type Sigma: numpy.ndarray
+-            :param rf: Risk-free rate (annualized).
+-            :type rf: float
+-            :returns: Negative Sharpe ratio.
+-            :rtype: float
+-            """
+-            _, vol, _ = portfolio_stats(w, mu, Sigma, rf)
+-            if vol <= 0:
+-                return 1e6
+-            return - (np.dot(w, mu) - rf) / vol
+-
+-        w0 = np.repeat(1.0 / n, n)
+-        constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
+-
+-        bounds = tuple((0.0, 1.0) for _ in range(n))
+-
+-        res = minimize(
+-            fun=neg_sharpe,
+-            x0=w0,
+-            args=(mu.values, Sigma.values, rf),
+-            method='SLSQP',
+-            bounds=bounds,
+-            constraints=constraints,
+-            options={'maxiter': 10_000, 'ftol': 1e-12, 'disp': False},
+-        )
+-
+-        w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)
+-        self.crypto_opti = {x.replace('-USD', ''): round(float(w_star_long[x] * 100), 1) for x in w_star_long.index}
+-
+-    def get_nav_returns(self):
+-        """
+-        Fetch or load ETF closes, convert to base currency, and compute returns.
+-
+-        Behavior
+-        --------
+-        * If :attr:`static` is ``True``, read ``nav.csv`` from cache.
+-        * Otherwise, download monthly closes for :attr:`etf_list` and cache.
+-        * Each ETF series is converted into the base :attr:`currency` using
+-          :attr:`currency_rate` and detected :attr:`etf_currency`.
+-        * Currency columns for the non-base currencies are added to ``nav`` so
+-          downstream code can plot FX series alongside ETFs.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`nav`, :attr:`returns`, :attr:`log_returns`,
+-        :attr:`excess_returns`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        if self.static:
+-            self.nav = pd.read_csv(Data.data_dir_path / 'nav.csv', index_col=0)
+-            self.nav.index = pd.to_datetime(self.nav.index)
+-        else:
+-            self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
+-            self.nav.to_csv(Data.data_dir_path / 'nav.csv')
+-
+-        for ticker in self.nav.columns:
+-            curr = self.etf_currency[ticker]
+-            if self.currency != curr:
+-                self.nav[ticker] /= self.currency_rate[curr]
+-        self.nav = self.nav.copy()
+-        self.nav = self.drop_test_data_backtest(self.nav)
+-
+-        for curr in self.currency_rate:
+-            self.nav[curr] = self.currency_rate[curr]
+-
+-        self.returns = self.nav.pct_change().fillna(0)
+-        self.log_returns = np.log(1 + self.returns)
+-        self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
+-
+-    def plot(self, tickers):
+-        """
+-        Plot cumulative performance for selected tickers vs. benchmark and RF.
+-
+-        The function plots:
+-
+-        * Each ticker's cumulative total return since its first observation,
+-          in percent.
+-        * The total stock market proxy (VTI) as a dashed line.
+-        * The compounded risk-free leg (from :attr:`rf_rate`) as a dashed line.
+-
+-        :param tickers: Tickers/columns to plot from :attr:`nav`.
+-        :type tickers: list[str] | tuple[str, ...]
+-        :returns: ``None`` (displays a Matplotlib figure).
+-        :rtype: None
+-        :raises KeyError: If a requested ticker is not present in :attr:`nav`.
+-        """
+-        for t in tickers:
+-            historic = (self.nav[t] / self.nav[t].iloc[0] - 1) * 100
+-            plt.plot(historic, label=t)
+-
+-        spy = (self.spy / self.spy.iloc[0] - 1) * 100
+-        plt.plot(spy, label='Total stock market', ls='--')
+-
+-        rf_rate = ((self.rf_rate + 1).cumprod() - 1) * 100
+-        plt.plot(rf_rate, label='rate', ls='--')
+-
+-        plt.axhline(0, color='black')
+-
+-        plt.ylabel('%')
+-        plt.grid()
+-        plt.legend()
+-        plt.show()
+-
+-    def get_full_names(self):
+-        """
+-        Fetch or load long names for ETFs and cache them.
+-
+-        * If :attr:`static` is ``True``, read from ``full_names.csv``.
+-        * Otherwise, query ``yfinance.Ticker(t).info['longName']`` for each ETF,
+-          add passthrough entries for currency pseudo-tickers, and cache.
+-
+-        Side Effects
+-        ------------
+-        Sets :attr:`etf_full_names`.
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        if self.static:
+-            etf_full_names = pd.read_csv(Data.data_dir_path / 'full_names.csv', index_col=0)
+-        else:
+-            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list})
+-            for ticker in Data.possible_currencies:
+-                etf_full_names[ticker] = ticker
+-            etf_full_names.to_csv(Data.data_dir_path / 'full_names.csv')
+-
+-        self.etf_full_names = etf_full_names
+-
+-    def get_exposure(self):
+-        """
+-        Load the exposures table from cache into :attr:`exposure`.
+-
+-        This method reads ``exposure.csv`` from :attr:`data_dir_path`. The file
+-        is expected to exist (no download step is performed here).
+-
+-        :returns: ``None``.
+-        :rtype: None
+-        """
+-        self.exposure = pd.read_csv(Data.data_dir_path / 'exposure.csv', index_col=0)
+Index: README.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/README.md b/README.md
+new file mode 100644
+--- /dev/null	(date 1756489512773)
++++ b/README.md	(date 1756489512773)
+@@ -0,0 +1,215 @@
++# ETF Portfolio Optimization
++
++A compact toolkit (with a Dash UI) to **build, optimize, backtest, and rebalance** ETF portfolios. It combines a pragmatic mean–variance objective with correlation‑based de‑duplication, clean plots, and an opinionated rebalance table.
++
++> Release: **v1** — Aug 29, 2025
++
++---
++
++## ✨ Features
++
++- **Mean–variance optimizer** (SLSQP) with long‑only or long/short budget (L1)  
++- **Correlation clustering** to prune near‑duplicate tickers (threshold on |corr|)  
++- **Walk‑forward backtests** with monthly re‑optimization and test returns  
++- **Exposure breakdowns** (asset class, sector, bond type, geography, currencies)  
++- **Rebalance plan** (buy/sell amounts + before/after allocations)  
++- **Dash app** for click‑through workflows and plot previews  
++- **Static caching** to avoid repeated downloads while iterating
++
++Modules: `data`, `portfolio`, `opti`, `backtest`, `exposure`, `rebalancer`, `dashboard`, `main`.
++
++---
++
++## 🛠️ Installation
++
++Tested with **Python 3.10+**.
++
++```bash
++# (Recommended) Create a virtual environment
++python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
++
++# Install dependencies (example)
++pip install -U pip
++pip install dash pandas numpy matplotlib scipy yfinance
++```
++
++Optional: add any other libs you use for data export or rich plotting.
++
++---
++
++## 🚀 Quickstart
++
++### 1) Run the Dash app
++```bash
++python run.py
++# visit http://127.0.0.1:8050  (or whatever the console prints)
++```
++In the UI you can set **risk**, **base currency**, **shorting**, **cash**, **holdings**, then:
++- Create an optimal portfolio  
++- View exposures  
++- Generate a rebalance table  
++- Launch a walk‑forward backtest  
++- Try the “crypto Sharpe” helper
++
++> Tip: For reproducible demos or to avoid network calls, the app and `Data` support a **static** mode that reads/writes CSV caches.
++
++### 2) Minimal programmatic example
++```python
++from portfolio import Portfolio
++from opti import Opti
++
++# Build the portfolio universe & objective
++p = Portfolio(
++    risk=2,                     # 1: low, 2: medium, 3: high
++    currency="USD",
++    holdings={"VTI": 5000, "BND": 5000},  # optional current positions (in base CCY)
++    cash=10000,                 # optional available cash
++    allow_short=False           # long-only if False
++)
++
++# Optimize
++o = Opti(p)
++o.optimize()
++print("Sparse optimum:", o.optimum)       # dict[ticker -> weight]
++o.get_cumulative()                         # compute in-sample cumulative perf
++
++# Plots (as Dash-ready <img> components, also saved under graphs/)
++img_alloc = o.plot_optimum()
++img_perf  = o.plot_in_sample()
++img_dd    = o.plot_drawdown()
++img_attr  = o.plot_weighted_perf()
++```
++
++### 3) Walk‑forward backtest
++```python
++from backtest import Backtest
++
++bt = Backtest(o)
++bt.parse_data()        # monthly re-optimization over the test window
++bt.smoothen_weights()  # optional: simple smoothing (2/3 prev + 1/3 curr)
++bt.get_returns()       # fills bt.returns (test) and bt.returns_decomp
++img_eq    = bt.plot_backtest()
++img_wts   = bt.plot_weights()
++img_attr2 = bt.plot_perf_attrib()
++```
++
++### 4) Rebalance plan
++```python
++from rebalancer import Rebalancer
++
++rb = Rebalancer(o)
++rb.get_difference()
++rb.get_df()
++print(rb.rebalance_df)   # columns: ['Ticker','ETF','Buy/Sell','Before','After']
++```
++
++### 5) Exposure breakdowns
++```python
++from exposure import Exposure
++
++ex = Exposure(o)
++img_asset = ex.plot_category()   # asset class
++img_geo   = ex.plot_geo()        # geography
++img_ccy   = ex.plot_currency()   # trading currencies (incl. FX pseudo-tickers)
++```
++
++---
++
++## 🧠 How it works (high level)
++
++- **Data** (`data.Data`) loads NAV/close series, FX, ^IRX risk‑free (monthly), simple/log/excess returns, and a VTI proxy for benchmarking. A small **crypto tangency** helper is included.
++- **Portfolio** (`portfolio.Portfolio`) trims too‑new tickers and runs **hierarchical clustering** on distance `1 - |corr|` (average linkage). For each cluster, it keeps the member with the lowest objective. It exposes `objective(w=...) = weight_cov * variance - mean_excess`. The risk‑aversion `weight_cov` is derived from the discrete **risk** (1..3).
++- **Opti** builds **bounds** (`(0,1)` long‑only or `(-1,1)` long/short) and an **equality constraint** (sum(w)=1 or sum(|w|)=1), then solves with **SciPy SLSQP**. Very small absolute weights (<1%) are zeroed and the vector is renormalized by L1.
++- **Backtest** performs a **train/test split** (default **0.85** in‑sample), re‑optimizes monthly in a walk‑forward loop (`static=True` + `backtest=<timestamp>` to truncate to in‑sample), then computes **out‑of‑sample returns** and plots.
++- **Exposure** aggregates optimized weights by category (asset class, sector, bond type, geography, trading currency).
++- **Rebalancer** converts weights × liquidity into **target currency amounts**, diffs vs holdings, and returns a tidy **rebalance table**.
++
++---
++
++## 📁 Project layout (suggested)
++
++```
++.
++├─ code/
++│  ├─ data.py
++│  ├─ portfolio.py
++│  ├─ opti.py
++│  ├─ backtest.py
++│  ├─ exposure.py
++│  ├─ rebalancer.py
++│  ├─ dashboard.py
++│  └─ run.py                   # entry point for the Dash app
++├─ graphs/                     # saved PNGs
++├─ data_cache/                 # CSV caches when static=True
++├─ docs/                       # Sphinx docs
++└─ README.md
++```
++
++---
++
++## 📚 Documentation (Sphinx)
++
++Build the HTML docs locally:
++```bash
++cd docs
++make html
++# open build/html/index.html
++```
++Tips:
++- Ensure your modules are included in a `toctree` (add or fix `modules.rst` as needed).
++- Prefer reStructuredText or Numpy-style docstrings consistently.
++- For duplicate object warnings, use `:no-index:` on one of the duplicates only when appropriate.
++
++---
++
++## ⚙️ Configuration & caching
++
++- **Base currency**: choose among `Data.possible_currencies` (e.g., `USD`, `EUR`, `SGD`, …).  
++- **Static mode**: pass `static=True` to reuse CSVs under your cache directory (define in your `Data` / project settings).  
++- **Graphs**: saved under `graphs/<currency>/`. The Dash APIs also return inline `<img>` components for embedding.
++
++---
++
++## 🧪 Testing (lightweight ideas)
++
++- Determinism of `get_color_map()` given a fixed universe  
++- Invariance of the equality constraint after zeroing tiny weights  
++- Backtest splits (index at the 85% cutoff)  
++- Rebalance table sums to total liquidity (within rounding)  
++
++---
++
++## ❓ Troubleshooting
++
++- **Rate limiting / network**: use `static=True` to iterate on cached data.  
++- **No update on button click** (Dash): check that the callback’s `Output` matches a displayed component and that you reset the triggering `n_clicks` when needed.  
++- **Empty exposure chart**: verify that the optimized tickers have exposure rows and non‑zero weights.  
++- **Weird allocations**: review your **risk** level and `threshold_correlation` (defaults to `0.95`).
++
++---
++
++## 🗺️ Roadmap (ideas)
++
++- Optional robust covariance / shrinkage  
++- Risk‑parity or max‑diversification objectives  
++- Transaction‑cost & turnover penalties  
++- Multi‑currency reporting (base vs native)  
++- Richer backtest analytics (rolling stats, heatmaps)
++
++---
++
++## 📄 License
++
++TBD. Add your preferred license (MIT/Apache‑2.0/BSD‑3‑Clause, etc.).
++
++---
++
++## Acknowledgements
++
++Yahoo Finance data via `yfinance`. Dash + Matplotlib for UI and plots. SciPy for optimization.
++
++---
++
++## Reference
++
++The README summarizes and complements the Sphinx project documentation. See the generated API pages for class/method details.

@@ -7,7 +7,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="doc &amp; readme" />
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment=".">
+      <change afterPath="$PROJECT_DIR$/.readthedocs.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/requirements.txt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -51,20 +54,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.dashboard.executor": "Run",
-    "Python.data.executor": "Run",
-    "Python.info.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.opti.executor": "Run",
-    "Python.portfolio.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "run.code.analysis.last.selected.profile": "aDefault",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data.executor&quot;: &quot;Run&quot;,
+    &quot;Python.info.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.opti.executor&quot;: &quot;Run&quot;,
+    &quot;Python.portfolio.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/code" />
@@ -85,14 +88,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00012" summary="dash plots">
-      <option name="closed" value="true" />
-      <created>1752446252902</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1752446252902</updated>
     </task>
     <task id="LOCAL-00013" summary="!! LAISSÉ SUR BUG">
       <option name="closed" value="true" />
@@ -478,7 +473,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756490826474</updated>
     </task>
-    <option name="localTasksCounter" value="61" />
+    <task id="LOCAL-00061" summary=".">
+      <option name="closed" value="true" />
+      <created>1756491384599</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1756491384599</updated>
+    </task>
+    <option name="localTasksCounter" value="62" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -493,7 +496,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="backtest perf attrib" />
     <MESSAGE value="New risk logic" />
     <MESSAGE value="+- risk input" />
     <MESSAGE value="rebalance" />
@@ -518,6 +520,7 @@
     <MESSAGE value="graph helper" />
     <MESSAGE value="doc" />
     <MESSAGE value="doc &amp; readme" />
-    <option name="LAST_COMMIT_MESSAGE" value="doc &amp; readme" />
+    <MESSAGE value="." />
+    <option name="LAST_COMMIT_MESSAGE" value="." />
   </component>
 </project>

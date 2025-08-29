@@ -6,9 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-import os
-import sys
-sys.path.insert(0, os.path.abspath(".."))
+import os, sys
+sys.path.insert(0, os.path.abspath(".."))        # repo root
+sys.path.insert(0, os.path.abspath("../code"))   # your source folder (adjust if different)
+
 
 
 project = 'ETF Portfolio Optimization'

@@ -7,10 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment=".">
-      <change afterPath="$PROJECT_DIR$/.readthedocs.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/requirements.txt" afterDir="false" />
-    </list>
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix ReadTheDocs config" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -88,14 +85,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00013" summary="!! LAISSÉ SUR BUG">
-      <option name="closed" value="true" />
-      <created>1752466038637</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1752466038637</updated>
     </task>
     <task id="LOCAL-00014" summary="debug">
       <option name="closed" value="true" />
@@ -481,7 +470,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756491384599</updated>
     </task>
-    <option name="localTasksCounter" value="62" />
+    <task id="LOCAL-00062" summary="fix ReadTheDocs config">
+      <option name="closed" value="true" />
+      <created>1756491917851</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1756491917851</updated>
+    </task>
+    <option name="localTasksCounter" value="63" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -496,8 +493,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="New risk logic" />
-    <MESSAGE value="+- risk input" />
     <MESSAGE value="rebalance" />
     <MESSAGE value="rebalance output" />
     <MESSAGE value="better weights history" />
@@ -521,6 +516,8 @@
     <MESSAGE value="doc" />
     <MESSAGE value="doc &amp; readme" />
     <MESSAGE value="." />
-    <option name="LAST_COMMIT_MESSAGE" value="." />
+    <MESSAGE value="Add ReadTheDocs config" />
+    <MESSAGE value="fix ReadTheDocs config" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix ReadTheDocs config" />
   </component>
 </project>

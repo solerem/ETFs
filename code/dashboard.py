@@ -108,7 +108,10 @@ class Dashboard(dash.Dash):
     def button_create_portfolio():
         return [html.H4("Optimal Portfolio:"),
                 html.Button("Create Portfolio", id='create-portfolio', n_clicks=0),
-                html.Div(id='portfolio-distrib')]
+                dcc.Loading(
+                    id="loading-portfolio",
+                    type="default",
+                    children=html.Div(id="portfolio-distrib"))]
 
 
     @staticmethod
@@ -129,7 +132,11 @@ class Dashboard(dash.Dash):
     def button_create_backtest():
         return [html.H4("Backtest:"),
                 html.Button("Launch Backtest", id='create-backtest', n_clicks=0),
-                html.Div(id='backtest-graphs')]
+                dcc.Loading(
+                    id="loading-backtest",
+                    type="default",
+                    children=html.Div(id="backtest-graphs")
+                )]
 
 
     @staticmethod
@@ -211,6 +218,7 @@ class Dashboard(dash.Dash):
             Output('create-backtest', 'n_clicks'),
             Output('backtest-graphs', 'children'),
             Input('create-backtest', 'n_clicks'),
+            prevent_initial_call=True
         )
         def create_backtest(create_backtest_n_click):
             if create_backtest_n_click:

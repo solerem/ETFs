@@ -96,6 +96,7 @@ class Info:
     def get_weight_cov(self):
         self.weight_cov = np.exp(self.risk-4)
         self.weight_cov = (self.risk/20)
+        self.weight_cov = (self.risk)
 
 
     def get_color_map(self):
@@ -126,7 +127,7 @@ class Portfolio(Info):
         self.get_objective()
         self.drop_highly_correlated()
         self.get_liquidity()
-        #self.cov_excess_returns = self.data.excess_returns.cov().values
+        self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
         self.crypto_opti = self.data.crypto_opti
 
@@ -150,8 +151,8 @@ class Portfolio(Info):
 
     def drop_highly_correlated(self):
 
-
         correlation_matrix = self.data.log_returns.corr().abs()
+
         distance_matrix = 1 - correlation_matrix
         linkage_matrix = linkage(squareform(distance_matrix), method='average')
 
@@ -181,7 +182,7 @@ class Portfolio(Info):
 
     def get_objective(self):
 
-        def old_f(w=np.zeros(self.n), single_ticker=None):
+        def f(w=np.zeros(self.n), single_ticker=None):
 
             if single_ticker:
                 excess_series = self.data.excess_returns[single_ticker]
@@ -191,9 +192,9 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+            return (20-2*self.weight_cov) * (w @ self.cov_excess_returns @ w) - mean
 
-        def f(w=np.zeros(self.n), single_ticker=None):
+        def old_f(w=np.zeros(self.n), single_ticker=None):
 
             if single_ticker:
                 excess_series = self.data.excess_returns[single_ticker]

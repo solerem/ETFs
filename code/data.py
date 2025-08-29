@@ -42,20 +42,27 @@ class Data:
 
     def get_currency(self):
 
-        to_download = [f'{self.currency}{ticker}=X' for ticker in Data.possible_currencies if ticker != self.currency]
-
         if self.static:
-            self.currency_rate = pd.read_csv(Data.data_dir_path + f'currency_{self.currency}.csv', index_col=0)
+            self.currency_rate = pd.read_csv(Data.data_dir_path + f'currency.csv', index_col=0)
             self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
         else:
+            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies if ticker != 'USD']
             self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
-            self.currency_rate.to_csv(Data.data_dir_path + f'currency_{self.currency}.csv')
+            self.currency_rate.to_csv(Data.data_dir_path + f'currency.csv')
+
 
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.currency_rate[curr].bfill()
+
+        self.currency_rate['USD'] = [1.] * len(self.currency_rate)
+        my_curr_rate = self.currency_rate[self.currency].copy()
+        for col in self.currency_rate.columns:
+            self.currency_rate[col] /= my_curr_rate
+
+        self.currency_rate.drop(self.currency, axis=1, inplace=True)
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])

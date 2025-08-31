@@ -1,25 +1,19 @@
 """
-Dash application to build, optimize, backtest, and rebalance an ETF portfolio.
+Interactive Dash application for ETF portfolio optimization.
 
-This module wires together the core components:
+This module defines :class:`Dashboard`, a Dash app that lets a user:
 
-* :class:`portfolio.Portfolio` — data preparation, universe pruning, objective.
-* :class:`opti.Opti` — portfolio optimization and performance/diagnostic plots.
-* :class:`rebalancer.Rebalancer` — converts optimal weights to a rebalance plan.
-* :class:`backtest.Backtest` — rolling walk-forward re-optimization backtest.
-* :class:`exposure.Exposure` — exposure breakdown charts.
+* Choose a risk level, base currency, and current holdings.
+* Construct an optimal portfolio using :class:`portfolio.Portfolio` and
+  :class:`opti.Opti`.
+* View in-sample diagnostics (allocation pie, equity curve, drawdown, attribution).
+* Generate a rolling walk-forward backtest via :class:`backtest.Backtest`.
+* Produce a rebalance table with buy/sell amounts via :class:`rebalancer.Rebalancer`.
+* Visualize exposure breakdowns via :class:`exposure.Exposure`.
+* Inspect a simple crypto Sharpe-optimized allocation (beta).
 
-The :class:`Dashboard` class builds a small UI with:
-- Risk, currency, and shorting controls,
-- Cash and current holdings inputs,
-- Buttons to create an optimal portfolio, show exposures, rebalance, and run a backtest,
-- A "crypto Sharpe" helper that shows tangency-portfolio weights for a small crypto universe.
-
-Notes
------
-* The app uses multiple Dash callbacks. Each callback resets its triggering
-  button's ``n_clicks`` to ``0`` after use to allow retriggering.
-* Images are returned as Dash-ready components via :meth:`opti.Opti.save_fig_as_dash_img`.
+The UI uses Bootstrap (via ``dash-bootstrap-components``) and arranges charts
+in a responsive 2-up grid on larger screens (stacking on small screens).
 """
 
 import dash
@@ -27,6 +21,9 @@ import pandas as pd
 from dash import html, dcc, Input, Output, State
 from dash.dependencies import ALL
 from dash import dash_table
+
+import dash_bootstrap_components as dbc
+
 from data import Data
 from backtest import Backtest
 from rebalancer import Rebalancer
@@ -37,247 +34,239 @@ from opti import Opti
 
 class Dashboard(dash.Dash):
     """
-    Minimal Dash UI for ETF portfolio workflows.
+    Dash application shell for ETF portfolio workflows.
 
     Parameters
     ----------
     static : bool, optional
-        If ``True``, downstream components load cached CSVs instead of
-        downloading fresh data (default: ``False``).
+        If ``True``, child components that support caching will read pre-downloaded
+        CSVs instead of hitting the network (passed along to :class:`data.Data`
+        via :class:`portfolio.Portfolio`). Default is ``False``.
 
     Attributes
     ----------
     static : bool
-        Passed to :class:`portfolio.Portfolio` / :class:`data.Data`.
-    layout_functions : list[callable]
-        Functions that return UI chunks used to compose the main layout.
-    main_div : list | None
-        Flat list of components used as children for the top-level ``html.Div``.
+        Whether to operate in cached/static mode for the underlying data loaders.
     risk : int | None
-        Risk level from the UI.
+        Selected risk level from the slider (0–10).
     currency : str | None
-        Selected base currency from the UI.
-    allow_short : list[str] | None
-        Checklist values; empty list means no shorting (long-only).
+        Selected base currency (one of :data:`data.Data.possible_currencies`).
+    allow_short : bool
+        Whether shorting is allowed (exposed to :class:`portfolio.Portfolio`).
     cash_sgd : float | None
-        Cash input (denominated in the selected currency).
+        Cash value input (interpreted in the selected base currency).
     holdings : dict[str, float] | None
-        Mapping of user-provided holdings (ticker -> value in base currency).
+        Current holdings mapping entered by the user.
     portfolio : Portfolio | None
-        Portfolio object created after clicking "Create Portfolio".
+        Last constructed portfolio.
     opti : Opti | None
-        Optimizer object tied to :attr:`portfolio`.
+        Optimizer wrapper for the last constructed portfolio.
     backtest : Backtest | None
-        Backtest object created after clicking "Launch Backtest".
+        Backtest wrapper computed from :attr:`opti`.
     rebalancer : Rebalancer | None
-        Rebalancer object created after clicking "Rebalance".
+        Rebalancing helper built from :attr:`opti`.
     exposure : Exposure | None
-        Exposure object created after clicking "Display exposure".
+        Exposure visualization helper built from :attr:`opti`.
     """
 
     def __init__(self, static=False):
         """
-        Construct the Dash app, build the layout, and register callbacks.
+        Construct the Dash app, inject CSS, build layout, and register callbacks.
 
-        :param static: Use cached data instead of fetching if ``True``.
+        :param static: If ``True``, downstream loaders use cached CSVs.
         :type static: bool
         :returns: ``None``.
         :rtype: None
         """
-        super().__init__()
-        self.static = static
+        super().__init__(external_stylesheets=[dbc.themes.LUX, dbc.icons.BOOTSTRAP])
+        self.index_string = self.index_string.replace(
+            "</head>",
+            """
+            <style>
+              @media (min-width: 992px){ .sticky-card{ position: sticky; top: 1rem; } }
+              .chart-frame{ max-width:100%; max-height:60vh; overflow:auto; }
+              .chart-frame img, .chart-frame svg, .chart-frame canvas{
+                display:block; max-width:100%; height:auto !important;
+              }
+              .chart-frame .dash-graph{ height:420px !important; }
 
-        self.layout_functions = [Dashboard.hidden_init_store,
-            Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
-            Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
-            Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest,
-            Dashboard.button_crypto
-        ]
+              /* NEW: 2-up grid for charts */
+              .grid-2{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:1rem; align-items:start; }
+              @media (max-width: 991.98px){ .grid-2{ grid-template-columns: 1fr; } } /* stack on small screens */
+            </style>
+            </head>
+            """
+        )
+
+        self.static = static
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
+        self.allow_short = False
+
         self.get_layout()
         self.callbacks()
 
     def get_layout(self):
         """
-        Compose the static layout sections from :attr:`layout_functions`.
+        Define and assign the top-level Dash layout.
+
+        The layout includes:
+        * A Bootstrap navbar,
+        * A left sidebar with controls (risk, currency, holdings),
+        * A right content area with tabs for portfolio, rebalance, exposure, backtest, and crypto.
 
         :returns: ``None`` (sets :attr:`layout`).
         :rtype: None
         """
-        self.main_div = []
-        for func in self.layout_functions:
-            self.main_div.extend(func())
+        self.layout = html.Div([
+            dcc.Store(id='init-store'),
 
-        self.layout = html.Div(self.main_div)
+            dbc.Navbar(
+                dbc.Container([
+                    dbc.NavbarBrand("ETF Portfolio Optimization", className="fw-semibold"),
+                    dbc.NavItem(dbc.Badge("beta", color="secondary", className="ms-2"))
+                ]),
+                color="primary",
+                dark=True,
+                className="mb-4 shadow-sm"
+            ),
 
-    @staticmethod
-    def text_title():
-        """
-        Create the app title.
+            dbc.Container([
+                dbc.Row([
+                    dbc.Col(self._sidebar_controls(), md=4, lg=3, className="mb-4"),
 
-        :returns: Title component list.
-        :rtype: list[dash.html.H1]
-        """
-        return [html.H1('ETF Portfolio Optimization')]
+                    dbc.Col(self._content_area(), md=8, lg=9)
+                ], className="g-4")
+            ], fluid=True),
 
-    @staticmethod
-    def hidden_init_store():
-        return [dcc.Store(id='init-store')]
-
-    @staticmethod
-    def radio_risk():
-        """
-        Numeric input for risk level.
-
-        :returns: A label and numeric input for risk.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [
-            html.H4('Select risk level:'),
-            dcc.Input(
-                id='risk-input',
-                type='number',
-                value=5,
-                min=0,
-                max=10,
-                step=1
+            html.Footer(
+                dbc.Container(
+                    html.Small("Built with Dash + Bootstrap Components", className="text-muted"),
+                    className="py-4"
+                ),
+                className="border-top mt-5"
             )
-        ]
+        ])
 
-    @staticmethod
-    def radio_currency():
+    def _sidebar_controls(self):
         """
-        Dropdown for base currency selection.
+        Build the left-hand sidebar with inputs and an "Add Holding" control.
 
-        :returns: H4 label and currency dropdown.
-        :rtype: list[dash.development.base_component.Component]
+        :returns: A Bootstrap card with form inputs.
+        :rtype: dash.html.Div
         """
-        return [html.H4('Select currency:'),
+        return dbc.Card([
+            dbc.CardHeader(html.Div([
+                html.Span(className="bi bi-sliders me-2"),
+                html.Span("Controls", className="fw-semibold")
+            ])),
+            dbc.CardBody([
+
+                dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
+                dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
+                           marks={i: str(i) for i in range(0, 11)},
+                           tooltip={"placement": "bottom", "always_visible": False}),
+                html.Div(className="mb-3"),
+
+                dbc.Label("Base currency", html_for="radio-currency", className="fw-semibold"),
                 dcc.Dropdown(
                     id='radio-currency',
                     options=[{'label': x, 'value': x} for x in Data.possible_currencies],
                     value='USD',
-                    clearable=False,
-                    style={'width': '100px'}
-                )]
+                    clearable=False
+                ),
+                html.Div(className="mb-3"),
 
-    @staticmethod
-    def radio_short():
-        """
-        Checklist to allow/disallow shorting.
+                dbc.Label(id='cash-label', className="fw-semibold"),
+                dbc.Input(id='cash', type='number', value=100, step='any', placeholder="Enter cash amount"),
+                html.Div(className="mb-4"),
 
-        :returns: Checklist component; empty value implies long-only.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [
-            dcc.Checklist(
-                id='switch-short',
-                options=[{'label': 'Allow Short', 'value': 'short'}],
-                value=[],  # empty list means unchecked
-                inputStyle={'margin-right': '5px'},
-            )
-        ]
+                html.Div([
+                    html.Div(className="d-flex align-items-center mb-2", children=[
+                        html.Div(className="fw-semibold me-auto", children="Current Holdings"),
+                        dbc.Button([html.I(className="bi bi-plus-lg me-1"), "Add Holding"],
+                                   id='button-holdings', n_clicks=0, color="secondary", size="sm", outline=True)
+                    ]),
+                    html.Div(id='holdings-container', children=[], className="vstack gap-2")
+                ])
+            ])
+        ], className="shadow-sm sticky-card")
 
-    @staticmethod
-    def input_cash():
+    def _content_area(self):
         """
-        Cash input whose label reflects the selected currency.
+        Build the right-hand tabbed content area (workspace).
 
-        :returns: Label and numeric input for cash.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4(id='cash-label'),
-                dcc.Input(id='cash', type='number', value=100, step='any')]
+        Tabs:
+        * Optimal Portfolio — constructs and visualizes the optimized weights.
+        * Rebalance — displays a rebalance table.
+        * Exposure — shows currency/class/sector/type/geo pie charts.
+        * Backtest — runs a rolling re-optimization backtest.
+        * Crypto (beta) — shows a Sharpe-optimized crypto allocation.
 
-    @staticmethod
-    def button_holdings():
+        :returns: A Bootstrap card containing Dash tabs and placeholders.
+        :rtype: dash.html.Div
         """
-        Holdings input section with an "Add Holding" button.
+        return dbc.Card([
+            dbc.CardHeader(
+                html.Div([html.Span(className="bi bi-graph-up-arrow me-2"),
+                          html.Span("Workspace", className="fw-semibold")])
+            ),
+            dbc.CardBody([
+                dcc.Tabs(id="main-tabs", value="tab-portfolio", children=[
+                    dcc.Tab(label="Optimal Portfolio", value="tab-portfolio", children=[
+                        html.Div(className="d-flex align-items-center mb-3", children=[
+                            dbc.Button([html.I(className="bi bi-magic me-2"), "Create Portfolio"],
+                                       id='create-portfolio', n_clicks=0, color="primary"),
+                            html.Span("  — computes optimal weights and charts", className="text-muted ms-2")
+                        ]),
+                        dbc.Spinner(html.Div(id='portfolio-distrib'), size="md")
+                    ]),
 
-        :returns: Header, button, and container div.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [
-            html.H4('Current Holdings:'),
-            html.Button('Add Holding', id='button-holdings', n_clicks=0),
-            html.Div(id='holdings-container', children=[])
-        ]
+                    dcc.Tab(label="Rebalance", value="tab-rebalance", children=[
+                        html.Div(className="d-flex align-items-center mb-3", children=[
+                            dbc.Button([html.I(className="bi bi-arrow-repeat me-2"), "Rebalance"],
+                                       id='rebalance-button', n_clicks=0, color="primary")
+                        ]),
+                        html.Div(id='rebalance-div', className="table-wrap")
+                    ]),
 
-    @staticmethod
-    def button_create_portfolio():
-        """
-        Section to create and display an optimal portfolio.
+                    dcc.Tab(label="Exposure", value="tab-exposure", children=[
+                        html.Div(className="d-flex align-items-center mb-3", children=[
+                            dbc.Button([html.I(className="bi bi-pie-chart me-2"), "Display exposure"],
+                                       id='display-exposure', n_clicks=0, color="primary")
+                        ]),
+                        html.Div(id='exposure-graphs')
+                    ]),
 
-        :returns: Header, button, and a loading wrapper for result graphs.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4('Optimal Portfolio:'),
-                html.Button('Create Portfolio', id='create-portfolio', n_clicks=0),
-                dcc.Loading(
-                    id='loading-portfolio',
-                    type='default',
-                    children=html.Div(id='portfolio-distrib'))]
+                    dcc.Tab(label="Backtest", value="tab-backtest", children=[
+                        html.Div(className="d-flex align-items-center mb-3", children=[
+                            dbc.Button([html.I(className="bi bi-play-fill me-2"), "Launch Backtest"],
+                                       id='create-backtest', n_clicks=0, color="primary"),
+                            html.Span("  — rolling walk-forward re-optimization", className="text-muted ms-2")
+                        ]),
+                        dbc.Spinner(html.Div(id='backtest-graphs'), size="md")
+                    ]),
 
-    @staticmethod
-    def button_rebalance():
-        """
-        Section to build and display a rebalance table.
-
-        :returns: Header, button, and result container.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4('Portfolio Rebalancing:'),
-                html.Button('Rebalance', id='rebalance-button', n_clicks=0),
-                html.Div(id='rebalance-div')]
-
-    @staticmethod
-    def button_display_exposure():
-        """
-        Section to render exposure breakdown charts.
-
-        :returns: Header, button, and graph container.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4('Exposure:'),
-                html.Button('Display exposure', id='display-exposure', n_clicks=0),
-                html.Div(id='exposure-graphs')]
-
-    @staticmethod
-    def button_create_backtest():
-        """
-        Section to run and display a rolling backtest.
-
-        :returns: Header, button, and loading wrapper for backtest graphs.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4('Backtest:'),
-                html.Button('Launch Backtest', id='create-backtest', n_clicks=0),
-                dcc.Loading(
-                    id='loading-backtest',
-                    type='default',
-                    children=html.Div(id='backtest-graphs')
-                )]
-
-    @staticmethod
-    def button_crypto():
-        """
-        Section to show crypto tangency-portfolio weights.
-
-        :returns: Header, button, and table container.
-        :rtype: list[dash.development.base_component.Component]
-        """
-        return [html.H4('Cryptos (beta):'),
-                html.Button('Get crypto sharpe', id='crypto-sharpe', n_clicks=0),
-                html.Div(id='crypto-opti')]
+                    dcc.Tab(label="Crypto (beta)", value="tab-crypto", children=[
+                        html.Div(className="d-flex align-items-center mb-3", children=[
+                            dbc.Button([html.I(className="bi bi-lightning-charge me-2"), "Get crypto sharpe"],
+                                       id='crypto-sharpe', n_clicks=0, color="warning")
+                        ]),
+                        html.Div(id='crypto-opti', className="table-wrap")
+                    ]),
+                ])
+            ])
+        ], className="shadow-sm")
 
     def callbacks(self):
         """
-        Register all Dash callbacks (inputs, buttons, and renderers).
+        Register all Dash callbacks for interactivity.
 
-        Each nested function has its own docstring describing inputs/outputs.
+        This method defines several nested callback functions bound to UI events:
+        input synchronization, dynamic labels and holdings rows, portfolio
+        creation, backtesting, rebalancing, exposure plotting, and crypto table.
 
         :returns: ``None``.
         :rtype: None
@@ -287,36 +276,31 @@ class Dashboard(dash.Dash):
             Output('init-store', 'data'),
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
-            Input('switch-short', 'value'),
             Input('cash', 'value'),
             Input({'type': 'ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, allow_short, cash_sgd, holdings_tickers, holdings_values):
+        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values):
             """
-            Capture form inputs and cache them on the instance.
+            Synchronize sidebar inputs into instance attributes.
 
-            :param risk: Risk level numeric value.
-            :type risk: int | float | None
-            :param currency: Selected base currency (e.g., ``'USD'``).
-            :type currency: str | None
-            :param allow_short: Checklist values; empty list means long-only.
-            :type allow_short: list[str]
-            :param cash_sgd: Cash amount in selected currency.
-            :type cash_sgd: float | int | None
-            :param holdings_tickers: List of ticker strings from dynamic fields.
+            :param risk: Risk slider value.
+            :type risk: int
+            :param currency: Selected base currency.
+            :type currency: str
+            :param cash_sgd: Input cash in base currency units.
+            :type cash_sgd: float
+            :param holdings_tickers: List of tickers entered in dynamic rows.
             :type holdings_tickers: list[str] | None
-            :param holdings_values: List of numeric values aligned to tickers.
+            :param holdings_values: List of values entered in dynamic rows.
             :type holdings_values: list[float] | None
-            :returns: ``None`` (state is stored on ``self``).
-            :rtype: None
+            :returns: Dummy value for the dcc.Store (unused).
+            :rtype: int
             """
             self.risk = risk
             self.currency = currency
-            self.allow_short = allow_short
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
-
             return 0
 
         @self.callback(
@@ -325,11 +309,11 @@ class Dashboard(dash.Dash):
         )
         def update_cash_label(selected_currency):
             """
-            Update the "Input Cash" label with the current currency.
+            Update the cash input label with the selected currency.
 
-            :param selected_currency: Newly selected currency code.
+            :param selected_currency: Current base currency from dropdown.
             :type selected_currency: str
-            :returns: Label text.
+            :returns: Updated label text.
             :rtype: str
             """
             return f'Input Cash (in {selected_currency})'
@@ -343,29 +327,33 @@ class Dashboard(dash.Dash):
         )
         def update_holdings(n_clicks, currency, tickers, values):
             """
-            Render the dynamic list of holding rows.
+            Grow the list of holdings input rows and preserve entered values.
 
-            :param n_clicks: Count of "Add Holding" button clicks.
+            :param n_clicks: Number of times "Add Holding" has been clicked.
             :type n_clicks: int
-            :param currency: Base currency for the value placeholder.
+            :param currency: Current base currency (for value field label).
             :type currency: str
-            :param tickers: Existing ticker field values (by index).
+            :param tickers: Existing ticker values from state.
             :type tickers: list[str] | None
-            :param values: Existing value field entries (by index).
+            :param values: Existing numeric values from state.
             :type values: list[float] | None
-            :returns: List of holding row components.
-            :rtype: list[dash.development.base_component.Component]
+            :returns: List of InputGroup rows for the holdings container.
+            :rtype: list[dash.html.Div]
             """
             holdings = []
+            tickers = tickers or []
+            values = values or []
             for i in range(n_clicks):
                 ticker_val = tickers[i] if i < len(tickers) else ''
                 value_val = values[i] if i < len(values) else ''
                 holdings.append(
-                    html.Div([
-                        dcc.Input(id={'type': 'ticker-input', 'index': i}, type='text', placeholder='Ticker',
+                    dbc.InputGroup([
+                        dbc.InputGroupText("Ticker"),
+                        dbc.Input(id={'type': 'ticker-input', 'index': i}, type='text', placeholder='e.g. VTI',
                                   value=ticker_val),
-                        dcc.Input(id={'type': 'value-input', 'index': i}, type='number',
-                                  placeholder=f'Value (in {currency})', step='any', value=value_val)
+                        dbc.InputGroupText(f"Value ({currency})"),
+                        dbc.Input(id={'type': 'value-input', 'index': i}, type='number',
+                                  placeholder='0.00', step='any', value=value_val)
                     ])
                 )
             return holdings
@@ -377,26 +365,27 @@ class Dashboard(dash.Dash):
         )
         def create_portfolio(create_portfolio_n_click):
             """
-            Build an optimal portfolio and render its graphs.
+            Build the portfolio and show in-sample charts.
 
-            Resets the button's ``n_clicks`` to 0 after rendering so the user
-            can click again.
+            Triggered by the "Create Portfolio" button. Constructs
+            :class:`portfolio.Portfolio` and :class:`opti.Opti`, then renders
+            four charts (equity curve, allocation pie, drawdown, attribution).
 
-            :param create_portfolio_n_click: Click counter for the button.
+            :param create_portfolio_n_click: Number of button clicks.
             :type create_portfolio_n_click: int
-            :returns: Tuple of (button reset, graphs container or no update).
-            :rtype: tuple[int, dash.development.base_component.Component]
+            :returns: Tuple ``(reset_clicks, charts_container)``.
+            :rtype: tuple[int, dash.html.Div]
             """
             if create_portfolio_n_click:
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short,
                                            static=self.static)
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
-                    self.opti.plot_in_sample(),
-                    self.opti.plot_optimum(),
-                    self.opti.plot_weighted_perf(),
-                    self.opti.plot_drawdown()
-                ])
+                    html.Div(self.opti.plot_in_sample(), className="chart-frame"),
+                    html.Div(self.opti.plot_optimum(), className="chart-frame"),
+                    html.Div(self.opti.plot_drawdown(), className="chart-frame"),
+                    html.Div(self.opti.plot_weighted_perf(), className="chart-frame"),
+                ], className="grid-2")
             return 0, dash.no_update
 
         @self.callback(
@@ -407,20 +396,21 @@ class Dashboard(dash.Dash):
         )
         def create_backtest(create_backtest_n_click):
             """
-            Run a rolling backtest and render its graphs.
+            Launch a rolling walk-forward backtest and display charts.
 
-            :param create_backtest_n_click: Click counter for the backtest button.
+            :param create_backtest_n_click: Number of button clicks.
             :type create_backtest_n_click: int
-            :returns: Tuple of (button reset, graphs container or no update).
-            :rtype: tuple[int, dash.development.base_component.Component]
+            :returns: Tuple ``(reset_clicks, charts_container)`` with weights,
+                      equity curve, and attribution.
+            :rtype: tuple[int, dash.html.Div | dash.dcc.Loading]
             """
             if create_backtest_n_click:
                 self.backtest = Backtest(self.opti)
                 return 0, html.Div([
-                    self.backtest.plot_weights(),
-                    self.backtest.plot_backtest(),
-                    self.backtest.plot_perf_attrib()
-                ])
+                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
+                    html.Div(self.backtest.plot_backtest(), className="chart-frame"),
+                    html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
+                ], className="grid-2")
             return 0, dash.no_update
 
         @self.callback(
@@ -431,29 +421,41 @@ class Dashboard(dash.Dash):
         )
         def rebalance(rebalance_n_click, selected_currency):
             """
-            Compute a rebalance plan and show it as a table.
+            Compute and render the rebalance table.
 
-            :param rebalance_n_click: Click counter for the rebalance button.
+            :param rebalance_n_click: Number of "Rebalance" button clicks.
             :type rebalance_n_click: int
-            :param selected_currency: Currency code to annotate the table column.
+            :param selected_currency: Current base currency for column labeling.
             :type selected_currency: str
-            :returns: Tuple of (button reset, table container or no update).
-            :rtype: tuple[int, dash.development.base_component.Component]
+            :returns: Tuple ``(reset_clicks, table_card)``.
+            :rtype: tuple[int, dash.html.Div]
             """
             if rebalance_n_click:
                 self.rebalancer = Rebalancer(self.opti)
-                df = self.rebalancer.rebalance_df
+                df = self.rebalancer.rebalance_df.copy()
                 df.rename(columns={'Buy/Sell': f'Buy/Sell ({selected_currency})'}, inplace=True)
 
-                return 0, html.Div([
-                    dash_table.DataTable(
-                        data=df.to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in df.columns],
-                        style_table={'overflowX': 'auto'},
-                        style_cell={'textAlign': 'left'},
-                        page_size=10
-                    )
-                ], style={'width': '40%'})
+                table = dash_table.DataTable(
+                    data=df.to_dict('records'),
+                    columns=[{'name': i, 'id': i} for i in df.columns],
+                    page_size=10,
+                    sort_action='native',
+                    style_table={'overflowX': 'auto'},
+                    style_as_list_view=True,
+                    style_header={
+                        'fontWeight': '600',
+                        'border': 'none'
+                    },
+                    style_cell={
+                        'padding': '10px',
+                        'border': 'none'
+                    },
+                    style_data_conditional=[
+                        {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgba(0,0,0,0.02)'}
+                    ]
+                )
+
+                return 0, dbc.Card(dbc.CardBody(table), className="shadow-sm")
             return 0, dash.no_update
 
         @self.callback(
@@ -463,22 +465,22 @@ class Dashboard(dash.Dash):
         )
         def display_exposure(display_exposure_n_click):
             """
-            Render exposure breakdown charts for the optimized portfolio.
+            Render currency/class/sector/type/geo exposure pie charts.
 
-            :param display_exposure_n_click: Click counter for the exposure button.
+            :param display_exposure_n_click: Number of "Display exposure" clicks.
             :type display_exposure_n_click: int
-            :returns: Tuple of (button reset, graphs container or no update).
-            :rtype: tuple[int, dash.development.base_component.Component]
+            :returns: Tuple ``(reset_clicks, charts_container)`` of pie charts.
+            :rtype: tuple[int, dash.html.Div]
             """
             if display_exposure_n_click:
                 self.exposure = Exposure(self.opti)
                 return 0, html.Div([
-                    self.exposure.plot_currency(),
-                    self.exposure.plot_category(),
-                    self.exposure.plot_sector(),
-                    self.exposure.plot_type(),
-                    self.exposure.plot_geo()
-                ])
+                    html.Div(self.exposure.plot_currency(), className="chart-frame"),
+                    html.Div(self.exposure.plot_category(), className="chart-frame"),
+                    html.Div(self.exposure.plot_sector(), className="chart-frame"),
+                    html.Div(self.exposure.plot_type(), className="chart-frame"),
+                    html.Div(self.exposure.plot_geo(), className="chart-frame"),
+                ], className="grid-2")
             return 0, dash.no_update
 
         @self.callback(
@@ -488,25 +490,31 @@ class Dashboard(dash.Dash):
         )
         def crypto_sharpe(crypto_sharpe_n_click):
             """
-            Display crypto tangency-portfolio weights as a table.
+            Show a Sharpe-optimized crypto allocation (weights in percent).
 
-            :param crypto_sharpe_n_click: Click counter for the crypto button.
+            :param crypto_sharpe_n_click: Number of button clicks.
             :type crypto_sharpe_n_click: int
-            :returns: Tuple of (button reset, table container or no update).
-            :rtype: tuple[int, dash.development.base_component.Component]
+            :returns: Tuple ``(reset_clicks, table_card)`` with a DataTable of
+                      non-zero weights.
+            :rtype: tuple[int, dash.html.Div]
             """
             if crypto_sharpe_n_click:
-                df = (pd.Series(self.portfolio.crypto_opti, name='Weight').rename_axis('Ticker').reset_index())
+                df = (pd.Series(self.portfolio.crypto_opti, name='Weight')
+                      .rename_axis('Ticker').reset_index())
                 df = df[df['Weight'] != 0]
                 df['Weight'] = [f'{x}%' for x in df['Weight']]
 
-                return 0, html.Div([
-                    dash_table.DataTable(
-                        data=df.to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in df.columns],
-                        style_table={'overflowX': 'auto'},
-                        style_cell={'textAlign': 'left'},
-                        page_size=10
-                    )
-                ], style={'width': '15%'})
+                table = dash_table.DataTable(
+                    data=df.to_dict('records'),
+                    columns=[{'name': i, 'id': i} for i in df.columns],
+                    page_size=10,
+                    style_table={'overflowX': 'auto'},
+                    style_as_list_view=True,
+                    style_header={'fontWeight': '600', 'border': 'none'},
+                    style_cell={'padding': '10px', 'border': 'none'},
+                    style_data_conditional=[
+                        {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgba(0,0,0,0.02)'}
+                    ]
+                )
+                return 0, dbc.Card(dbc.CardBody(table), className="shadow-sm")
             return 0, dash.no_update

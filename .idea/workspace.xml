@@ -7,12 +7,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix ReadTheDocs config">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix bug change currency">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/build/doctrees/environment.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/docs/build/doctrees/environment.pickle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -95,14 +92,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00026" summary="new ojective: pa/maxDD">
-      <option name="closed" value="true" />
-      <created>1752626888374</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1752626888374</updated>
     </task>
     <task id="LOCAL-00027" summary="skeleton backtest">
       <option name="closed" value="true" />
@@ -488,7 +477,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756494582681</updated>
     </task>
-    <option name="localTasksCounter" value="75" />
+    <task id="LOCAL-00075" summary="fix bug change currency">
+      <option name="closed" value="true" />
+      <created>1756622679861</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1756622679861</updated>
+    </task>
+    <option name="localTasksCounter" value="76" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -503,7 +500,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rebalance" />
     <MESSAGE value="rebalance output" />
     <MESSAGE value="better weights history" />
     <MESSAGE value="exposure skeleton + currency" />
@@ -528,6 +524,7 @@
     <MESSAGE value="." />
     <MESSAGE value="Add ReadTheDocs config" />
     <MESSAGE value="fix ReadTheDocs config" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix ReadTheDocs config" />
+    <MESSAGE value="fix bug change currency" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix bug change currency" />
   </component>
 </project>

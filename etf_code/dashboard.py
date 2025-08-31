@@ -87,7 +87,7 @@ class Dashboard(dash.Dash):
         super().__init__()
         self.static = static
 
-        self.layout_functions = [
+        self.layout_functions = [Dashboard.hidden_init_store,
             Dashboard.text_title, Dashboard.radio_risk, Dashboard.radio_currency, Dashboard.radio_short,
             Dashboard.input_cash, Dashboard.button_holdings, Dashboard.button_create_portfolio,
             Dashboard.button_rebalance, Dashboard.button_display_exposure, Dashboard.button_create_backtest,
@@ -122,6 +122,10 @@ class Dashboard(dash.Dash):
         :rtype: list[dash.html.H1]
         """
         return [html.H1('ETF Portfolio Optimization')]
+
+    @staticmethod
+    def hidden_init_store():
+        return [dcc.Store(id='init-store')]
 
     @staticmethod
     def radio_risk():
@@ -280,6 +284,7 @@ class Dashboard(dash.Dash):
         """
 
         @self.callback(
+            Output('init-store', 'data'),
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('switch-short', 'value'),
@@ -311,6 +316,8 @@ class Dashboard(dash.Dash):
             self.allow_short = allow_short
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
+
+            return 0
 
         @self.callback(
             Output('cash-label', 'children'),

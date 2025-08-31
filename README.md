@@ -1,5 +1,7 @@
 # ETF Portfolio Optimization
 
+See Wiki for documentation
+
 A compact toolkit (with a Dash UI) to **build, optimize, backtest, and rebalance** ETF portfolios. It combines a pragmatic mean–variance objective with correlation‑based de‑duplication, clean plots, and an opinionated rebalance table.
 
 > Release: **v1** — Aug 29, 2025

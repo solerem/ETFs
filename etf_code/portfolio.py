@@ -244,6 +244,8 @@ class Portfolio(Info):
         self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
         self.etf_list += [ticker for ticker in Data.possible_currencies if ticker != self.currency]
         self.etf_list = sorted(list(set(self.etf_list)))
+        if self.currency in self.etf_list:
+            self.etf_list.remove(self.currency)
         self.n = len(self.etf_list)
 
         self.drop_too_new()

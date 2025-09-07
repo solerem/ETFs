@@ -195,8 +195,10 @@ class Data:
             self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
             self.currency_rate.to_csv(Data.data_dir_path / 'currency.csv')
 
+
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
+
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.currency_rate[curr].bfill()
@@ -436,12 +438,17 @@ class Data:
             self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
             self.nav.to_csv(Data.data_dir_path / 'nav.csv')
 
+
+
         for ticker in self.nav.columns:
-            curr = self.etf_currency[ticker]
-            if self.currency != curr:
-                self.nav[ticker] /= self.currency_rate[curr]
+            if ticker not in Data.possible_currencies:
+                curr = self.etf_currency[ticker]
+                if self.currency != curr:
+                    self.nav[ticker] /= self.currency_rate[curr]
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
+
+
 
         for curr in self.currency_rate:
             self.nav[curr] = self.currency_rate[curr]

@@ -7,10 +7,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix bug work at launch">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="new design">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/documentation.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/crypto.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/crypto.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/curr_etf.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/curr_etf.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/currency.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/nav.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/rf_rate.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/spy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,14 +101,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00028" summary="commit static data">
-      <option name="closed" value="true" />
-      <created>1752697147311</created>
-      <option name="number" value="00028" />
-      <option name="presentableId" value="LOCAL-00028" />
-      <option name="project" value="LOCAL" />
-      <updated>1752697147312</updated>
     </task>
     <task id="LOCAL-00029" summary="basic 1st backtest graph">
       <option name="closed" value="true" />
@@ -486,7 +486,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756624939394</updated>
     </task>
-    <option name="localTasksCounter" value="77" />
+    <task id="LOCAL-00077" summary="new design">
+      <option name="closed" value="true" />
+      <created>1756627699756</created>
+      <option name="number" value="00077" />
+      <option name="presentableId" value="LOCAL-00077" />
+      <option name="project" value="LOCAL" />
+      <updated>1756627699756</updated>
+    </task>
+    <option name="localTasksCounter" value="78" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -501,7 +509,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="better weights history" />
     <MESSAGE value="exposure skeleton + currency" />
     <MESSAGE value="finish exposure" />
     <MESSAGE value="dd graph" />
@@ -526,6 +533,7 @@
     <MESSAGE value="fix ReadTheDocs config" />
     <MESSAGE value="fix bug change currency" />
     <MESSAGE value="fix bug work at launch" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix bug work at launch" />
+    <MESSAGE value="new design" />
+    <option name="LAST_COMMIT_MESSAGE" value="new design" />
   </component>
 </project>

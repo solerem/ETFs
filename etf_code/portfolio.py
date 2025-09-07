@@ -103,7 +103,7 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, allow_short):
+    def __init__(self, risk, cash, holdings, currency, allow_short, rates):
         """
         Construct an :class:`Info` object and derive risk/plotting utilities.
 
@@ -124,6 +124,7 @@ class Info:
         self.risk = risk
         self.cash = cash
         self.holdings = holdings if holdings else {}
+        self.rates = rates if rates else {}
         self.allow_short = allow_short
         self.currency = currency if currency else 'USD'
         self.get_weight_cov()
@@ -204,7 +205,7 @@ class Portfolio(Info):
         Crypto tangency-portfolio weights copied from :attr:`data.Data.crypto_opti`.
     """
 
-    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None):
+    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None, rates=None):
         """
         Initialize a :class:`Portfolio`, load data, and prune the universe.
 
@@ -237,7 +238,7 @@ class Portfolio(Info):
         :returns: ``None``.
         :rtype: None
         """
-        super().__init__(risk, cash, holdings, currency, allow_short)
+        super().__init__(risk, cash, holdings, currency, allow_short, rates)
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
 
@@ -248,7 +249,9 @@ class Portfolio(Info):
             self.etf_list.remove(self.currency)
         self.n = len(self.etf_list)
 
+
         self.drop_too_new()
+
 
         self.get_objective()
         self.drop_highly_correlated()
@@ -288,7 +291,9 @@ class Portfolio(Info):
         :returns: ``None``.
         :rtype: None
         """
+        print(self.data.nav)
         to_drop = self.data.nav.columns[self.data.nav.isna().any()].tolist()
+        print(to_drop)
         for col in to_drop:
             self.remove_etf(col)
 
@@ -363,6 +368,7 @@ class Portfolio(Info):
         :returns: ``None`` (sets :attr:`objective` to a callable).
         :rtype: None
         """
+
         def f(w=np.zeros(self.n), single_ticker=None):
             """
             Objective function handle.

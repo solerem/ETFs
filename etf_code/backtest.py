@@ -127,7 +127,7 @@ class Backtest:
         self.w_opt = pd.DataFrame({ticker: [] for ticker in Portfolio.etf_list})
         for i in tqdm(range(self.cutoff, self.n)):
             portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
-                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i])
+                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i], rates=self.portfolio.rates)
             optimum = Opti(portfolio).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
 

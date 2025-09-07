@@ -101,7 +101,7 @@ class Dashboard(dash.Dash):
         self.static = static
 
         self.main_div = None
-        self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings = None, None, None, None, None
+        self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.allow_short = False
 
@@ -190,6 +190,14 @@ class Dashboard(dash.Dash):
                                    id='button-holdings', n_clicks=0, color="secondary", size="sm", outline=True)
                     ]),
                     html.Div(id='holdings-container', children=[], className="vstack gap-2")
+                ]),
+                html.Div([
+                    html.Div(className="d-flex align-items-center mb-2", children=[
+                        html.Div(className="fw-semibold me-auto", children="Savings Rates"),
+                        dbc.Button([html.I(className="bi bi-plus-lg me-1"), "Add Rate"],
+                                   id='button-rates', n_clicks=0, color="secondary", size="sm", outline=True)
+                    ]),
+                    html.Div(id='rates-container', children=[], className="vstack gap-2")
                 ])
             ])
         ], className="shadow-sm sticky-card")
@@ -277,10 +285,12 @@ class Dashboard(dash.Dash):
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('cash', 'value'),
-            Input({'type': 'ticker-input', 'index': ALL}, 'value'),
-            Input({'type': 'value-input', 'index': ALL}, 'value'),
+            Input({'type': 'holdings-ticker-input', 'index': ALL}, 'value'),
+            Input({'type': 'holdings-value-input', 'index': ALL}, 'value'),
+            Input({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
+            Input({'type': 'rates-value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values):
+        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers, rates_values):
             """
             Synchronize sidebar inputs into instance attributes.
 
@@ -301,6 +311,7 @@ class Dashboard(dash.Dash):
             self.currency = currency
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
+            self.rates = {ticker: value for ticker, value in zip(rates_tickers, rates_values)}
             return 0
 
         @self.callback(
@@ -321,11 +332,10 @@ class Dashboard(dash.Dash):
         @self.callback(
             Output('holdings-container', 'children'),
             Input('button-holdings', 'n_clicks'),
-            Input('radio-currency', 'value'),
-            State({'type': 'ticker-input', 'index': ALL}, 'value'),
-            State({'type': 'value-input', 'index': ALL}, 'value'),
+            State({'type': 'holdings-ticker-input', 'index': ALL}, 'value'),
+            State({'type': 'holdings-value-input', 'index': ALL}, 'value'),
         )
-        def update_holdings(n_clicks, currency, tickers, values):
+        def update_holdings(n_clicks, tickers, values):
             """
             Grow the list of holdings input rows and preserve entered values.
 
@@ -349,11 +359,50 @@ class Dashboard(dash.Dash):
                 holdings.append(
                     dbc.InputGroup([
                         dbc.InputGroupText("Ticker"),
-                        dbc.Input(id={'type': 'ticker-input', 'index': i}, type='text', placeholder='e.g. VTI',
+                        dbc.Input(id={'type': 'holdings-ticker-input', 'index': i}, type='text', placeholder='eg SPX',
                                   value=ticker_val),
-                        dbc.InputGroupText(f"Value ({currency})"),
-                        dbc.Input(id={'type': 'value-input', 'index': i}, type='number',
-                                  placeholder='0.00', step='any', value=value_val)
+                        dbc.InputGroupText(f"Value"),
+                        dbc.Input(id={'type': 'holdings-value-input', 'index': i}, type='number',
+                                  placeholder='0', step=1, value=value_val)
+                    ])
+                )
+            return holdings
+
+        @self.callback(
+            Output('rates-container', 'children'),
+            Input('button-rates', 'n_clicks'),
+            State({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
+            State({'type': 'rates-value-input', 'index': ALL}, 'value'),
+        )
+        def update_rates(n_clicks, tickers, values):
+            """
+            Grow the list of holdings input rows and preserve entered values.
+
+            :param n_clicks: Number of times "Add Holding" has been clicked.
+            :type n_clicks: int
+            :param currency: Current base currency (for value field label).
+            :type currency: str
+            :param tickers: Existing ticker values from state.
+            :type tickers: list[str] | None
+            :param values: Existing numeric values from state.
+            :type values: list[float] | None
+            :returns: List of InputGroup rows for the holdings container.
+            :rtype: list[dash.html.Div]
+            """
+            holdings = []
+            tickers = tickers or []
+            values = values or []
+            for i in range(n_clicks):
+                ticker_val = tickers[i] if i < len(tickers) else ''
+                value_val = values[i] if i < len(values) else ''
+                holdings.append(
+                    dbc.InputGroup([
+                        dbc.InputGroupText("Ticker"),
+                        dbc.Input(id={'type': 'rates-ticker-input', 'index': i}, type='text', placeholder='eg EUR',
+                                  value=ticker_val),
+                        dbc.InputGroupText(f"Value"),
+                        dbc.Input(id={'type': 'rates-value-input', 'index': i}, type='number',
+                                  placeholder='0.00', step=.01, value=value_val)
                     ])
                 )
             return holdings
@@ -378,7 +427,7 @@ class Dashboard(dash.Dash):
             """
             if create_portfolio_n_click:
                 self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short,
-                                           static=self.static)
+                                           static=self.static, rates=self.rates)
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),

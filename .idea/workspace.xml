@@ -7,7 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="add substitute for less costly">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix drop corr bug">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
@@ -92,14 +92,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00032" summary="pie chart">
-      <option name="closed" value="true" />
-      <created>1752784874484</created>
-      <option name="number" value="00032" />
-      <option name="presentableId" value="LOCAL-00032" />
-      <option name="project" value="LOCAL" />
-      <updated>1752784874484</updated>
     </task>
     <task id="LOCAL-00033" summary="Save graphs">
       <option name="closed" value="true" />
@@ -485,7 +477,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757235131426</updated>
     </task>
-    <option name="localTasksCounter" value="81" />
+    <task id="LOCAL-00081" summary="fix drop corr bug">
+      <option name="closed" value="true" />
+      <created>1757237624187</created>
+      <option name="number" value="00081" />
+      <option name="presentableId" value="LOCAL-00081" />
+      <option name="project" value="LOCAL" />
+      <updated>1757237624187</updated>
+    </task>
+    <option name="localTasksCounter" value="82" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -500,7 +500,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Basic add bitcoin backfill" />
     <MESSAGE value="delete btc" />
     <MESSAGE value="basic add rf_rate" />
     <MESSAGE value="delete rf_rate" />
@@ -525,6 +524,7 @@
     <MESSAGE value="add rates prompt" />
     <MESSAGE value="add savings rate" />
     <MESSAGE value="add substitute for less costly" />
-    <option name="LAST_COMMIT_MESSAGE" value="add substitute for less costly" />
+    <MESSAGE value="fix drop corr bug" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix drop corr bug" />
   </component>
 </project>

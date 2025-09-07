@@ -290,3 +290,26 @@ class Backtest:
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
+
+
+    def plot_drawdown(self):
+        """
+        Plot the portfolio drawdown curve (area below zero).
+
+        :returns: Dash image component for embedding in a layout.
+        :rtype: dash.html.Img
+        """
+        cumulative = (1 + self.returns).cumprod()
+
+        rolling_max = cumulative.cummax()
+        drawdown = cumulative / rolling_max - 1
+
+        fig, ax = plt.subplots()
+        ax.fill_between(drawdown.index, drawdown * 100, 0, color='red', alpha=.5)
+
+        ax.set_title(f'Drawdown')
+        ax.set_ylabel('%')
+        ax.grid()
+
+        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
+        return Opti.save_fig_as_dash_img(fig, output_path)

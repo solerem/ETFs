@@ -456,8 +456,9 @@ class Dashboard(dash.Dash):
             if create_backtest_n_click:
                 self.backtest = Backtest(self.opti)
                 return 0, html.Div([
-                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
                     html.Div(self.backtest.plot_backtest(), className="chart-frame"),
+                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
+                    html.Div(self.backtest.plot_drawdown(), className="chart-frame"),
                     html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
                 ], className="grid-2")
             return 0, dash.no_update

@@ -320,15 +320,15 @@ class Portfolio(Info):
         log_returns_without_currency = self.data.log_returns.copy()
         log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
-        correlation_matrix = log_returns_without_currency.corr().abs()
+        correlation_matrix = log_returns_without_currency.corr().abs().fillna(0)
 
-        distance_matrix = 1 - correlation_matrix
-        linkage_matrix = linkage(squareform(distance_matrix), method='average')
+        tickers = correlation_matrix.columns.tolist()
 
-        threshold = 1 - Portfolio.threshold_correlation
-        clusters = fcluster(linkage_matrix, threshold, criterion='distance')
-
-        cluster_df = pd.DataFrame({'ETF': [x for x in self.etf_list if x != self.currency], 'Cluster': clusters})
+        condensed = squareform((1 - correlation_matrix).values, checks=False)
+        Z = linkage(condensed, method='average')  # or 'single' if you prefer
+        t = 1 - Portfolio.threshold_correlation  # e.g., 0.05 for 0.95 threshold
+        clusters = fcluster(Z, t, criterion='distance')
+        cluster_df = pd.DataFrame({'ETF': tickers, 'Cluster': clusters})#.set_index('ETF')
 
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
         obj_values = pd.Series(obj_values, name='obj_values')

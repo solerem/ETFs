@@ -7,10 +7,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="add rates prompt">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="add savings rate">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/rebalancer.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/rebalancer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,14 +93,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00030" summary="fix backtest">
-      <option name="closed" value="true" />
-      <created>1752777968453</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1752777968453</updated>
     </task>
     <task id="LOCAL-00031" summary="fix backtest">
       <option name="closed" value="true" />
@@ -486,7 +478,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757222878146</updated>
     </task>
-    <option name="localTasksCounter" value="79" />
+    <task id="LOCAL-00079" summary="add savings rate">
+      <option name="closed" value="true" />
+      <created>1757226208461</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1757226208461</updated>
+    </task>
+    <option name="localTasksCounter" value="80" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -501,7 +501,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="finish exposure" />
     <MESSAGE value="dd graph" />
     <MESSAGE value="Basic add bitcoin backfill" />
     <MESSAGE value="delete btc" />
@@ -526,6 +525,7 @@
     <MESSAGE value="fix bug work at launch" />
     <MESSAGE value="new design" />
     <MESSAGE value="add rates prompt" />
-    <option name="LAST_COMMIT_MESSAGE" value="add rates prompt" />
+    <MESSAGE value="add savings rate" />
+    <option name="LAST_COMMIT_MESSAGE" value="add savings rate" />
   </component>
 </project>

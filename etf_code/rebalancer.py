@@ -178,3 +178,8 @@ class Rebalancer:
 
         self.rebalance_df = self.rebalance_df[(~self.rebalance_df['After'].isna()) | (self.rebalance_df['Before'] != 0)]
         self.rebalance_df.rename(columns={'index': 'Ticker'}, inplace=True)
+
+        for i, row in self.rebalance_df.iterrows():
+            if row['Ticker'] in self.opti.portfolio.data.alternatives:
+                self.rebalance_df['Ticker'].loc[i] += f' ({self.opti.portfolio.data.alternatives[row["Ticker"]]})'
+

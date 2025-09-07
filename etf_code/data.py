@@ -123,7 +123,7 @@ class Data:
         :param backtest: If set, truncate series to ``.loc[:backtest]``.
         :type backtest: pandas.Timestamp | str | None
         """
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti = None, None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti, self.alternatives = None, None, None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
 
         self.get_currency()
@@ -133,6 +133,7 @@ class Data:
         self.get_full_names()
         self.get_exposure()
         self.get_crypto()
+        self.get_alternatives()
 
 
     def drop_test_data_backtest(self, df):
@@ -150,6 +151,12 @@ class Data:
         if self.backtest:
             df = df.loc[:self.backtest]
         return df
+
+
+    def get_alternatives(self):
+
+        df = pd.read_csv(Data.data_dir_path / 'alternatives.csv', sep=';')
+        self.alternatives = {row['TICKER']: row['BEST'] for _, row in df.iterrows()}
 
     @staticmethod
     def get_test_data_backtest(df, cutoff):

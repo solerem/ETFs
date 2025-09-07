@@ -242,16 +242,13 @@ class Portfolio(Info):
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
 
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest)
-        self.etf_list += [ticker for ticker in Data.possible_currencies if ticker != self.currency]
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates)
+        self.etf_list += [ticker for ticker in Data.possible_currencies]# if ticker != self.currency]
         self.etf_list = sorted(list(set(self.etf_list)))
-        if self.currency in self.etf_list:
-            self.etf_list.remove(self.currency)
         self.n = len(self.etf_list)
 
 
         self.drop_too_new()
-
 
         self.get_objective()
         self.drop_highly_correlated()
@@ -259,6 +256,8 @@ class Portfolio(Info):
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
         self.crypto_opti = self.data.crypto_opti
+
+
 
     def remove_etf(self, ticker):
         """
@@ -291,9 +290,7 @@ class Portfolio(Info):
         :returns: ``None``.
         :rtype: None
         """
-        print(self.data.nav)
         to_drop = self.data.nav.columns[self.data.nav.isna().any()].tolist()
-        print(to_drop)
         for col in to_drop:
             self.remove_etf(col)
 
@@ -319,7 +316,11 @@ class Portfolio(Info):
         :returns: ``None``.
         :rtype: None
         """
-        correlation_matrix = self.data.log_returns.corr().abs()
+
+        log_returns_without_currency = self.data.log_returns.copy()
+        log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
+
+        correlation_matrix = log_returns_without_currency.corr().abs()
 
         distance_matrix = 1 - correlation_matrix
         linkage_matrix = linkage(squareform(distance_matrix), method='average')
@@ -327,7 +328,7 @@ class Portfolio(Info):
         threshold = 1 - Portfolio.threshold_correlation
         clusters = fcluster(linkage_matrix, threshold, criterion='distance')
 
-        cluster_df = pd.DataFrame({'ETF': self.etf_list, 'Cluster': clusters})
+        cluster_df = pd.DataFrame({'ETF': [x for x in self.etf_list if x != self.currency], 'Cluster': clusters})
 
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
         obj_values = pd.Series(obj_values, name='obj_values')
@@ -337,7 +338,8 @@ class Portfolio(Info):
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
         for ticker in to_drop:
-            self.remove_etf(ticker)
+            if ticker != self.currency:
+                self.remove_etf(ticker)
 
     def get_liquidity(self):
         """

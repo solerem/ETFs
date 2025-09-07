@@ -105,7 +105,7 @@ class Data:
     possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CHF', 'CNY', 'HKD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
-    def __init__(self, currency, etf_list, static=False, backtest=None):
+    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None):
         """
         Initialize and eagerly load core datasets.
 
@@ -124,7 +124,7 @@ class Data:
         :type backtest: pandas.Timestamp | str | None
         """
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti = None, None, None, None, None, None, None, None, None, None, None
-        self.etf_list, self.currency, self.static, self.backtest = etf_list, currency, static, backtest
+        self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
 
         self.get_currency()
         self.get_rf_rate()
@@ -133,6 +133,7 @@ class Data:
         self.get_full_names()
         self.get_exposure()
         self.get_crypto()
+
 
     def drop_test_data_backtest(self, df):
         """
@@ -208,7 +209,7 @@ class Data:
         for col in self.currency_rate.columns:
             self.currency_rate[col] /= my_curr_rate
 
-        self.currency_rate.drop(self.currency, axis=1, inplace=True)
+        #self.currency_rate.drop(self.currency, axis=1, inplace=True)
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
@@ -448,12 +449,14 @@ class Data:
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
 
-
-
         for curr in self.currency_rate:
             self.nav[curr] = self.currency_rate[curr]
 
         self.returns = self.nav.pct_change().fillna(0)
+
+        for curr in self.rates:
+            self.returns[curr] = (1+self.returns[curr]) * ((1+self.rates[curr]/100) ** (1/12)) - 1
+
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 

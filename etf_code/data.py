@@ -101,11 +101,11 @@ class Data:
         crypto universe. Populated by :meth:`get_crypto`.
     """
 
-    period = '20y'
+
     possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CHF', 'CNY', 'HKD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
-    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None):
+    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
         """
         Initialize and eagerly load core datasets.
 
@@ -123,8 +123,10 @@ class Data:
         :param backtest: If set, truncate series to ``.loc[:backtest]``.
         :type backtest: pandas.Timestamp | str | None
         """
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.crypto_opti, self.alternatives = None, None, None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.alternatives = None, None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
+        self.crypto = crypto
+        self.period = '5y' if self.crypto else '20y'
 
         self.get_currency()
         self.get_rf_rate()
@@ -132,7 +134,6 @@ class Data:
         self.get_spy()
         self.get_full_names()
         self.get_exposure()
-        self.get_crypto()
         self.get_alternatives()
 
 
@@ -195,13 +196,14 @@ class Data:
         :returns: ``None``.
         :rtype: None
         """
+        currency_file = 'currency_crypto.csv' if self.crypto else 'currency.csv'
         if self.static:
-            self.currency_rate = pd.read_csv(Data.data_dir_path / 'currency.csv', index_col=0)
+            self.currency_rate = pd.read_csv(Data.data_dir_path / currency_file, index_col=0)
             self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
         else:
             to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies if ticker != 'USD']
-            self.currency_rate = yf.download(to_download, period=Data.period, interval='1mo', auto_adjust=True)['Close']
-            self.currency_rate.to_csv(Data.data_dir_path / 'currency.csv')
+            self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.currency_rate.to_csv(Data.data_dir_path / currency_file)
 
 
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
@@ -221,7 +223,11 @@ class Data:
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
 
-        if self.static:
+
+        if self.crypto:
+            self.etf_currency = pd.Series({ticker: 'USD' for ticker in self.etf_list})
+
+        elif self.static:
             self.etf_currency = pd.Series(pd.read_csv(Data.data_dir_path / 'curr_etf.csv', index_col=0)['0'])
 
         else:
@@ -264,12 +270,14 @@ class Data:
         :returns: ``None``.
         :rtype: None
         """
+        file_name = 'spy_crypto.csv' if self.crypto else 'spy.csv'
+
         if self.static:
-            self.spy = pd.read_csv(Data.data_dir_path / 'spy.csv', index_col=0)
+            self.spy = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
             self.spy.index = pd.to_datetime(self.spy.index)
         else:
-            self.spy = yf.download('VTI', period=Data.period, interval='1mo', auto_adjust=True)['Close']
-            self.spy['VTI'].to_csv(Data.data_dir_path / 'spy.csv')
+            self.spy = yf.download('VTI', period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.spy['VTI'].to_csv(Data.data_dir_path / file_name)
 
         if self.currency != 'USD':
             self.spy['VTI'] /= self.currency_rate['USD']
@@ -294,12 +302,14 @@ class Data:
         :returns: ``None``.
         :rtype: None
         """
+        file_name = 'rf_rate_crypto.csv' if self.crypto else 'rf_rate.csv'
+
         if self.static:
-            irx = pd.read_csv(Data.data_dir_path / 'rf_rate.csv', index_col=0)
+            irx = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
             irx.index = pd.to_datetime(irx.index, utc=True)
         else:
             irx = yf.Ticker('^IRX').history(period=self.period, interval='1d')['Close'] / 100
-            irx.to_csv(Data.data_dir_path / 'rf_rate.csv')
+            irx.to_csv(Data.data_dir_path / file_name)
 
         rf_monthly = irx.resample('MS').first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
@@ -309,114 +319,11 @@ class Data:
         if self.static:
             self.rf_rate = self.rf_rate['Close']
 
-    def get_crypto(self):
-        """
-        Compute a long-only tangency portfolio over a small crypto universe.
+        self.rf_rate /= self.currency_rate['USD']
 
-        Universe
-        --------
-        BTC, ETH, XRP, BNB, ADA, DOGE, TRX (USD pairs), sampled monthly from
-        November 2017 onward. Data are converted into the base :attr:`currency`
-        if needed.
 
-        Optimization
-        ------------
-        Maximize Sharpe ratio::
 
-            max_w  (w^T μ − rf) / sqrt(w^T Σ w)
-            s.t.   ∑ w = 1,  0 ≤ w ≤ 1
 
-        where μ (annualized means) and Σ (annualized covariance) are estimated
-        from monthly returns. The solver uses ``scipy.optimize.minimize`` with
-        SLSQP.
-
-        Side Effects
-        ------------
-        Sets :attr:`crypto_opti` as a ``dict`` mapping symbols to their weight
-        in percent (rounded to 0.1), and caches/loads ``crypto.csv``.
-
-        :returns: ``None``.
-        :rtype: None
-        """
-        rf = 0.
-
-        if self.static:
-            nav = pd.read_csv(Data.data_dir_path / 'crypto.csv', index_col=0)
-            nav.index = pd.to_datetime(nav.index)
-        else:
-            nav = yf.download([f'{t}-USD' for t in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'DOGE', 'TRX']], period='max',
-                              interval='1mo', auto_adjust=True)['Close'].loc['2017-11-01 00:00:00':]
-            nav.to_csv(Data.data_dir_path / 'crypto.csv')
-
-        if self.currency != 'USD':
-            for col in nav:
-                nav[col] /= self.currency_rate['USD']
-
-        rets_m = nav.pct_change(fill_method=None).dropna(how='all')
-        rets_m = rets_m.dropna(axis=1)
-        mu = rets_m.mean() * 12
-        Sigma = rets_m.cov() * 12
-        assets = mu.index.to_list()
-        n = len(assets)
-
-        def portfolio_stats(w, mu, Sigma, rf):
-            """
-            Compute portfolio mean, volatility, and Sharpe ratio.
-
-            :param w: Weights vector.
-            :type w: numpy.ndarray
-            :param mu: Expected returns (annualized).
-            :type mu: numpy.ndarray
-            :param Sigma: Covariance matrix (annualized).
-            :type Sigma: numpy.ndarray
-            :param rf: Risk-free rate (annualized).
-            :type rf: float
-            :returns: Tuple ``(expected_return, volatility, sharpe)``.
-            :rtype: tuple[float, float, float]
-            """
-            mu_p = float(np.dot(w, mu))
-            var_p = float(np.dot(w, Sigma @ w))
-            vol_p = np.sqrt(var_p)
-            sharpe = (mu_p - rf) / vol_p if vol_p > 0 else -np.inf
-            return mu_p, vol_p, sharpe
-
-        def neg_sharpe(w, mu, Sigma, rf):
-            """
-            Negative Sharpe ratio objective for minimization.
-
-            :param w: Weights vector.
-            :type w: numpy.ndarray
-            :param mu: Expected returns (annualized).
-            :type mu: numpy.ndarray
-            :param Sigma: Covariance matrix (annualized).
-            :type Sigma: numpy.ndarray
-            :param rf: Risk-free rate (annualized).
-            :type rf: float
-            :returns: Negative Sharpe ratio.
-            :rtype: float
-            """
-            _, vol, _ = portfolio_stats(w, mu, Sigma, rf)
-            if vol <= 0:
-                return 1e6
-            return - (np.dot(w, mu) - rf) / vol
-
-        w0 = np.repeat(1.0 / n, n)
-        constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
-
-        bounds = tuple((0.0, 1.0) for _ in range(n))
-
-        res = minimize(
-            fun=neg_sharpe,
-            x0=w0,
-            args=(mu.values, Sigma.values, rf),
-            method='SLSQP',
-            bounds=bounds,
-            constraints=constraints,
-            options={'maxiter': 10_000, 'ftol': 1e-12, 'disp': False},
-        )
-
-        w_star_long = pd.Series(res.x, index=assets).sort_values(ascending=False)
-        self.crypto_opti = {x.replace('-USD', ''): round(float(w_star_long[x] * 100), 1) for x in w_star_long.index}
 
     def get_nav_returns(self):
         """
@@ -439,12 +346,14 @@ class Data:
         :returns: ``None``.
         :rtype: None
         """
+        file_name = 'nav_crypto.csv' if self.crypto else 'nav.csv'
+
         if self.static:
-            self.nav = pd.read_csv(Data.data_dir_path / 'nav.csv', index_col=0)
+            self.nav = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
             self.nav.index = pd.to_datetime(self.nav.index)
         else:
-            self.nav = yf.download(self.etf_list, period=Data.period, interval='1mo', auto_adjust=True)['Close']
-            self.nav.to_csv(Data.data_dir_path / 'nav.csv')
+            self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.nav.to_csv(Data.data_dir_path / file_name)
 
 
 
@@ -456,16 +365,19 @@ class Data:
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
 
-        for curr in self.currency_rate:
-            self.nav[curr] = self.currency_rate[curr]
+        if not self.crypto:
+            for curr in self.currency_rate:
+                self.nav[curr] = self.currency_rate[curr]
 
         self.returns = self.nav.pct_change().fillna(0)
 
         for curr in self.rates:
-            self.returns[curr] = (1+self.returns[curr]) * ((1+self.rates[curr]/100) ** (1/12)) - 1
+            if curr:
+                self.returns[curr] = (1+self.returns[curr]) * ((1+self.rates[curr]/100) ** (1/12)) - 1
 
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
+
 
     def plot(self, tickers):
         """
@@ -516,13 +428,15 @@ class Data:
         :returns: ``None``.
         :rtype: None
         """
+        file_name = 'full_names_crypto.csv' if self.crypto else 'full_names.csv'
+
         if self.static:
-            etf_full_names = pd.read_csv(Data.data_dir_path / 'full_names.csv', index_col=0)
+            etf_full_names = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
         else:
             etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list})
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker
-            etf_full_names.to_csv(Data.data_dir_path / 'full_names.csv')
+            etf_full_names.to_csv(Data.data_dir_path / file_name)
 
         self.etf_full_names = etf_full_names
 

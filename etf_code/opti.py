@@ -96,7 +96,7 @@ class Opti:
         :returns: ``None``.
         :rtype: None
         """
-        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative = None, None, None, None, None, None
+        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns = None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
         self.get_constraints()
@@ -213,9 +213,25 @@ class Opti:
         :returns: ``None`` (sets :attr:`cumulative`).
         :rtype: None
         """
-        returns = self.portfolio.data.returns[self.optimum.keys()]
+        self.returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = list(self.optimum.values())
-        self.cumulative = (1 + returns @ weights).cumprod()
+        self.cumulative = (1 + self.returns @ weights).cumprod()
+
+
+        opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds,
+                       constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
+
+        if not opt.success:
+            print(f'Optimization failed: {opt.message}')
+            return None
+
+        self.w_opt = np.array([0. if abs(w) < .01 else float(w) for w in opt.x])
+        self.w_opt /= Opti.abs_sum(self.w_opt)
+
+        self.optimum_all = {tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)}
+        self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if
+                        self.optimum_all[ticker] != 0}
+
 
     def plot_optimum(self):
         """
@@ -264,7 +280,7 @@ class Opti:
 
         ax.axhline(0, color='black')
 
-        nb_years = int(Data.period[:-1])
+        nb_years = int(self.portfolio.data.period[:-1])
         pa_perf = round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
 
         running_max = self.cumulative.cummax()

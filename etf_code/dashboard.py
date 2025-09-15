@@ -104,9 +104,11 @@ class Dashboard(dash.Dash):
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.allow_short = False
+        self.mode = 'etf'  # 'etf' or 'crypto'
 
         self.get_layout()
         self.callbacks()
+
 
     def get_layout(self):
         """
@@ -164,11 +166,26 @@ class Dashboard(dash.Dash):
             ])),
             dbc.CardBody([
 
-                dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
-                dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
-                           marks={i: str(i) for i in range(0, 11)},
-                           tooltip={"placement": "bottom", "always_visible": False}),
+                # --- NEW: Mode toggle (ETF / Crypto) ---
+                dbc.Label("Mode", html_for="mode-toggle", className="fw-semibold"),
+                dbc.RadioItems(
+                    id='mode-toggle',
+                    options=[{'label': 'ETF', 'value': 'etf'},
+                             {'label': 'Crypto', 'value': 'crypto'}],
+                    value='etf',
+                    inline=True,
+                    inputClassName="me-1", labelClassName="me-3",
+                ),
                 html.Div(className="mb-3"),
+
+                # Risk controls wrapped so we can show/hide for crypto mode
+                html.Div(id='risk-section', children=[
+                    dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
+                    dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
+                               marks={i: str(i) for i in range(0, 11)},
+                               tooltip={"placement": "bottom", "always_visible": False}),
+                    html.Div(className="mb-3"),
+                ]),
 
                 dbc.Label("Base currency", html_for="radio-currency", className="fw-semibold"),
                 dcc.Dropdown(
@@ -191,7 +208,9 @@ class Dashboard(dash.Dash):
                     ]),
                     html.Div(id='holdings-container', children=[], className="vstack gap-2")
                 ]),
-                html.Div([
+
+                # Savings Rates section wrapped so we can show/hide for crypto mode
+                html.Div(id='rates-section', children=[
                     html.Div(className="d-flex align-items-center mb-2", children=[
                         html.Div(className="fw-semibold me-auto", children="Savings Rates"),
                         dbc.Button([html.I(className="bi bi-plus-lg me-1"), "Add Rate"],
@@ -208,10 +227,9 @@ class Dashboard(dash.Dash):
 
         Tabs:
         * Optimal Portfolio — constructs and visualizes the optimized weights.
-        * Rebalance — displays a rebalance table.
+        * Rebalance — displays a rebalance table. (hidden in Crypto mode)
         * Exposure — shows currency/class/sector/type/geo pie charts.
         * Backtest — runs a rolling re-optimization backtest.
-        * Crypto (beta) — shows a Sharpe-optimized crypto allocation.
 
         :returns: A Bootstrap card containing Dash tabs and placeholders.
         :rtype: dash.html.Div
@@ -240,7 +258,7 @@ class Dashboard(dash.Dash):
                         html.Div(id='rebalance-div', className="table-wrap")
                     ]),
 
-                    dcc.Tab(label="Exposure", value="tab-exposure", children=[
+                    dcc.Tab(label="Exposure", value="tab-exposure", id='exposure-tab', children=[
                         html.Div(className="d-flex align-items-center mb-3", children=[
                             dbc.Button([html.I(className="bi bi-pie-chart me-2"), "Display exposure"],
                                        id='display-exposure', n_clicks=0, color="primary")
@@ -256,14 +274,6 @@ class Dashboard(dash.Dash):
                         ]),
                         dbc.Spinner(html.Div(id='backtest-graphs'), size="md")
                     ]),
-
-                    dcc.Tab(label="Crypto (beta)", value="tab-crypto", children=[
-                        html.Div(className="d-flex align-items-center mb-3", children=[
-                            dbc.Button([html.I(className="bi bi-lightning-charge me-2"), "Get crypto sharpe"],
-                                       id='crypto-sharpe', n_clicks=0, color="warning")
-                        ]),
-                        html.Div(id='crypto-opti', className="table-wrap")
-                    ]),
                 ])
             ])
         ], className="shadow-sm")
@@ -274,7 +284,7 @@ class Dashboard(dash.Dash):
 
         This method defines several nested callback functions bound to UI events:
         input synchronization, dynamic labels and holdings rows, portfolio
-        creation, backtesting, rebalancing, exposure plotting, and crypto table.
+        creation, backtesting, rebalancing, exposure plotting.
 
         :returns: ``None``.
         :rtype: None
@@ -282,6 +292,7 @@ class Dashboard(dash.Dash):
 
         @self.callback(
             Output('init-store', 'data'),
+            Input('mode-toggle', 'value'),
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('cash', 'value'),
@@ -290,10 +301,13 @@ class Dashboard(dash.Dash):
             Input({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'rates-value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers, rates_values):
+        def input_callbacks(mode, risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers,
+                            rates_values):
             """
             Synchronize sidebar inputs into instance attributes.
 
+            :param mode: Selected mode ('etf' or 'crypto').
+            :type mode: str
             :param risk: Risk slider value.
             :type risk: int
             :param currency: Selected base currency.
@@ -307,11 +321,14 @@ class Dashboard(dash.Dash):
             :returns: Dummy value for the dcc.Store (unused).
             :rtype: int
             """
+            self.mode = mode or 'etf'
             self.risk = risk
             self.currency = currency
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
-            self.rates = {ticker: value for ticker, value in zip(rates_tickers, rates_values)}
+            # Ignore savings rates in crypto mode
+            self.rates = {} if self.mode == 'crypto' else {ticker: value for ticker, value in
+                                                           zip(rates_tickers, rates_values)}
             return 0
 
         @self.callback(
@@ -408,6 +425,20 @@ class Dashboard(dash.Dash):
             return holdings
 
         @self.callback(
+            Output('risk-section', 'style'),
+            Output('rates-section', 'style'),
+            Output('exposure-tab', 'style'),
+            Input('mode-toggle', 'value')
+        )
+        def toggle_sections(mode):
+            hide = {'display': 'none'}
+            show = {}
+            is_crypto = (mode == 'crypto')
+            return (hide if is_crypto else show,
+                    hide if is_crypto else show,
+                    hide if is_crypto else show)
+
+        @self.callback(
             Output('create-portfolio', 'n_clicks'),
             Output('portfolio-distrib', 'children'),
             Input('create-portfolio', 'n_clicks'),
@@ -426,8 +457,17 @@ class Dashboard(dash.Dash):
             :rtype: tuple[int, dash.html.Div]
             """
             if create_portfolio_n_click:
-                self.portfolio = Portfolio(self.risk, self.cash_sgd, self.holdings, self.currency, self.allow_short,
-                                           static=self.static, rates=self.rates)
+
+                self.portfolio = Portfolio(
+                    self.risk,
+                    self.cash_sgd,
+                    self.holdings,
+                    self.currency,
+                    self.allow_short,
+                    static=self.static,
+                    rates=self.rates,
+                    crypto=(self.mode == 'crypto')
+                )
                 self.opti = Opti(self.portfolio)
                 return 0, html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),
@@ -533,38 +573,3 @@ class Dashboard(dash.Dash):
                 ], className="grid-2")
             return 0, dash.no_update
 
-        @self.callback(
-            Output('crypto-sharpe', 'n_clicks'),
-            Output('crypto-opti', 'children'),
-            Input('crypto-sharpe', 'n_clicks'),
-        )
-        def crypto_sharpe(crypto_sharpe_n_click):
-            """
-            Show a Sharpe-optimized crypto allocation (weights in percent).
-
-            :param crypto_sharpe_n_click: Number of button clicks.
-            :type crypto_sharpe_n_click: int
-            :returns: Tuple ``(reset_clicks, table_card)`` with a DataTable of
-                      non-zero weights.
-            :rtype: tuple[int, dash.html.Div]
-            """
-            if crypto_sharpe_n_click:
-                df = (pd.Series(self.portfolio.crypto_opti, name='Weight')
-                      .rename_axis('Ticker').reset_index())
-                df = df[df['Weight'] != 0]
-                df['Weight'] = [f'{x}%' for x in df['Weight']]
-
-                table = dash_table.DataTable(
-                    data=df.to_dict('records'),
-                    columns=[{'name': i, 'id': i} for i in df.columns],
-                    page_size=10,
-                    style_table={'overflowX': 'auto'},
-                    style_as_list_view=True,
-                    style_header={'fontWeight': '600', 'border': 'none'},
-                    style_cell={'padding': '10px', 'border': 'none'},
-                    style_data_conditional=[
-                        {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgba(0,0,0,0.02)'}
-                    ]
-                )
-                return 0, dbc.Card(dbc.CardBody(table), className="shadow-sm")
-            return 0, dash.no_update

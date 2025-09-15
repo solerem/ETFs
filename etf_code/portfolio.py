@@ -95,7 +95,11 @@ class Info:
         'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK'
     ]
 
+    crypto_list  = ['BTC', 'ETH']
+    crypto_list = [f'{x}-USD' for x in crypto_list]
+
     etf_list = sorted(list(set(etf_list)))
+    crypto_list = sorted(list(set(crypto_list)))
 
     name = {
         1: 'Low risk',
@@ -103,7 +107,7 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, allow_short, rates):
+    def __init__(self, risk, cash, holdings, currency, allow_short, rates, crypto):
         """
         Construct an :class:`Info` object and derive risk/plotting utilities.
 
@@ -126,10 +130,11 @@ class Info:
         self.holdings = holdings if holdings else {}
         self.rates = rates if rates else {}
         self.allow_short = allow_short
+        self.crypto = crypto
         self.currency = currency if currency else 'USD'
         self.get_weight_cov()
         self.name = 'Risk ' + str(self.risk)
-        self.etf_list = Info.etf_list
+        self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
         self.n = len(self.etf_list)
         self.get_color_map()
 
@@ -146,7 +151,12 @@ class Info:
         :returns: ``None``.
         :rtype: None
         """
-        self.weight_cov = 52 * np.exp(-0.3259 * self.risk) - 2
+        self.weight_cov = 52 * np.exp(-0.326 * self.risk) - 2
+
+        if self.crypto:
+            self.weight_cov = 9.72 * np.exp(-0.42 * self.risk) - .187
+
+
 
     def get_color_map(self):
         """
@@ -161,7 +171,7 @@ class Info:
         """
         cmap = cm.get_cmap('tab20', self.n)
         self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(
-            self.etf_list + [ticker for ticker in Data.possible_currencies if ticker != self.currency])}
+            self.etf_list + Data.possible_currencies)}
 
 
 class Portfolio(Info):
@@ -205,7 +215,7 @@ class Portfolio(Info):
         Crypto tangency-portfolio weights copied from :attr:`data.Data.crypto_opti`.
     """
 
-    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None, rates=None):
+    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None, rates=None, crypto=False):
         """
         Initialize a :class:`Portfolio`, load data, and prune the universe.
 
@@ -238,24 +248,27 @@ class Portfolio(Info):
         :returns: ``None``.
         :rtype: None
         """
-        super().__init__(risk, cash, holdings, currency, allow_short, rates)
+        super().__init__(risk, cash, holdings, currency, allow_short, rates, crypto)
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
 
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates)
-        self.etf_list += [ticker for ticker in Data.possible_currencies]# if ticker != self.currency]
-        self.etf_list = sorted(list(set(self.etf_list)))
-        self.n = len(self.etf_list)
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto)
 
+        if not crypto:
+            self.etf_list += [ticker for ticker in Data.possible_currencies]
+
+        self.etf_list = sorted(list(set(self.etf_list)))
+
+        self.n = len(self.etf_list)
 
         self.drop_too_new()
 
         self.get_objective()
         self.drop_highly_correlated()
+
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
-        self.crypto_opti = self.data.crypto_opti
 
 
 
@@ -294,6 +307,7 @@ class Portfolio(Info):
         for col in to_drop:
             self.remove_etf(col)
 
+
     def drop_highly_correlated(self):
         """
         Cluster highly correlated tickers and keep one representative per cluster.
@@ -318,7 +332,9 @@ class Portfolio(Info):
         """
 
         log_returns_without_currency = self.data.log_returns.copy()
-        log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
+
+        if not self.crypto:
+            log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
         correlation_matrix = log_returns_without_currency.corr().abs().fillna(0)
 
@@ -391,7 +407,30 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            
+
             return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
-        self.objective = f
+        def f_crypto(w=np.zeros(self.n), single_ticker=None):
+            """
+            Objective function handle.
+
+            :param w: Portfolio weights (ignored when ``single_ticker`` is set).
+            :type w: numpy.ndarray
+            :param single_ticker: If provided, evaluate the objective for a
+                                  single column as a 1-asset portfolio.
+            :type single_ticker: str | None
+            :returns: Objective value (lower is better).
+            :rtype: float
+            """
+            if single_ticker:
+                excess_series = self.data.excess_returns[single_ticker]
+                mean = excess_series.mean()
+                std = excess_series.std()
+                return -mean/std
+
+            excess_series = self.data.excess_returns @ w
+            mean = excess_series.mean()
+
+            return -mean/excess_series.std()
+
+        self.objective = f_crypto if self.crypto else f

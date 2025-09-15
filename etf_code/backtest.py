@@ -124,10 +124,10 @@ class Backtest:
         self.cutoff = round(Backtest.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
 
-        self.w_opt = pd.DataFrame({ticker: [] for ticker in Portfolio.etf_list})
+        self.w_opt = pd.DataFrame({ticker: [] for ticker in self.opti.portfolio.etf_list})
         for i in tqdm(range(self.cutoff, self.n)):
             portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
-                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i], rates=self.portfolio.rates)
+                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i], rates=self.portfolio.rates, crypto=self.opti.portfolio.crypto)
             optimum = Opti(portfolio).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
 
@@ -198,7 +198,7 @@ class Backtest:
 
         ax.axhline(0, color='black')
 
-        nb_years = int(Data.period[:-1]) * (1 - Backtest.ratio_train_test)
+        nb_years = int(self.opti.portfolio.data.period[:-1]) * (1 - Backtest.ratio_train_test)
         pa_perf = round(((cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
 
         running_max = cumulative.cummax()

@@ -22,7 +22,9 @@ Notes
 import numpy as np
 import matplotlib
 
-matplotlib.use('Agg')
+from etf_code.portfolio import Portfolio
+
+matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 from data import Data
 from scipy.optimize import minimize
@@ -344,3 +346,27 @@ class Opti:
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
+
+
+def sanity_check_transform_weight():
+
+    R = list(np.linspace(0, 10, 11))
+    returns = []
+
+    for risk in R:
+        opti = Opti(Portfolio(risk=risk, cash=100, holdings=None, currency='USD', allow_short=False, static=True, backtest=None, rates={'EUR': 1.7, 'SGD': 1.8}, crypto=False))
+        pa_perf = round(((opti.cumulative.iloc[-1]) ** (1 / 20) - 1) * 100, 1)
+        returns.append(pa_perf)
+
+    plt.scatter(R, returns)
+
+    a = (returns[-1] - returns[0])/10
+    b = returns[0]
+    x = np.linspace(-1, 11, 1000)
+    y = [a*i+b for i in x]
+    plt.plot(x, y)
+
+    plt.show()
+
+
+#sanity_check_transform_weight()

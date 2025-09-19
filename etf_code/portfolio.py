@@ -92,7 +92,9 @@ class Info:
         'EFA', 'EPP', 'IEF', 'VDC', 'IBB', 'PBW', 'TIP', 'IWS', 'IYE', 'IWO', 'VUG', 'SUSA', 'ILCV', 'IYK', 'XMMO',
         'XLV', 'ONEQ', 'SHY', 'ISCB', 'EWJ', 'VXF', 'EWQ', 'PSI', 'ILF', 'IYR', 'IXG', 'IWD', 'IXP', 'VO', 'IDU', 'VGT',
         'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'IVE', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
-        'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK'
+        'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK',
+        'SI=F', 'PL=F', 'PA=F'
+
     ]
 
     crypto_list  = ['BTC', 'ETH']
@@ -152,9 +154,6 @@ class Info:
         :rtype: None
         """
         self.weight_cov = 52 * np.exp(-0.326 * self.risk) - 2
-
-        if self.crypto:
-            self.weight_cov = 9.72 * np.exp(-0.42 * self.risk) - .187
 
 
 

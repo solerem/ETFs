@@ -70,8 +70,6 @@ class Backtest:
         Per-asset contributions to test-period returns (weights × returns).
     """
 
-    ratio_train_test = .95
-    ratio_train_test = 17 / 20
 
     def __init__(self, opti):
         """
@@ -91,10 +89,10 @@ class Backtest:
         """
         self.opti = opti
         self.portfolio = self.opti.portfolio
+        self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else 17/20
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
         self.parse_data()
-        # self.smoothen_weights()
         self.get_returns()
 
     def parse_data(self):
@@ -121,7 +119,7 @@ class Backtest:
         """
 
         self.n = len(self.portfolio.data.nav)
-        self.cutoff = round(Backtest.ratio_train_test * self.n)
+        self.cutoff = int(self.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
 
         self.w_opt = pd.DataFrame({ticker: [] for ticker in self.opti.portfolio.etf_list})
@@ -131,27 +129,6 @@ class Backtest:
             optimum = Opti(portfolio).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
 
-    def smoothen_weights(self):
-        """
-        Apply simple exponential smoothing (2/3 previous + 1/3 current).
-
-        This can reduce churn in the weights before computing test returns.
-
-        Side Effects
-        ------------
-        Overwrites :attr:`w_opt` with the smoothed series.
-
-        :returns: ``None``.
-        :rtype: None
-        """
-        self.w_opt.fillna(0, inplace=True)
-        smoothed_df = pd.DataFrame(index=self.w_opt.index, columns=self.w_opt.columns, dtype=float)
-        smoothed_df.iloc[0] = self.w_opt.iloc[0]
-
-        for t in range(1, len(self.w_opt)):
-            smoothed_df.iloc[t] = (self.w_opt.iloc[t] + 2 * smoothed_df.iloc[t - 1]) / 3
-
-        self.w_opt = smoothed_df
 
     def get_returns(self):
         """
@@ -198,7 +175,7 @@ class Backtest:
 
         ax.axhline(0, color='black')
 
-        nb_years = int(self.opti.portfolio.data.period[:-1]) * (1 - Backtest.ratio_train_test)
+        nb_years = int(self.opti.portfolio.data.period[:-1]) * (1 - self.ratio_train_test)
         pa_perf = round(((cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
 
         running_max = cumulative.cummax()

@@ -433,7 +433,11 @@ class Data:
         if self.static:
             etf_full_names = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
         else:
-            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list})
+            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker })
+            for ticker in self.etf_list:
+                if '=F' in ticker:
+                    etf_full_names[ticker] = yf.Ticker(ticker).info['shortName']
+
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker
             etf_full_names.to_csv(Data.data_dir_path / file_name)

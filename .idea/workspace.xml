@@ -7,19 +7,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="backtest dd graph">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Fix crypto sharpe only">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/crypto.csv" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/data_dir/currency.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_dir/full_names.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/full_names.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_dir/nav.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_dir/rf_rate.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_dir/spy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/rebalancer.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/rebalancer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -104,14 +100,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00034" summary="Fixed backtest">
-      <option name="closed" value="true" />
-      <created>1752790483327</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1752790483327</updated>
     </task>
     <task id="LOCAL-00035" summary="weights history">
       <option name="closed" value="true" />
@@ -497,7 +485,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757240593194</updated>
     </task>
-    <option name="localTasksCounter" value="83" />
+    <task id="LOCAL-00083" summary="Fix crypto sharpe only">
+      <option name="closed" value="true" />
+      <created>1757951724034</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1757951724034</updated>
+    </task>
+    <option name="localTasksCounter" value="84" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -512,7 +508,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="basic add rf_rate" />
     <MESSAGE value="delete rf_rate" />
     <MESSAGE value="Add currencies as actif" />
     <MESSAGE value="other curr and new weight cov" />
@@ -537,6 +532,7 @@
     <MESSAGE value="add substitute for less costly" />
     <MESSAGE value="fix drop corr bug" />
     <MESSAGE value="backtest dd graph" />
-    <option name="LAST_COMMIT_MESSAGE" value="backtest dd graph" />
+    <MESSAGE value="Fix crypto sharpe only" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix crypto sharpe only" />
   </component>
 </project>

@@ -32,7 +32,7 @@ def main(debug: bool = False) -> None:
     :returns: ``None``.
     :rtype: None
     """
-    db = Dashboard(static=False)
+    db = Dashboard(static=True)
     db.run(debug=debug)
 
 

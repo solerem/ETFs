@@ -160,5 +160,12 @@ GBP,cash,,,Europe
 SGD,cash,,,Asia
 HKD,cash,,,Asia
 JPY,cash,,,Asia
-CHF,cash,,,Europe
-CNY,cash,,,Asia
+AUD,cash,,,Asia
+CNH,cash,,,Asia
+CAD,cash,,,North America
+NOK,cash,,,Europe
+NZD,cash,,,Asia
+SEK,cash,,,Europe
+THB,cash,,,Asia
+BTC-USD,crypto,,,Global/Other
+ETH-USD,crypto,,,Global/Other

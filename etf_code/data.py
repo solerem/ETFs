@@ -102,7 +102,7 @@ class Data:
     """
 
 
-    possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CHF', 'CNY', 'HKD']
+    possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CNH', 'HKD', 'AUD', 'CAD', 'NOK', 'NZD', 'SEK', 'THB']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):

@@ -21,7 +21,7 @@ Notes
 
 import numpy as np
 import matplotlib
-
+from scipy.optimize import curve_fit
 from etf_code.portfolio import Portfolio
 
 matplotlib.use('TkAgg')
@@ -358,15 +358,58 @@ def sanity_check_transform_weight():
         pa_perf = round(((opti.cumulative.iloc[-1]) ** (1 / 20) - 1) * 100, 1)
         returns.append(pa_perf)
 
-    plt.scatter(R, returns)
+    R = np.array(R)
+    returns = np.array(returns)
+    a,b = np.polyfit(R, returns, 1)
 
-    a = (returns[-1] - returns[0])/10
-    b = returns[0]
     x = np.linspace(-1, 11, 1000)
     y = [a*i+b for i in x]
+
+    mse = 0
+    index, biggest = 0,0
+    for i in range(11):
+        component = (returns[i] - (a*i+b))**2
+        mse += component
+        if component > biggest:
+            index, biggest = i, component
+
+    plt.scatter(R, returns)
     plt.plot(x, y)
+    plt.title(f'MSE: {round(mse/11, 3)}, largest: {index}')
 
     plt.show()
 
 
+
+import numpy as np
+from scipy.optimize import curve_fit
+
+# Model function: a * exp(bx) + c
+def exp_func(x, a, b, c):
+    return a * np.exp(b * x) + c
+
+def fit_exponential(points):
+    """
+    Fit a function of the form a*exp(bx) + c to a set of points.
+
+    Parameters:
+        points (list of tuples): [(x1, y1), (x2, y2), ...]
+
+    Returns:
+        (a, b, c) : fitted parameters
+    """
+    # Convert to numpy arrays
+    x_data = np.array([p[0] for p in points], dtype=float)
+    y_data = np.array([p[1] for p in points], dtype=float)
+
+    # Fit using curve_fit
+    popt, _ = curve_fit(exp_func, x_data, y_data, p0=(1, 0.1, 0))  # initial guess
+
+    print(popt)
+
+
+
+points = [(0, 49), (1, 35.5), (2, 25), (3, 17.5), (4, 12), (5, 8), (6, 4.75), (7, 3.33), (8, 2.5), (9, 1.2), (10, 0)]
+
 #sanity_check_transform_weight()
+#fit_exponential(points)

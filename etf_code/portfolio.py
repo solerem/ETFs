@@ -335,14 +335,19 @@ class Portfolio(Info):
         if not self.crypto:
             log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
-        correlation_matrix = log_returns_without_currency.corr().abs().fillna(0)
-
-        tickers = correlation_matrix.columns.tolist()
-
-        condensed = squareform((1 - correlation_matrix).values, checks=False)
-        Z = linkage(condensed, method='average')  # or 'single' if you prefer
-        t = 1 - Portfolio.threshold_correlation  # e.g., 0.05 for 0.95 threshold
+        corr = log_returns_without_currency.corr(method='pearson', min_periods=2).abs()
+        tickers = corr.columns.tolist()
+        np.fill_diagonal(corr.values, 1.0)
+        corr = corr.fillna(0.0)
+        dist = 1.0 - corr
+        dist = 0.5 * (dist + dist.T)
+        dist = np.clip(dist, 0.0, 2.0)
+        np.fill_diagonal(dist.values, 0.0)
+        condensed = squareform(dist.values, checks=True)  # will pass now
+        Z = linkage(condensed, method='average')
+        t = 1.0 - Portfolio.threshold_correlation  # e.g., 0.05 for 0.95
         clusters = fcluster(Z, t, criterion='distance')
+
         cluster_df = pd.DataFrame({'ETF': tickers, 'Cluster': clusters})#.set_index('ETF')
 
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}

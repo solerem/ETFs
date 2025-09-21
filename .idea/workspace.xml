@@ -7,9 +7,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="add sanity_check_weights">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="risk transfrom helpers">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,14 +95,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00037" summary="New risk logic">
-      <option name="closed" value="true" />
-      <created>1752886281967</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1752886281967</updated>
     </task>
     <task id="LOCAL-00038" summary="+- risk input">
       <option name="closed" value="true" />
@@ -487,7 +480,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758305378334</updated>
     </task>
-    <option name="localTasksCounter" value="86" />
+    <task id="LOCAL-00086" summary="risk transfrom helpers">
+      <option name="closed" value="true" />
+      <created>1758373719407</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1758373719407</updated>
+    </task>
+    <option name="localTasksCounter" value="87" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -502,7 +503,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="other curr and new weight cov" />
     <MESSAGE value="basic crypto side" />
     <MESSAGE value="back to mean-var" />
     <MESSAGE value="weight_cov transform function" />
@@ -527,6 +527,7 @@
     <MESSAGE value="Fix crypto sharpe only" />
     <MESSAGE value="Update curr list" />
     <MESSAGE value="add sanity_check_weights" />
-    <option name="LAST_COMMIT_MESSAGE" value="add sanity_check_weights" />
+    <MESSAGE value="risk transfrom helpers" />
+    <option name="LAST_COMMIT_MESSAGE" value="risk transfrom helpers" />
   </component>
 </project>

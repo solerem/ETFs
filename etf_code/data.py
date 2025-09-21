@@ -369,7 +369,7 @@ class Data:
             for curr in self.currency_rate:
                 self.nav[curr] = self.currency_rate[curr]
 
-        self.returns = self.nav.pct_change().fillna(0)
+        self.returns = self.nav.pct_change(fill_method=None).fillna(0)
 
         for curr in self.rates:
             if curr:

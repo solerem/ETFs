@@ -326,9 +326,8 @@ class Opti:
         returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = pd.Series(self.optimum)
 
-        cumulative_returns = (1 + returns).cumprod()
-        weighted_cumulative = cumulative_returns.multiply(weights, axis=1)
-        contribution = weighted_cumulative.subtract(1 * weights, axis=1) * 100
+        cumulative_returns = (1 + returns).cumprod() - 1
+        contribution = cumulative_returns.multiply(weights, axis=1)*100
 
         fig, ax = plt.subplots()
         for col in contribution.columns:

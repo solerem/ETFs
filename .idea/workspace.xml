@@ -7,15 +7,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix drop highly corr">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix colors">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/currency.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/nav.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/rf_rate.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/spy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,14 +94,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00039" summary="rebalance">
-      <option name="closed" value="true" />
-      <created>1752907527065</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1752907527065</updated>
     </task>
     <task id="LOCAL-00040" summary="rebalance output">
       <option name="closed" value="true" />
@@ -493,7 +479,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758427730356</updated>
     </task>
-    <option name="localTasksCounter" value="88" />
+    <task id="LOCAL-00088" summary="fix colors">
+      <option name="closed" value="true" />
+      <created>1758552651395</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1758552651395</updated>
+    </task>
+    <option name="localTasksCounter" value="89" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -508,7 +502,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="back to mean-var" />
     <MESSAGE value="weight_cov transform function" />
     <MESSAGE value="checkpoint before tqdm" />
     <MESSAGE value="loading" />
@@ -533,6 +526,7 @@
     <MESSAGE value="add sanity_check_weights" />
     <MESSAGE value="risk transfrom helpers" />
     <MESSAGE value="fix drop highly corr" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix drop highly corr" />
+    <MESSAGE value="fix colors" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix colors" />
   </component>
 </project>

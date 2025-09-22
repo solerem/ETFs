@@ -23,7 +23,8 @@ import numpy as np
 import matplotlib
 from scipy.optimize import curve_fit
 from etf_code.portfolio import Portfolio
-
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 from data import Data
@@ -98,13 +99,28 @@ class Opti:
         :returns: ``None``.
         :rtype: None
         """
-        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns = None, None, None, None, None, None, None
+        self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
         self.optimize()
         self.get_cumulative()
+        self.get_color_map()
+
+    def get_color_map(self):
+        """
+        Build a deterministic HEX color mapping for the current universe.
+
+        Colors are drawn from Matplotlib's ``tab20`` colormap. FX pseudo-tickers
+        for all non-base currencies are appended so that currency series can be
+        plotted alongside ETFs.
+
+        :returns: ``None``.
+        :rtype: None
+        """
+        cmap = cm.get_cmap('tab20', len(self.optimum))
+        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum.keys())}
 
     def get_bounds(self):
         """
@@ -249,7 +265,7 @@ class Opti:
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
 
         fig, ax = plt.subplots()
-        colors = [self.portfolio.color_map[k] for k in sorted_optimum.keys()]
+        colors = [self.color_map[k] for k in sorted_optimum.keys()]
         ax.pie(
             sorted_optimum.values(),
             labels=sorted_optimum.keys(),
@@ -316,7 +332,7 @@ class Opti:
 
         fig, ax = plt.subplots()
         for col in contribution.columns:
-            ax.plot(contribution.index, contribution[col], label=col, color=self.portfolio.color_map[col])
+            ax.plot(contribution.index, contribution[col], label=col, color=self.color_map[col])
 
         ax.legend()
         ax.set_title('In-Sample Performance Attribution')

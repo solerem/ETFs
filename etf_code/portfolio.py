@@ -32,8 +32,7 @@ from data import Data
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 import pandas as pd
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
+
 import numpy as np
 
 
@@ -97,7 +96,7 @@ class Info:
 
     ]
 
-    crypto_list  = ['BTC', 'ETH']
+    crypto_list  = ['BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
     crypto_list = [f'{x}-USD' for x in crypto_list]
 
     etf_list = sorted(list(set(etf_list)))
@@ -126,7 +125,7 @@ class Info:
         :returns: ``None``.
         :rtype: None
         """
-        self.color_map, self.weight_cov = None, None
+        self.weight_cov = None
         self.risk = risk
         self.cash = cash
         self.holdings = holdings if holdings else {}
@@ -138,7 +137,6 @@ class Info:
         self.name = 'Risk ' + str(self.risk)
         self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
         self.n = len(self.etf_list)
-        self.get_color_map()
 
     def get_weight_cov(self):
         """
@@ -154,23 +152,12 @@ class Info:
         :rtype: None
         """
         self.weight_cov = 52 * np.exp(-0.326 * self.risk) - 2
+        if self.risk == 10:
+            self.weight_cov += 1/3
 
 
 
-    def get_color_map(self):
-        """
-        Build a deterministic HEX color mapping for the current universe.
 
-        Colors are drawn from Matplotlib's ``tab20`` colormap. FX pseudo-tickers
-        for all non-base currencies are appended so that currency series can be
-        plotted alongside ETFs.
-
-        :returns: ``None``.
-        :rtype: None
-        """
-        cmap = cm.get_cmap('tab20', self.n)
-        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(
-            self.etf_list + Data.possible_currencies)}
 
 
 class Portfolio(Info):

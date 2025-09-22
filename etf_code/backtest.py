@@ -89,7 +89,7 @@ class Backtest:
         """
         self.opti = opti
         self.portfolio = self.opti.portfolio
-        self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else 17/20
+        self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else .9
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
         self.parse_data()
@@ -220,7 +220,7 @@ class Backtest:
             included_weight += mean_weights[next_ticker]
 
         tickers_to_plot = list(included)
-        colors = [self.portfolio.color_map[ticker] for ticker in tickers_to_plot]
+        colors = [self.opti.color_map[ticker] for ticker in tickers_to_plot]
 
         fig, ax = plt.subplots()
         ax.stackplot(
@@ -254,7 +254,7 @@ class Backtest:
 
         fig, ax = plt.subplots()
         for col in self.to_consider:
-            ax.plot(returns.index, (returns[col].cumsum()) * 100, label=col, color=self.portfolio.color_map[col])
+            ax.plot(returns.index, (returns[col].cumsum()) * 100, label=col, color=self.opti.color_map[col])
 
         ax.axhline(0, color='black')
         plt.setp(ax.get_xticklabels(), rotation=45)

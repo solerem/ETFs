@@ -20,6 +20,7 @@ EWG,stocks,Comprehensive/Other,,Europe
 EWH,stocks,Comprehensive/Other,,Asia
 EWI,stocks,Comprehensive/Other,,Europe
 EWJ,stocks,Comprehensive/Other,,Asia
+399001.SZ,stocks,Comprehensive/Other,,Asia
 EWL,stocks,Comprehensive/Other,,Europe
 EWM,stocks,Comprehensive/Other,,Asia
 EWN,stocks,Comprehensive/Other,,Europe
@@ -161,6 +162,7 @@ SGD,cash,,,Asia
 HKD,cash,,,Asia
 JPY,cash,,,Asia
 AUD,cash,,,Asia
+CNY,cash,,,Asia
 CNH,cash,,,Asia
 CAD,cash,,,North America
 NOK,cash,,,Europe

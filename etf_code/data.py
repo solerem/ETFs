@@ -272,16 +272,17 @@ class Data:
         :rtype: None
         """
         file_name = 'spy_crypto.csv' if self.crypto else 'spy.csv'
+        spy_ticker = 'BTC-USD' if self.crypto else 'VTI'
 
         if self.static:
             self.spy = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
             self.spy.index = pd.to_datetime(self.spy.index)
         else:
-            self.spy = yf.download('VTI', period=self.period, interval='1mo', auto_adjust=True)['Close']
-            self.spy['VTI'].to_csv(Data.data_dir_path / file_name)
+            self.spy = yf.download(spy_ticker, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.spy[spy_ticker].to_csv(Data.data_dir_path / file_name)
 
         if self.currency != 'USD':
-            self.spy['VTI'] /= self.currency_rate['USD']
+            self.spy[spy_ticker] /= self.currency_rate['USD']
 
         self.spy = self.drop_test_data_backtest(self.spy)
 

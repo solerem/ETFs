@@ -7,17 +7,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix perf attrb">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="fix BT weight graph">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/alternatives.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/alternatives.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/curr_etf.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/curr_etf.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/currency.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/full_names.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/full_names.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/nav.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/rf_rate.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/spy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,22 +95,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00041" summary="better weights history">
-      <option name="closed" value="true" />
-      <created>1752934181870</created>
-      <option name="number" value="00041" />
-      <option name="presentableId" value="LOCAL-00041" />
-      <option name="project" value="LOCAL" />
-      <updated>1752934181870</updated>
-    </task>
-    <task id="LOCAL-00042" summary="exposure skeleton + currency">
-      <option name="closed" value="true" />
-      <created>1752935519488</created>
-      <option name="number" value="00042" />
-      <option name="presentableId" value="LOCAL-00042" />
-      <option name="project" value="LOCAL" />
-      <updated>1752935519488</updated>
     </task>
     <task id="LOCAL-00043" summary="finish exposure">
       <option name="closed" value="true" />
@@ -495,7 +472,23 @@
       <option name="project" value="LOCAL" />
       <updated>1758555015364</updated>
     </task>
-    <option name="localTasksCounter" value="90" />
+    <task id="LOCAL-00090" summary="tweak">
+      <option name="closed" value="true" />
+      <created>1758896050580</created>
+      <option name="number" value="00090" />
+      <option name="presentableId" value="LOCAL-00090" />
+      <option name="project" value="LOCAL" />
+      <updated>1758896050581</updated>
+    </task>
+    <task id="LOCAL-00091" summary="fix BT weight graph">
+      <option name="closed" value="true" />
+      <created>1758902390691</created>
+      <option name="number" value="00091" />
+      <option name="presentableId" value="LOCAL-00091" />
+      <option name="project" value="LOCAL" />
+      <updated>1758902390691</updated>
+    </task>
+    <option name="localTasksCounter" value="92" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -510,8 +503,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="checkpoint before tqdm" />
-    <MESSAGE value="loading" />
     <MESSAGE value="graph fix" />
     <MESSAGE value="format" />
     <MESSAGE value="graph helper" />
@@ -535,6 +526,8 @@
     <MESSAGE value="fix drop highly corr" />
     <MESSAGE value="fix colors" />
     <MESSAGE value="fix perf attrb" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix perf attrb" />
+    <MESSAGE value="tweak" />
+    <MESSAGE value="fix BT weight graph" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix BT weight graph" />
   </component>
 </project>

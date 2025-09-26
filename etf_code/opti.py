@@ -119,8 +119,8 @@ class Opti:
         :returns: ``None``.
         :rtype: None
         """
-        cmap = cm.get_cmap('tab20', len(self.optimum))
-        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum.keys())}
+        cmap = cm.get_cmap('tab20', len(self.optimum_all))
+        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum_all.keys())}
 
     def get_bounds(self):
         """
@@ -291,7 +291,8 @@ class Opti:
         ax.plot((self.cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
+        label = 'BTC' if self.portfolio.crypto else 'Total stock market'
+        ax.plot(spy, label=f'{label} ({self.portfolio.currency})', linestyle='--')
 
         rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
         ax.plot(rf_rate, label='Rate', linestyle='--')

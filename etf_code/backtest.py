@@ -168,7 +168,8 @@ class Backtest:
         spy = self.portfolio.data.spy.copy()
         spy = spy.loc[self.index[self.cutoff]:]
         spy = (spy / spy.iloc[0] - 1) * 100
-        ax.plot(spy, label=f'Total stock market ({self.portfolio.currency})', linestyle='--')
+        label = 'BTC' if self.portfolio.crypto else 'Total stock market'
+        ax.plot(spy, label=f'{label} ({self.portfolio.currency})', linestyle='--')
 
         rf_rate = ((self.portfolio.data.rf_rate.loc[self.index[self.cutoff]:] + 1).cumprod() - 1) * 100
         ax.plot(rf_rate, label='Rate', linestyle='--')
@@ -205,39 +206,76 @@ class Backtest:
         :returns: Dash image component with the figure embedded.
         :rtype: dash.html.Img
         """
-        included = set(self.to_consider)
-        all_tickers = set(self.w_opt.columns)
-        remaining = list(all_tickers - included)
-        mean_weights = self.w_opt.mean()
-        sorted_remaining = sorted(remaining, key=lambda x: mean_weights[x], reverse=True)
+        import math
+        from pathlib import Path
+        import matplotlib.pyplot as plt
 
-        total_weight = mean_weights.sum()
-        included_weight = mean_weights[list(included)].sum()
+        # --- Prep & safety ---
+        w = self.w_opt.copy()
+        if w.empty:
+            raise ValueError("w_opt is empty; nothing to plot.")
 
-        while included_weight / total_weight < 0.9 and sorted_remaining:
-            next_ticker = sorted_remaining.pop(0)
-            included.add(next_ticker)
-            included_weight += mean_weights[next_ticker]
+        # Ensure numeric & fill NaNs so means/cum sums behave
+        w = w.apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
-        tickers_to_plot = list(included)
-        colors = [self.opti.color_map[ticker] for ticker in tickers_to_plot]
+        # Only keep columns that actually exist
+        to_consider = [t for t in getattr(self, "to_consider", []) if t in w.columns]
 
+        mean_w = w.mean(axis=0)  # average per ticker over time
+        # If everything is zero, avoid division by zero downstream
+        total_weight = float(mean_w.sum())
+        if math.isclose(total_weight, 0.0, abs_tol=1e-12):
+            raise ValueError("All mean weights are zero; cannot compute 90% coverage set.")
+
+        # --- Build the included set greedily ---
+        included = set(to_consider)
+        # Remaining candidates sorted by mean weight (desc)
+        remaining = [c for c in w.columns if c not in included]
+        remaining.sort(key=lambda x: float(mean_w.get(x, 0.0)), reverse=True)
+
+        # Start with current ones; compute included coverage
+        included_weight = float(mean_w[list(included)].sum()) if included else 0.0
+
+        # Greedily add until reaching ≥ 90% cumulative mean weight
+        target = 0.99 * total_weight
+        while included_weight < target and remaining:
+            nxt = remaining.pop(0)
+            included.add(nxt)
+            included_weight += float(mean_w[nxt])
+
+        # Final plotting order: sort included by descending mean weight for readability
+        tickers_to_plot = sorted(included, key=lambda x: float(mean_w.get(x, 0.0)), reverse=True)
+
+        # --- Colors (fallback to matplotlib cycle if any missing) ---
+        color_map = self.opti.color_map
+        colors = [color_map[t] for t in tickers_to_plot]
+
+        # --- Build the figure ---
         fig, ax = plt.subplots()
-        ax.stackplot(
-            self.w_opt.index,
-            100 * self.w_opt[tickers_to_plot].T,
-            labels=tickers_to_plot,
-            colors=colors
-        )
+        data = (100.0 * w[tickers_to_plot]).astype(float)
 
-        plt.setp(ax.get_xticklabels(), rotation=45)
-        ax.set_title(f'Weights history')
-        ax.axhline(100, color='black')
+        # Matplotlib's stackplot works best with explicit 1D arrays
+        ys = [data[col].values for col in tickers_to_plot]
+        ax.stackplot(data.index, *ys, labels=tickers_to_plot, colors=colors)
 
-        ax.set_ylabel('%')
-        ax.legend()
+        # Cosmetics
+        ax.set_title("Weights history")
+        ax.set_ylabel("%")
+        ax.set_ylim(0, 100)
+        ax.axhline(100, linewidth=1.0)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png'
+        # Legend: compact & outside if many series
+        n = len(tickers_to_plot)
+        if n <= 12:
+            ax.legend(loc="upper left", frameon=False)
+        else:
+            ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0, frameon=False)
+
+        # --- Save & return Dash image ---
+        output_path = Opti.graph_dir_path / f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_perf_attrib(self):

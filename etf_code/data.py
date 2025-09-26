@@ -102,7 +102,8 @@ class Data:
     """
 
 
-    possible_currencies = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'CNH', 'HKD', 'AUD', 'CAD', 'NOK', 'NZD', 'SEK', 'THB']
+    possible_currencies = ['USD', 'EUR', 'SGD', 'AUD', 'CNH', 'GBP', 'HKD', 'JPY']
+    helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
@@ -201,7 +202,7 @@ class Data:
             self.currency_rate = pd.read_csv(Data.data_dir_path / currency_file, index_col=0)
             self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
         else:
-            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies if ticker != 'USD']
+            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies+Data.helper_currencies if ticker != 'USD']
             self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=True)['Close']
             self.currency_rate.to_csv(Data.data_dir_path / currency_file)
 
@@ -367,7 +368,8 @@ class Data:
 
         if not self.crypto:
             for curr in self.currency_rate:
-                self.nav[curr] = self.currency_rate[curr]
+                if curr in Data.possible_currencies:
+                    self.nav[curr] = self.currency_rate[curr]
 
         self.returns = self.nav.pct_change(fill_method=None).fillna(0)
 

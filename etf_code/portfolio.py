@@ -95,6 +95,28 @@ class Info:
         'SI=F', 'PL=F', 'PA=F'
 
     ]
+    etf_list +=  [
+        "^GSPC",      # S&P 500 (USA)
+        "^DJI",       # Dow Jones Industrial Average (USA)
+        "^IXIC",      # Nasdaq Composite (USA)
+        "^NDX",       # Nasdaq-100 (USA)
+        "^RUT",       # Russell 2000 (USA)
+        "^FTSE",      # FTSE 100 (UK)
+        "^GDAXI",     # DAX (Germany)
+        "^FCHI",      # CAC 40 (France)
+        "^STOXX50E",  # Euro Stoxx 50 (Eurozone)
+        "^STOXX",     # STOXX Europe 600
+        "^N225",      # Nikkei 225 (Japan)
+        "^HSI",       # Hang Seng (Hong Kong)
+        "000001.SS",  # Shanghai Composite (China)
+        "399001.SZ",  # Shenzhen Component (China)
+        "^BSESN",     # BSE Sensex (India)
+        "^NSEI",      # Nifty 50 (India)
+        "^AXJO",      # S&P/ASX 200 (Australia)
+        "^GSPTSE",    # S&P/TSX Composite (Canada)
+        "^BVSP"       # Bovespa (Brazil)
+    ]
+
 
     crypto_list  = ['BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
     crypto_list = [f'{x}-USD' for x in crypto_list]

@@ -1,4 +1,6 @@
 ,0
+000001.SS,SSE Composite Index
+399001.SZ,Shenzhen Index
 AGG,iShares Core U.S. Aggregate Bond ETF
 DGT,SPDR Global Dow ETF
 DIA,SPDR Dow Jones Industrial Average ETF Trust
@@ -154,19 +156,31 @@ XMMO,Invesco S&P MidCap Momentum ETF
 XMVM,Invesco S&P MidCap Value with Momentum ETF
 XNTK,SPDR NYSE Technology ETF
 XSMO,Invesco S&P SmallCap Momentum ETF
+^AXJO,S&P/ASX 200
+^BSESN,S&P BSE SENSEX
+^BVSP,IBOVESPA
+^DJI,Dow Jones Industrial Average
+^FCHI,CAC 40
+^FTSE,FTSE 100
+^GDAXI,DAX P
+^GSPC,S&P 500
+^GSPTSE,S&P/TSX Composite index
+^HSI,HANG SENG INDEX
+^IXIC,NASDAQ Composite
+^N225,Nikkei 225
+^NDX,NASDAQ-100
+^NSEI,NIFTY 50
+^RUT, Russell 2000 Index
+^STOXX,STXE 600                      I
+^STOXX50E,EURO STOXX 50                 I
 PA=F,Palladium Dec 25
 PL=F,Platinum Oct 25
 SI=F,Silver Dec 25
 USD,USD
 EUR,EUR
 SGD,SGD
-GBP,GBP
-JPY,JPY
-CNH,CNH
-HKD,HKD
 AUD,AUD
-CAD,CAD
-NOK,NOK
-NZD,NZD
-SEK,SEK
-THB,THB
+CNH,CNH
+GBP,GBP
+HKD,HKD
+JPY,JPY

@@ -18,9 +18,11 @@ Notes
 * For long/short, the equality constraint is ``sum(|w|) = 1``; for long-only,
   it is ``sum(w) = 1``.
 """
+import math
 
 import numpy as np
 import matplotlib
+from dash import dash_table
 from scipy.optimize import curve_fit
 from etf_code.portfolio import Portfolio
 import matplotlib.cm as cm
@@ -34,6 +36,7 @@ import base64
 from dash import html
 import pandas as pd
 from pathlib import Path
+import statsmodels.api as sm
 
 
 class Opti:
@@ -250,7 +253,6 @@ class Opti:
         self.optimum = {ticker: self.optimum_all[ticker] for ticker in self.optimum_all if
                         self.optimum_all[ticker] != 0}
 
-
     def plot_optimum(self):
         """
         Plot the optimized allocation as a pie chart.
@@ -306,7 +308,7 @@ class Opti:
         drawdown = (self.cumulative - running_max) / running_max
         max_drawdown = round(drawdown.min() * 100, 1)
 
-        ax.set_title(f'In-Sample ({pa_perf}% p.a., {max_drawdown}% max drawdown)')
+        ax.set_title(f'In-Sample')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()
@@ -362,6 +364,88 @@ class Opti:
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
+
+
+    def plot_info(self):
+        info = {}
+        explain = {}
+        weights = list(self.optimum.values())
+        returns = self.returns @ weights
+
+        nb_years = int(self.portfolio.data.period[:-1])
+        pa_perf = (round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1))
+        info['CAGR'] = str(round(pa_perf, 1)) + ' %'
+        explain['CAGR'] = 'Average annual growth rate'
+
+        sharpe = returns.mean() / returns.std()
+        info['Sharpe ratio'] = round(sharpe * math.sqrt(12), 2)
+        explain['Sharpe ratio'] = 'Risk-adjusted return'
+
+
+        running_max = self.cumulative.cummax()
+        drawdown = (self.cumulative - running_max) / running_max
+        info['Max drawdown'] = str(round(drawdown.min() * 100, 1)) + ' %'
+        info['Avg drawdown'] = str(round(drawdown.mean() * 100, 1)) + ' %'
+        explain['Max drawdown'] = 'Largest peak-to-trough loss'
+        explain['Avg drawdown'] = 'Typical loss during downturns'
+
+
+
+        label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
+        spy = self.portfolio.data.spy[label].pct_change().dropna()
+        beta = returns[1:].cov(spy) / spy.var()
+        info['Beta'] = round(beta, 2)
+        explain['Beta'] = 'Sensitivity to market movements'
+
+
+        vol = returns.std() * math.sqrt(12)
+        info['Volatility'] = round(vol, 2)
+        explain['Volatility'] = 'Return fluctuations (risk)'
+
+        var95 = np.percentile(returns, (1 - .95) * 100)
+        info['VaR 95%'] = str(round(var95*100, 1)) + ' %'
+        explain['VaR 95%'] = 'Max expected loss at 95% confidence'
+
+
+        X = sm.add_constant(spy)
+        model = sm.OLS(returns[1:], X).fit()
+        r2 = model.rsquared
+        info['R2'] = str(round(100*r2)) + ' %'
+        explain['R2'] = '% of returns explained by benchmark'
+
+
+        # Convert dict into list of dicts for DataTable
+        data = [{"Metric": k, "Value": info[k], 'Detail': explain[k]} for k in info]
+
+        return dash_table.DataTable(
+            data=data,
+            columns=[
+                {"name": "Metric", "id": "Metric"},
+                {"name": "Value", "id": "Value"},
+                {"name": "Detail", "id": "Detail"}
+            ],
+            page_size=10,
+            sort_action='native',
+            style_table={'overflowX': 'auto'},
+            style_as_list_view=True,
+            style_header={
+                'fontWeight': '600',
+                'border': 'none',
+                'textAlign': 'center'  # Center header text
+            },
+            style_cell={
+                'padding': '14px',  # Larger padding → bigger rows
+                'border': 'none',
+                'textAlign': 'center',  # Center content horizontally
+                'fontSize': '16px'  # Increase font size
+            },
+            style_data_conditional=[
+                {
+                    'if': {'row_index': 'odd'},
+                    'backgroundColor': 'rgba(0,0,0,0.02)'
+                }
+            ]
+        )
 
 
 def sanity_check_transform_weight():

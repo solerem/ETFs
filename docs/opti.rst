@@ -1,7 +1,7 @@
 opti module
 ===========
 
-.. automodule:: opti
+.. automodule:: etf_code.opti
    :members:
    :show-inheritance:
    :undoc-members:

@@ -1,7 +1,7 @@
 data module
 ===========
 
-.. automodule:: data
+.. automodule:: etf_code.data
    :members:
    :show-inheritance:
    :undoc-members:

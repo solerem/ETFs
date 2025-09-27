@@ -1,7 +1,7 @@
 exposure module
 ===============
 
-.. automodule:: exposure
+.. automodule:: etf_code.exposure
    :members:
    :show-inheritance:
    :undoc-members:

@@ -10,9 +10,19 @@ portfolio's composition across:
 * Bond type,
 * Geography.
 
-The underlying exposures are sourced from ``opti.portfolio.data.exposure`` and
-optimal weights from :class:`~opti.Opti`. Figures are returned as Dash-ready
-``html.Img`` elements using :meth:`opti.Opti.save_fig_as_dash_img`.
+Data sources
+------------
+* Exposures are read from ``opti.portfolio.data.exposure`` (a pandas DataFrame
+  indexed by ticker with categorical columns such as ``Asset Class``,
+  ``Stock Sector``, ``Bond Type``, and ``Geography``).
+* Optimized weights are read from :class:`~opti.Opti` (``opti.optimum``).
+* Ticker trading currencies are read from
+  ``opti.portfolio.data.etf_currency``; FX pseudo-tickers are taken from
+  :data:`data.Data.possible_currencies`.
+
+All figures are returned as Dash-ready ``html.Img`` elements using
+:meth:`opti.Opti.save_fig_as_dash_img`. A non-interactive Matplotlib backend
+(``Agg``) is used so this module can run headless.
 """
 
 from opti import Opti
@@ -27,32 +37,40 @@ class Exposure:
     """
     Build exposure pie charts from an optimized portfolio.
 
-    :param opti: Optimizer instance providing:
-
+    Parameters
+    ----------
+    opti : Opti
+        Optimizer instance providing:
         - ``optimum``: mapping ``{ticker: weight}`` of optimized weights.
         - ``portfolio.data.exposure``: pandas DataFrame with categorical
           exposure columns (e.g., ``Asset Class``, ``Stock Sector``,
           ``Bond Type``, ``Geography``).
         - ``portfolio.data.etf_currency``: mapping ticker → native trading currency.
-        - ``portfolio.currency`` and ``Data.possible_currencies`` for FX pseudo-tickers.
-    :type opti: Opti
+        - ``portfolio.currency`` and :data:`data.Data.possible_currencies`
+          for FX pseudo-tickers.
 
-    :attribute opti: Reference to the optimizer.
-    :attribute optimum: Optimized weight mapping used to aggregate exposures.
-    :attribute exposure_df: Table of categorical exposures (indexed by ticker).
-    :vartype optimum: dict[str, float]
-    :vartype exposure_df: pandas.DataFrame
+    Attributes
+    ----------
+    opti : Opti
+        Reference to the optimizer.
+    optimum : dict[str, float]
+        Optimized weight mapping used to aggregate exposures.
+    exposure_df : pandas.DataFrame
+        Table of categorical exposures (indexed by ticker; columns per category).
     """
-
 
     def __init__(self, opti):
         """
         Initialize the exposure helper and capture required references.
 
-        :param opti: Optimizer instance with optimal weights and exposure data.
-        :type opti: Opti
-        :returns: ``None``.
-        :rtype: None
+        Parameters
+        ----------
+        opti : Opti
+            Optimizer instance with optimal weights and exposure data.
+
+        Returns
+        -------
+        None
         """
         self.opti = opti
         self.optimum = self.opti.optimum
@@ -65,12 +83,17 @@ class Exposure:
         Zero-weight categories are removed. The figure is converted to a Dash
         ``html.Img`` via :meth:`opti.Opti.save_fig_as_dash_img`.
 
-        :param dico: Mapping from category label to (non-normalized) weight.
-        :type dico: dict[str, float]
-        :param title: Chart title.
-        :type title: str
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Parameters
+        ----------
+        dico : dict[str, float]
+            Mapping from category label to (non-normalized) weight.
+        title : str
+            Chart title.
+
+        Returns
+        -------
+        dash.html.Img
+            Dash image component for embedding in a layout.
         """
         dico = {key: dico[key] for key in dico if dico[key] != 0}
         sorted_dico = dict(sorted(dico.items(), key=lambda item: item[1], reverse=True))
@@ -96,12 +119,19 @@ class Exposure:
         * Otherwise, look up the ETF's native trading currency in
           ``portfolio.data.etf_currency`` and attribute the weight accordingly.
 
-        :returns: Dash image component for the currency pie chart.
-        :rtype: dash.html.Img
+        Notes
+        -----
+        Weights are used as-is (no extra normalization) since the optimized
+        weights already sum to 1 under the L1 budget.
+
+        Returns
+        -------
+        dash.html.Img
+            Dash image component for the currency pie chart.
         """
         etf_currency = self.opti.portfolio.data.etf_currency
 
-        currency_dict = {curr: 0 for curr in Data.possible_currencies}
+        currency_dict = {curr: 0 for curr in Data.possible_currencies+Data.helper_currencies}
         for ticker in self.optimum:
             if ticker in Data.possible_currencies:
                 currency_dict[ticker] += self.optimum[ticker]
@@ -112,17 +142,23 @@ class Exposure:
 
     def plot_other_exposure(self, name):
         """
-        Generic pie chart for an exposure category column.
+        Generic pie chart for a categorical exposure column.
 
         The method aggregates optimized weights by the category in
         ``exposure_df[name]`` (e.g., ``'Asset Class'``, ``'Stock Sector'``,
         ``'Bond Type'``, ``'Geography'``). If the total weight for that
         category set is zero, returns ``None``.
 
-        :param name: Column name in :attr:`exposure_df` to aggregate by.
-        :type name: str
-        :returns: Dash image component, or ``None`` if there is no exposure.
-        :rtype: dash.html.Img | None
+        Parameters
+        ----------
+        name : str
+            Column name in :attr:`exposure_df` to aggregate by.
+
+        Returns
+        -------
+        dash.html.Img | None
+            Dash image component for the category pie chart, or ``None`` if
+            the optimized portfolio has no exposure mapped for that column.
         """
         category_df = self.exposure_df[name].dropna()
 
@@ -132,10 +168,10 @@ class Exposure:
                 category_dict[category_df[ticker]] += self.optimum[ticker]
 
         total = sum(category_dict.values())
-
         if total == 0:
             return None
 
+        # Normalize to proportions before plotting
         for cat in category_dict:
             category_dict[cat] /= total
 
@@ -145,8 +181,10 @@ class Exposure:
         """
         Plot exposure by high-level asset class.
 
-        :returns: Dash image component, or ``None`` if there is no exposure.
-        :rtype: dash.html.Img | None
+        Returns
+        -------
+        dash.html.Img | None
+            Dash image component, or ``None`` if there is no exposure.
         """
         return self.plot_other_exposure('Asset Class')
 
@@ -154,8 +192,10 @@ class Exposure:
         """
         Plot exposure by equity sector.
 
-        :returns: Dash image component, or ``None`` if there is no exposure.
-        :rtype: dash.html.Img | None
+        Returns
+        -------
+        dash.html.Img | None
+            Dash image component, or ``None`` if there is no exposure.
         """
         return self.plot_other_exposure('Stock Sector')
 
@@ -163,8 +203,10 @@ class Exposure:
         """
         Plot exposure by bond type.
 
-        :returns: Dash image component, or ``None`` if there is no exposure.
-        :rtype: dash.html.Img | None
+        Returns
+        -------
+        dash.html.Img | None
+            Dash image component, or ``None`` if there is no exposure.
         """
         return self.plot_other_exposure('Bond Type')
 
@@ -172,7 +214,9 @@ class Exposure:
         """
         Plot exposure by geography.
 
-        :returns: Dash image component, or ``None`` if there is no exposure.
-        :rtype: dash.html.Img | None
+        Returns
+        -------
+        dash.html.Img | None
+            Dash image component, or ``None`` if there is no exposure.
         """
         return self.plot_other_exposure('Geography')

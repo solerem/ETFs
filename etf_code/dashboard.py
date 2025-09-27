@@ -1,19 +1,28 @@
 """
-Interactive Dash application for ETF portfolio optimization.
+Interactive Dash application for ETF or Crypto portfolio optimization.
 
 This module defines :class:`Dashboard`, a Dash app that lets a user:
 
-* Choose a risk level, base currency, and current holdings.
+* Choose a mode (ETF or Crypto), risk level (ETF only), base currency, and current holdings.
 * Construct an optimal portfolio using :class:`portfolio.Portfolio` and
   :class:`opti.Opti`.
 * View in-sample diagnostics (allocation pie, equity curve, drawdown, attribution).
 * Generate a rolling walk-forward backtest via :class:`backtest.Backtest`.
 * Produce a rebalance table with buy/sell amounts via :class:`rebalancer.Rebalancer`.
 * Visualize exposure breakdowns via :class:`exposure.Exposure`.
-* Inspect a simple crypto Sharpe-optimized allocation (beta).
+* Inspect a simple crypto Sharpe-optimized allocation (beta via ``Portfolio.crypto`` mode).
 
-The UI uses Bootstrap (via ``dash-bootstrap-components``) and arranges charts
-in a responsive 2-up grid on larger screens (stacking on small screens).
+UI/UX
+-----
+* Built with Dash + Bootstrap (``dash-bootstrap-components``).
+* Responsive “2-up” grid for charts on wide screens; stacks on smaller screens.
+* In Crypto mode, the Risk and Savings Rates controls are hidden (Sharpe-style
+  objective ignores the mean–variance risk weight and currency savings rates).
+
+Data/Caching
+------------
+* ``static=True`` enables cached CSVs for loaders inside :class:`portfolio.Portfolio`
+  and :class:`data.Data`.
 """
 
 import dash
@@ -34,7 +43,7 @@ from opti import Opti
 
 class Dashboard(dash.Dash):
     """
-    Dash application shell for ETF portfolio workflows.
+    Dash application shell for ETF/Crypto portfolio workflows.
 
     Parameters
     ----------
@@ -47,8 +56,11 @@ class Dashboard(dash.Dash):
     ----------
     static : bool
         Whether to operate in cached/static mode for the underlying data loaders.
+    mode : str
+        Application mode: ``'etf'`` (default) or ``'crypto'``. Toggles controls and
+        objective used by :class:`portfolio.Portfolio`.
     risk : int | None
-        Selected risk level from the slider (0–10).
+        Selected risk level from the slider (0–10). Hidden/ignored in Crypto mode.
     currency : str | None
         Selected base currency (one of :data:`data.Data.possible_currencies`).
     allow_short : bool
@@ -57,6 +69,9 @@ class Dashboard(dash.Dash):
         Cash value input (interpreted in the selected base currency).
     holdings : dict[str, float] | None
         Current holdings mapping entered by the user.
+    rates : dict[str, float] | None
+        Optional mapping of currency pseudo-tickers to annualized savings rates (%)—
+        ignored in Crypto mode.
     portfolio : Portfolio | None
         Last constructed portfolio.
     opti : Opti | None
@@ -67,16 +82,28 @@ class Dashboard(dash.Dash):
         Rebalancing helper built from :attr:`opti`.
     exposure : Exposure | None
         Exposure visualization helper built from :attr:`opti`.
+    main_div : dash.html.Div | None
+        Top-level container reference (not used externally).
     """
 
     def __init__(self, static=False):
         """
         Construct the Dash app, inject CSS, build layout, and register callbacks.
 
-        :param static: If ``True``, downstream loaders use cached CSVs.
-        :type static: bool
-        :returns: ``None``.
-        :rtype: None
+        The constructor:
+        * Applies Bootstrap theme and lightweight custom CSS (grid, sticky sidebar).
+        * Initializes state (mode, risk, currency, holdings, etc.).
+        * Builds the sidebar + workspace layout.
+        * Registers all interaction callbacks.
+
+        Parameters
+        ----------
+        static : bool, optional
+            If ``True``, downstream loaders use cached CSVs.
+
+        Returns
+        -------
+        None
         """
         super().__init__(external_stylesheets=[dbc.themes.LUX, dbc.icons.BOOTSTRAP])
         self.index_string = self.index_string.replace(
@@ -89,10 +116,8 @@ class Dashboard(dash.Dash):
                 display:block; max-width:100%; height:auto !important;
               }
               .chart-frame .dash-graph{ height:420px !important; }
-
-              /* NEW: 2-up grid for charts */
               .grid-2{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:1rem; align-items:start; }
-              @media (max-width: 991.98px){ .grid-2{ grid-template-columns: 1fr; } } /* stack on small screens */
+              @media (max-width: 991.98px){ .grid-2{ grid-template-columns: 1fr; } }
             </style>
             </head>
             """
@@ -109,18 +134,18 @@ class Dashboard(dash.Dash):
         self.get_layout()
         self.callbacks()
 
-
     def get_layout(self):
         """
         Define and assign the top-level Dash layout.
 
         The layout includes:
         * A Bootstrap navbar,
-        * A left sidebar with controls (risk, currency, holdings),
-        * A right content area with tabs for portfolio, rebalance, exposure, backtest, and crypto.
+        * A left sidebar with controls (mode, risk, currency, holdings, savings rates),
+        * A right content area with tabs for portfolio, rebalance, exposure, and backtest.
 
-        :returns: ``None`` (sets :attr:`layout`).
-        :rtype: None
+        Returns
+        -------
+        None
         """
         self.layout = html.Div([
             dcc.Store(id='init-store'),
@@ -138,7 +163,6 @@ class Dashboard(dash.Dash):
             dbc.Container([
                 dbc.Row([
                     dbc.Col(self._sidebar_controls(), md=4, lg=3, className="mb-4"),
-
                     dbc.Col(self._content_area(), md=8, lg=9)
                 ], className="g-4")
             ], fluid=True),
@@ -154,10 +178,12 @@ class Dashboard(dash.Dash):
 
     def _sidebar_controls(self):
         """
-        Build the left-hand sidebar with inputs and an "Add Holding" control.
+        Build the left-hand sidebar with inputs for mode, risk, currency, holdings, and rates.
 
-        :returns: A Bootstrap card with form inputs.
-        :rtype: dash.html.Div
+        Returns
+        -------
+        dash.html.Div
+            A Bootstrap card with form inputs.
         """
         return dbc.Card([
             dbc.CardHeader(html.Div([
@@ -166,7 +192,7 @@ class Dashboard(dash.Dash):
             ])),
             dbc.CardBody([
 
-                # --- NEW: Mode toggle (ETF / Crypto) ---
+                # Mode toggle (ETF / Crypto)
                 dbc.Label("Mode", html_for="mode-toggle", className="fw-semibold"),
                 dbc.RadioItems(
                     id='mode-toggle',
@@ -178,7 +204,7 @@ class Dashboard(dash.Dash):
                 ),
                 html.Div(className="mb-3"),
 
-                # Risk controls wrapped so we can show/hide for crypto mode
+                # Risk controls (hidden in Crypto mode)
                 html.Div(id='risk-section', children=[
                     dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
                     dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
@@ -209,7 +235,7 @@ class Dashboard(dash.Dash):
                     html.Div(id='holdings-container', children=[], className="vstack gap-2")
                 ]),
 
-                # Savings Rates section wrapped so we can show/hide for crypto mode
+                # Savings Rates (hidden in Crypto mode)
                 html.Div(id='rates-section', children=[
                     html.Div(className="d-flex align-items-center mb-2", children=[
                         html.Div(className="fw-semibold me-auto", children="Savings Rates"),
@@ -225,14 +251,17 @@ class Dashboard(dash.Dash):
         """
         Build the right-hand tabbed content area (workspace).
 
-        Tabs:
+        Tabs
+        ----
         * Optimal Portfolio — constructs and visualizes the optimized weights.
-        * Rebalance — displays a rebalance table. (hidden in Crypto mode)
+        * Rebalance — displays a rebalance table (hidden in Crypto mode by callback).
         * Exposure — shows currency/class/sector/type/geo pie charts.
         * Backtest — runs a rolling re-optimization backtest.
 
-        :returns: A Bootstrap card containing Dash tabs and placeholders.
-        :rtype: dash.html.Div
+        Returns
+        -------
+        dash.html.Div
+            A Bootstrap card containing Dash tabs and placeholders.
         """
         return dbc.Card([
             dbc.CardHeader(
@@ -282,12 +311,20 @@ class Dashboard(dash.Dash):
         """
         Register all Dash callbacks for interactivity.
 
-        This method defines several nested callback functions bound to UI events:
-        input synchronization, dynamic labels and holdings rows, portfolio
-        creation, backtesting, rebalancing, exposure plotting.
+        Defines the following behaviors:
+        * Input synchronization into instance state (mode, risk, currency, holdings, rates).
+        * Dynamic labels and row builders for holdings and savings rates.
+        * Mode-based show/hide for risk, savings rates, and exposure tab (crypto mode hides them).
+        * Portfolio creation: constructs :class:`portfolio.Portfolio` and :class:`opti.Opti`,
+          then renders four in-sample charts + a metrics table.
+        * Backtest creation: runs :class:`backtest.Backtest` and renders equity, weights, drawdown,
+          and attribution + metrics.
+        * Rebalance: computes a rebalance table from :class:`rebalancer.Rebalancer`.
+        * Exposure: renders five pie charts via :class:`exposure.Exposure`.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
 
         @self.callback(
@@ -306,20 +343,29 @@ class Dashboard(dash.Dash):
             """
             Synchronize sidebar inputs into instance attributes.
 
-            :param mode: Selected mode ('etf' or 'crypto').
-            :type mode: str
-            :param risk: Risk slider value.
-            :type risk: int
-            :param currency: Selected base currency.
-            :type currency: str
-            :param cash_sgd: Input cash in base currency units.
-            :type cash_sgd: float
-            :param holdings_tickers: List of tickers entered in dynamic rows.
-            :type holdings_tickers: list[str] | None
-            :param holdings_values: List of values entered in dynamic rows.
-            :type holdings_values: list[float] | None
-            :returns: Dummy value for the dcc.Store (unused).
-            :rtype: int
+            Parameters
+            ----------
+            mode : str
+                Selected mode ('etf' or 'crypto').
+            risk : int
+                Risk slider value (ignored in crypto mode).
+            currency : str
+                Selected base currency.
+            cash_sgd : float
+                Cash in base currency units.
+            holdings_tickers : list[str] | None
+                Tickers entered in dynamic rows.
+            holdings_values : list[float] | None
+                Values entered in dynamic rows.
+            rates_tickers : list[str] | None
+                Currency codes for savings rates (ETF mode only).
+            rates_values : list[float] | None
+                Annualized savings rates in percent (ETF mode only).
+
+            Returns
+            -------
+            int
+                Dummy value for the dcc.Store (unused).
             """
             self.mode = mode or 'etf'
             self.risk = risk
@@ -339,10 +385,15 @@ class Dashboard(dash.Dash):
             """
             Update the cash input label with the selected currency.
 
-            :param selected_currency: Current base currency from dropdown.
-            :type selected_currency: str
-            :returns: Updated label text.
-            :rtype: str
+            Parameters
+            ----------
+            selected_currency : str
+                Current base currency from dropdown.
+
+            Returns
+            -------
+            str
+                Updated label text.
             """
             return f'Input Cash (in {selected_currency})'
 
@@ -356,16 +407,19 @@ class Dashboard(dash.Dash):
             """
             Grow the list of holdings input rows and preserve entered values.
 
-            :param n_clicks: Number of times "Add Holding" has been clicked.
-            :type n_clicks: int
-            :param currency: Current base currency (for value field label).
-            :type currency: str
-            :param tickers: Existing ticker values from state.
-            :type tickers: list[str] | None
-            :param values: Existing numeric values from state.
-            :type values: list[float] | None
-            :returns: List of InputGroup rows for the holdings container.
-            :rtype: list[dash.html.Div]
+            Parameters
+            ----------
+            n_clicks : int
+                Number of times "Add Holding" has been clicked.
+            tickers : list[str] | None
+                Existing ticker values from state.
+            values : list[float] | None
+                Existing numeric values from state.
+
+            Returns
+            -------
+            list[dash.html.Div]
+                Rows for the holdings container.
             """
             holdings = []
             tickers = tickers or []
@@ -378,7 +432,7 @@ class Dashboard(dash.Dash):
                         dbc.InputGroupText("Ticker"),
                         dbc.Input(id={'type': 'holdings-ticker-input', 'index': i}, type='text', placeholder='eg SPX',
                                   value=ticker_val),
-                        dbc.InputGroupText(f"Value"),
+                        dbc.InputGroupText("Value"),
                         dbc.Input(id={'type': 'holdings-value-input', 'index': i}, type='number',
                                   placeholder='0', step=1, value=value_val)
                     ])
@@ -393,18 +447,21 @@ class Dashboard(dash.Dash):
         )
         def update_rates(n_clicks, tickers, values):
             """
-            Grow the list of holdings input rows and preserve entered values.
+            Grow the list of savings-rate input rows and preserve values.
 
-            :param n_clicks: Number of times "Add Holding" has been clicked.
-            :type n_clicks: int
-            :param currency: Current base currency (for value field label).
-            :type currency: str
-            :param tickers: Existing ticker values from state.
-            :type tickers: list[str] | None
-            :param values: Existing numeric values from state.
-            :type values: list[float] | None
-            :returns: List of InputGroup rows for the holdings container.
-            :rtype: list[dash.html.Div]
+            Parameters
+            ----------
+            n_clicks : int
+                Number of times "Add Rate" has been clicked.
+            tickers : list[str] | None
+                Existing currency codes.
+            values : list[float] | None
+                Existing rate values (percent).
+
+            Returns
+            -------
+            list[dash.html.Div]
+                Rows for the rates container.
             """
             holdings = []
             tickers = tickers or []
@@ -417,7 +474,7 @@ class Dashboard(dash.Dash):
                         dbc.InputGroupText("Ticker"),
                         dbc.Input(id={'type': 'rates-ticker-input', 'index': i}, type='text', placeholder='eg EUR',
                                   value=ticker_val),
-                        dbc.InputGroupText(f"Value"),
+                        dbc.InputGroupText("Value"),
                         dbc.Input(id={'type': 'rates-value-input', 'index': i}, type='number',
                                   placeholder='0.00', step=.01, value=value_val)
                     ])
@@ -431,6 +488,12 @@ class Dashboard(dash.Dash):
             Input('mode-toggle', 'value')
         )
         def toggle_sections(mode):
+            """
+            Show/hide controls and tabs based on the selected mode.
+
+            * Crypto mode hides the risk slider, savings rates section, and
+              the Exposure tab (exposures are ETF-oriented).
+            """
             hide = {'display': 'none'}
             show = {}
             is_crypto = (mode == 'crypto')
@@ -449,12 +512,13 @@ class Dashboard(dash.Dash):
 
             Triggered by the "Create Portfolio" button. Constructs
             :class:`portfolio.Portfolio` and :class:`opti.Opti`, then renders
-            four charts (equity curve, allocation pie, drawdown, attribution).
+            four charts (equity curve, allocation pie, drawdown, attribution)
+            and a small metrics table.
 
-            :param create_portfolio_n_click: Number of button clicks.
-            :type create_portfolio_n_click: int
-            :returns: Tuple ``(reset_clicks, charts_container)``.
-            :rtype: tuple[int, dash.html.Div]
+            Returns
+            -------
+            tuple[int, dash.html.Div]
+                ``(reset_clicks, charts_container)``.
             """
             if create_portfolio_n_click:
 
@@ -488,11 +552,11 @@ class Dashboard(dash.Dash):
             """
             Launch a rolling walk-forward backtest and display charts.
 
-            :param create_backtest_n_click: Number of button clicks.
-            :type create_backtest_n_click: int
-            :returns: Tuple ``(reset_clicks, charts_container)`` with weights,
-                      equity curve, and attribution.
-            :rtype: tuple[int, dash.html.Div | dash.dcc.Loading]
+            Returns
+            -------
+            tuple[int, dash.html.Div]
+                ``(reset_clicks, charts_container)`` with equity curve,
+                weight stack, drawdown, attribution, and a metrics table.
             """
             if create_backtest_n_click:
                 self.backtest = Backtest(self.opti)
@@ -515,12 +579,17 @@ class Dashboard(dash.Dash):
             """
             Compute and render the rebalance table.
 
-            :param rebalance_n_click: Number of "Rebalance" button clicks.
-            :type rebalance_n_click: int
-            :param selected_currency: Current base currency for column labeling.
-            :type selected_currency: str
-            :returns: Tuple ``(reset_clicks, table_card)``.
-            :rtype: tuple[int, dash.html.Div]
+            Parameters
+            ----------
+            rebalance_n_click : int
+                Number of "Rebalance" button clicks.
+            selected_currency : str
+                Current base currency for column labeling.
+
+            Returns
+            -------
+            tuple[int, dash.html.Div]
+                ``(reset_clicks, table_card)`` with a DataTable of trades.
             """
             if rebalance_n_click:
                 self.rebalancer = Rebalancer(self.opti)
@@ -559,10 +628,10 @@ class Dashboard(dash.Dash):
             """
             Render currency/class/sector/type/geo exposure pie charts.
 
-            :param display_exposure_n_click: Number of "Display exposure" clicks.
-            :type display_exposure_n_click: int
-            :returns: Tuple ``(reset_clicks, charts_container)`` of pie charts.
-            :rtype: tuple[int, dash.html.Div]
+            Returns
+            -------
+            tuple[int, dash.html.Div]
+                ``(reset_clicks, charts_container)`` with five pie charts.
             """
             if display_exposure_n_click:
                 self.exposure = Exposure(self.opti)
@@ -574,4 +643,3 @@ class Dashboard(dash.Dash):
                     html.Div(self.exposure.plot_geo(), className="chart-frame"),
                 ], className="grid-2")
             return 0, dash.no_update
-

@@ -6,10 +6,12 @@ time series for:
 
 * Foreign exchange (FX) rates to convert assets into a chosen base currency.
 * A risk-free rate proxy from ``^IRX`` (13-week T-bill), converted to a
-  monthly rate.
+  monthly rate and expressed in the base currency.
 * ETF NAV/Close series and derived simple, log, and excess returns.
-* A total U.S. equity market proxy (VTI) for benchmarking.
-* A simple long-only tangency portfolio over a small crypto universe.
+* A total U.S. equity market proxy (``VTI``) for benchmarking, or ``BTC-USD``
+  when ``crypto=True``.
+* A simple “alternatives” mapping table loaded from cache to relate tickers to
+  preferred substitutes.
 
 It supports a *static* mode that reads/writes CSV caches under
 ``data_dir_path`` to avoid repeated network calls, and optional backtest
@@ -31,6 +33,9 @@ January 2020:
 
 >>> d = Data(currency="USD", etf_list=["VT", "BND"], static=False, backtest="2020-01-01")
 
+Crypto-oriented example (uses BTC as the benchmark and shorter history):
+
+>>> d = Data(currency="USD", etf_list=["BTC-USD"], static=False, crypto=True)
 """
 
 import yfinance as yf
@@ -44,8 +49,8 @@ from scipy.optimize import minimize
 
 class Data:
     """
-    Container for market datasets (FX, risk-free, ETFs, crypto) with helpers to
-    compute returns, perform currency conversion, and plot series.
+    Container for market datasets (FX, risk-free, ETFs; optional crypto) with
+    helpers to compute returns, perform currency conversion, and plot series.
 
     Parameters
     ----------
@@ -53,7 +58,7 @@ class Data:
         Target/base currency code (one of :attr:`possible_currencies`) used to
         express all prices and returns.
     etf_list : list[str]
-        List of ETF tickers understood by *yfinance*.
+        List of ETF (or ticker) symbols understood by *yfinance*.
     static : bool, optional
         If ``True``, read from and write to cached CSVs under
         :attr:`data_dir_path` instead of fetching from the network (default:
@@ -63,18 +68,31 @@ class Data:
         ``.loc[:backtest]`` to form an in-sample set for backtesting. Use
         :meth:`get_test_data_backtest` to obtain the complementary out-of-sample
         slice.
+    rates : dict[str, float] | None, optional
+        Optional mapping of currency pseudo-tickers to annual rates (in percent).
+        If provided, the corresponding currency return columns in :attr:`returns`
+        are adjusted to embed these rates as monthly equivalents.
+    crypto : bool, optional
+        If ``True``, use crypto-oriented caches and settings (e.g., shorter
+        history, BTC benchmark). Default is ``False``.
 
     Attributes
     ----------
+    possible_currencies : list[str]
+        Whitelist of currency codes for FX handling.
+    helper_currencies : list[str]
+        Additional FX crosses fetched to improve conversion coverage.
+    data_dir_path : pathlib.Path
+        Root directory for CSV caches.
     currency_rate : pandas.DataFrame | None
         Monthly FX rates normalized to the base currency. Columns are other
         currencies; values express the conversion **into** the base currency.
         Populated by :meth:`get_currency`.
     etf_currency : dict[str, str] | pandas.Series | None
-        Mapping from ETF ticker to its trading currency. Populated by
+        Mapping from ticker to its trading currency. Populated by
         :meth:`get_currency`.
     nav : pandas.DataFrame | None
-        Monthly close/NAV series for requested ETFs, converted into the base
+        Monthly close/NAV series for requested tickers, converted into the base
         currency. Populated by :meth:`get_nav_returns`.
     returns : pandas.DataFrame | None
         Simple monthly returns from :attr:`nav`. Populated by
@@ -83,24 +101,32 @@ class Data:
         Log monthly returns from :attr:`nav`. Populated by
         :meth:`get_nav_returns`.
     rf_rate : pandas.Series | None
-        Monthly risk-free rates aligned to month starts. Populated by
-        :meth:`get_rf_rate`.
+        Monthly risk-free rates aligned to month starts and expressed in the
+        base currency. Populated by :meth:`get_rf_rate`.
     excess_returns : pandas.DataFrame | None
         Simple returns in excess of :attr:`rf_rate` (broadcast across columns).
         Populated by :meth:`get_nav_returns`.
     spy : pandas.Series | pandas.DataFrame | None
-        Total U.S. market proxy (VTI) in the base currency. Populated by
-        :meth:`get_spy`.
+        Benchmark proxy: ``VTI`` (equities) or ``BTC-USD`` when ``crypto=True``,
+        expressed in the base currency. Populated by :meth:`get_spy`.
     etf_full_names : pandas.Series | None
         Long names for tickers (and passthrough for currency columns). Populated
         by :meth:`get_full_names`.
     exposure : pandas.DataFrame | None
         Exposures table loaded from cache. Populated by :meth:`get_exposure`.
-    crypto_opti : dict[str, float] | None
-        Long-only tangency portfolio weights (percent, rounded to 0.1) for the
-        crypto universe. Populated by :meth:`get_crypto`.
-    """
+    alternatives : dict[str, str] | None
+        Mapping from ticker (``TICKER``) to a preferred substitute (``BEST``),
+        loaded from ``alternatives.csv``. Populated by :meth:`get_alternatives`.
+    period : str
+        Download lookback used with yfinance (``'20y'`` by default, ``'5y'`` if
+        ``crypto=True``).
 
+    Notes
+    -----
+    This class previously exposed a ``get_crypto``/``crypto_opti`` workflow for
+    computing a tangency portfolio. That logic has been removed; ``crypto=True``
+    now only toggles data sources, cache names, and the benchmark proxy.
+    """
 
     possible_currencies = ['USD', 'EUR', 'SGD', 'AUD', 'CNH', 'GBP', 'HKD', 'JPY']
     helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
@@ -113,16 +139,20 @@ class Data:
         This constructor immediately calls, in order:
         :meth:`get_currency`, :meth:`get_rf_rate`, :meth:`get_nav_returns`,
         :meth:`get_spy`, :meth:`get_full_names`, :meth:`get_exposure`,
-        :meth:`get_crypto`.
+        :meth:`get_alternatives`.
 
         :param currency: Base currency code.
         :type currency: str
-        :param etf_list: ETF tickers to download.
+        :param etf_list: Tickers to download.
         :type etf_list: list[str]
         :param static: If ``True``, use cached CSVs; otherwise fetch and cache.
         :type static: bool
         :param backtest: If set, truncate series to ``.loc[:backtest]``.
         :type backtest: pandas.Timestamp | str | None
+        :param rates: Optional mapping of currency columns to annual rates (%).
+        :type rates: dict[str, float] | None
+        :param crypto: Enable crypto-oriented settings and caches.
+        :type crypto: bool
         """
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.alternatives = None, None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
@@ -136,7 +166,6 @@ class Data:
         self.get_full_names()
         self.get_exposure()
         self.get_alternatives()
-
 
     def drop_test_data_backtest(self, df):
         """
@@ -154,9 +183,17 @@ class Data:
             df = df.loc[:self.backtest]
         return df
 
-
     def get_alternatives(self):
+        """
+        Load a ticker substitution map from cache into :attr:`alternatives`.
 
+        Reads ``alternatives.csv`` from :attr:`data_dir_path` (semicolon-
+        separated). The file must contain at least columns ``TICKER`` and
+        ``BEST``. No network call is performed.
+
+        :returns: ``None``.
+        :rtype: None
+        """
         df = pd.read_csv(Data.data_dir_path / 'alternatives.csv', sep=';')
         self.alternatives = {row['TICKER']: row['BEST'] for _, row in df.iterrows()}
 
@@ -165,7 +202,7 @@ class Data:
         """
         Obtain the out-of-sample (test) slice for backtesting.
 
-        This is a convenience wrapper equivalent to ``df.loc[cutoff:]``.
+        Convenience wrapper equivalent to ``df.loc[cutoff:]``.
 
         :param df: Time-indexed data to slice.
         :type df: pandas.Series | pandas.DataFrame
@@ -182,11 +219,13 @@ class Data:
 
         Behavior
         --------
-        * If :attr:`static` is ``True``, read ``currency.csv`` and
-          ``curr_etf.csv`` from :attr:`data_dir_path`.
-        * Otherwise, download monthly FX rates for all currencies listed in
-          :attr:`possible_currencies` (vs. USD), normalize everything into the
-          base :attr:`currency`, and cache to CSV. ETF trading currencies are
+        * If :attr:`static` is ``True``, read ``currency.csv`` (or
+          ``currency_crypto.csv`` when ``crypto=True``) and ``curr_etf.csv``
+          from :attr:`data_dir_path`.
+        * Otherwise, download monthly FX rates for codes in
+          :attr:`possible_currencies` + :attr:`helper_currencies` versus USD
+          (e.g., ``USDJPY=X``), normalize everything into the base
+          :attr:`currency`, and cache to CSV. ETF trading currencies are
           detected via ``yfinance.Ticker(...).fast_info['currency']`` and cached.
 
         Side Effects
@@ -206,10 +245,8 @@ class Data:
             self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=True)['Close']
             self.currency_rate.to_csv(Data.data_dir_path / currency_file)
 
-
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
-
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.currency_rate[curr].bfill()
@@ -219,18 +256,15 @@ class Data:
         for col in self.currency_rate.columns:
             self.currency_rate[col] /= my_curr_rate
 
-        #self.currency_rate.drop(self.currency, axis=1, inplace=True)
+        # self.currency_rate.drop(self.currency, axis=1, inplace=True)
 
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
 
-
         if self.crypto:
             self.etf_currency = pd.Series({ticker: 'USD' for ticker in self.etf_list})
-
         elif self.static:
             self.etf_currency = pd.Series(pd.read_csv(Data.data_dir_path / 'curr_etf.csv', index_col=0)['0'])
-
         else:
             def get_currency(ticker):
                 """
@@ -255,18 +289,19 @@ class Data:
 
     def get_spy(self):
         """
-        Fetch or load a total market proxy (VTI) and convert to base currency.
+        Fetch or load a benchmark proxy and convert to base currency.
 
-        * If :attr:`static` is ``True``, read ``spy.csv`` (VTI close series)
-          from :attr:`data_dir_path`.
-        * Otherwise, download monthly close for ``'VTI'`` and cache it.
+        * If :attr:`static` is ``True``, read ``spy.csv`` (or
+          ``spy_crypto.csv``) from :attr:`data_dir_path`.
+        * Otherwise, download monthly closes for ``'VTI'`` (or ``'BTC-USD'``
+          when ``crypto=True``) and cache them.
 
         The series is converted to the instance's base :attr:`currency` using
         :attr:`currency_rate` when that base is not USD.
 
         Side Effects
         ------------
-        Sets :attr:`spy` and writes/reads ``spy.csv``.
+        Sets :attr:`spy` and writes/reads the corresponding cache file.
 
         :returns: ``None``.
         :rtype: None
@@ -296,10 +331,13 @@ class Data:
         2. Resample to month starts (``'MS'``) taking the first valid value.
         3. Convert to an equivalent monthly rate via ``(1 + r) ** (1/12) - 1``.
         4. Drop timezone info and apply backtest truncation if configured.
+        5. Express the series in base currency by dividing by USD FX (kept for
+           compatibility with the rest of the pipeline).
 
         Side Effects
         ------------
-        Sets :attr:`rf_rate` and writes/reads ``rf_rate.csv``.
+        Sets :attr:`rf_rate` and writes/reads ``rf_rate.csv`` (or
+        ``rf_rate_crypto.csv`` when ``crypto=True``).
 
         :returns: ``None``.
         :rtype: None
@@ -319,26 +357,29 @@ class Data:
         self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
 
         if self.static:
+            # When loaded from CSV, keep only the rate series.
             self.rf_rate = self.rf_rate['Close']
 
+        # Express risk-free in base currency terms using USD FX.
         self.rf_rate /= self.currency_rate['USD']
-
-
-
-
 
     def get_nav_returns(self):
         """
-        Fetch or load ETF closes, convert to base currency, and compute returns.
+        Fetch or load closes, convert to base currency, and compute returns.
 
         Behavior
         --------
-        * If :attr:`static` is ``True``, read ``nav.csv`` from cache.
+        * If :attr:`static` is ``True``, read ``nav.csv`` (or
+          ``nav_crypto.csv``) from cache.
         * Otherwise, download monthly closes for :attr:`etf_list` and cache.
-        * Each ETF series is converted into the base :attr:`currency` using
+        * Each ticker series is converted into the base :attr:`currency` using
           :attr:`currency_rate` and detected :attr:`etf_currency`.
-        * Currency columns for the non-base currencies are added to ``nav`` so
-          downstream code can plot FX series alongside ETFs.
+        * Unless ``crypto=True``, currency columns for the non-base currencies
+          are added to ``nav`` so downstream code can plot FX series alongside
+          ETFs.
+        * If :attr:`rates` is provided, currency return columns that match keys
+          in ``rates`` are adjusted to embed those annualized rates (in %)
+          as monthly equivalents.
 
         Side Effects
         ------------
@@ -356,8 +397,6 @@ class Data:
         else:
             self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close']
             self.nav.to_csv(Data.data_dir_path / file_name)
-
-
 
         for ticker in self.nav.columns:
             if ticker not in Data.possible_currencies:
@@ -381,7 +420,6 @@ class Data:
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 
-
     def plot(self, tickers):
         """
         Plot cumulative performance for selected tickers vs. benchmark and RF.
@@ -390,7 +428,7 @@ class Data:
 
         * Each ticker's cumulative total return since its first observation,
           in percent.
-        * The total stock market proxy (VTI) as a dashed line.
+        * The benchmark proxy (``VTI`` or ``BTC-USD``) as a dashed line.
         * The compounded risk-free leg (from :attr:`rf_rate`) as a dashed line.
 
         :param tickers: Tickers/columns to plot from :attr:`nav`.
@@ -418,11 +456,14 @@ class Data:
 
     def get_full_names(self):
         """
-        Fetch or load long names for ETFs and cache them.
+        Fetch or load long names for tickers and cache them.
 
-        * If :attr:`static` is ``True``, read from ``full_names.csv``.
-        * Otherwise, query ``yfinance.Ticker(t).info['longName']`` for each ETF,
-          add passthrough entries for currency pseudo-tickers, and cache.
+        * If :attr:`static` is ``True``, read from ``full_names.csv`` (or
+          ``full_names_crypto.csv``).
+        * Otherwise, query ``yfinance`` for ``longName`` of each ticker (or
+          ``shortName`` when the symbol looks like a futures ticker with
+          ``'=F'``), add passthrough entries for currency pseudo-tickers, and
+          cache.
 
         Side Effects
         ------------

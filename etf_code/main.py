@@ -1,8 +1,14 @@
 """
-Application entry point for the Dash ETF Portfolio Optimizer.
+Application entry point for the Dash Portfolio Optimizer.
 
 This module launches the :class:`dashboard.Dashboard` app. By default it starts
 the server with cached/static data reads enabled (``static=True``).
+
+Features
+--------
+* Supports **ETF** and **Crypto** modes (the mode is chosen inside the UI).
+* Reads cached CSVs when constructed with ``static=True`` to avoid network calls.
+* Exposes a :func:`main` function so you can embed/run the app from other code.
 
 Usage
 -----
@@ -18,6 +24,16 @@ Or import and call :func:`main` from another module:
 
     from run import main
     main(debug=True)
+
+Parameters
+----------
+* ``debug`` (bool): When ``True``, enables Dash/Flask debug mode
+  (auto-reload, extra logs).
+
+Notes
+-----
+* The HTTP host/port are Dash defaults. To customize, pass arguments to
+  ``db.run(host=..., port=..., debug=...)`` in :func:`main`.
 """
 
 from dashboard import Dashboard
@@ -27,10 +43,15 @@ def main(debug: bool = False) -> None:
     """
     Launch the Dash application.
 
-    :param debug: If ``True``, enable Dash/Flask debug mode (auto-reload, extra logs).
-    :type debug: bool
-    :returns: ``None``.
-    :rtype: None
+    Parameters
+    ----------
+    debug : bool, optional
+        If ``True``, enable Dash/Flask debug mode (auto-reload, extra logs).
+        Default is ``False``.
+
+    Returns
+    -------
+    None
     """
     db = Dashboard(static=True)
     db.run(debug=debug)

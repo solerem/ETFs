@@ -6,18 +6,22 @@ This module defines :class:`Backtest`, which:
 * Walks forward through monthly dates and re-optimizes the portfolio at each step
   using in-sample data up to that date (via :class:`~portfolio.Portfolio` and
   :class:`~opti.Opti` in *static* mode with an in-sample cutoff).
-* Optionally smooths the resulting weight paths.
+* Builds a time series of optimal weights (:attr:`w_opt`) across the test window.
 * Computes out-of-sample (test) returns from the held-out period.
-* Produces diagnostic plots (equity curve, weights stack, and performance
-  attribution) as Dash-ready images while saving PNGs to disk.
+* Produces diagnostic plots (equity curve, stacked weights, performance
+  attribution, and drawdown) as Dash-ready images while saving PNGs to disk.
 
 Notes
 -----
-* The train/test split is controlled by :attr:`Backtest.ratio_train_test`
-  (default ``17/20`` i.e., 85% train, 15% test).
-* Re-optimization loops over months from the cutoff to the end of the data,
+* The train/test split is controlled by :attr:`Backtest.ratio_train_test`. It is
+  set adaptively from the underlying data horizon:
+  ``0.8`` when using the short crypto horizon (``period == '5y'``), otherwise
+  ``0.9`` for the long horizon (``'20y'``).
+* Re-optimization loops monthly from the cutoff to the end of the data,
   constructing a fresh :class:`~portfolio.Portfolio` with ``static=True`` and
   ``backtest=<current_date>`` at each step.
+* Figures are saved under ``graphs/<currency>/`` using
+  :meth:`opti.Opti.save_fig_as_dash_img`.
 """
 
 import pandas as pd
@@ -39,7 +43,9 @@ class Backtest:
     Class Attributes
     ----------------
     ratio_train_test : float
-        Fraction of the sample used for training/in-sample (default: ``17/20``).
+        Fraction of the sample used for training/in-sample. Set to ``0.8`` when
+        the underlying :class:`data.Data` uses the short horizon (``'5y'``),
+        otherwise ``0.9`` for the long horizon (``'20y'``).
 
     Parameters
     ----------
@@ -59,8 +65,9 @@ class Backtest:
         The keys of ``opti.optimum``; used to focus attribution plots.
     w_opt : pandas.DataFrame | None
         Time-indexed weights per ticker for the walk-forward re-optimizations.
+        Columns cover the working universe at initialization time.
     returns : pandas.Series | None
-        Out-of-sample (test) portfolio returns.
+        Out-of-sample (test) portfolio returns (simple monthly).
     n : int | None
         Number of rows (time points) in the underlying NAV table.
     cutoff : int | None
@@ -69,30 +76,35 @@ class Backtest:
         Copy of the underlying ``DatetimeIndex`` for iteration.
     returns_decomp : pandas.DataFrame | None
         Per-asset contributions to test-period returns (weights × returns).
+    cumulative : pandas.Series | None
+        Test-period cumulative equity curve (set in :meth:`plot_info`).
     """
-
 
     def __init__(self, opti):
         """
         Initialize the backtest, compute rolling weights, and derive returns.
 
         The constructor:
-        1) Parses data and builds a time-series of optimal weights by repeatedly
+        1) Parses data and builds a time series of optimal weights by repeatedly
            re-optimizing up to each test date in *static* mode.
-        2) (Optional) allows weight smoothing via :meth:`smoothen_weights`
-           (currently commented out).
-        3) Computes test-period returns via :meth:`get_returns`.
+        2) Computes test-period returns via :meth:`get_returns`.
 
-        :param opti: Optimizer instance providing the baseline portfolio.
-        :type opti: Opti
-        :returns: ``None``.
-        :rtype: None
+        Parameters
+        ----------
+        opti : Opti
+            Optimizer instance providing the baseline portfolio.
+
+        Returns
+        -------
+        None
         """
         self.opti = opti
         self.portfolio = self.opti.portfolio
+        # Adaptive train/test split (matches implementation)
         self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else .9
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
+        self.cumulative = None
         self.parse_data()
         self.get_returns()
 
@@ -104,7 +116,6 @@ class Backtest:
         -----
         1. Determine the train/test split using :attr:`ratio_train_test`.
         2. For each test date ``t`` (from cutoff to end):
-
            - Create a new :class:`~portfolio.Portfolio` with ``static=True`` and
              ``backtest=index[t]`` so that all data are truncated to in-sample
              up to that date.
@@ -115,21 +126,27 @@ class Backtest:
         ------------
         Sets :attr:`n`, :attr:`cutoff`, :attr:`index`, and fills :attr:`w_opt`.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
-
         self.n = len(self.portfolio.data.nav)
         self.cutoff = int(self.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
 
         self.w_opt = pd.DataFrame({ticker: [] for ticker in self.opti.portfolio.etf_list})
         for i in tqdm(range(self.cutoff, self.n)):
-            portfolio = Portfolio(risk=self.portfolio.risk, currency=self.portfolio.currency,
-                                  allow_short=self.portfolio.allow_short, static=True, backtest=self.index[i], rates=self.portfolio.rates, crypto=self.opti.portfolio.crypto)
+            portfolio = Portfolio(
+                risk=self.portfolio.risk,
+                currency=self.portfolio.currency,
+                allow_short=self.portfolio.allow_short,
+                static=True,
+                backtest=self.index[i],
+                rates=self.portfolio.rates,
+                crypto=self.opti.portfolio.crypto
+            )
             optimum = Opti(portfolio).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
-
 
     def get_returns(self):
         """
@@ -144,8 +161,9 @@ class Backtest:
         ------------
         Sets :attr:`returns_decomp` and :attr:`returns`.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
         self.returns_decomp = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])
         self.returns_decomp *= self.w_opt
@@ -155,11 +173,14 @@ class Backtest:
         """
         Plot the backtest equity curve vs. benchmark and risk-free leg.
 
-        The title includes annualized performance (p.a.) and maximum drawdown
-        over the test window.
+        The title reflects annualized performance (p.a.) and maximum drawdown
+        over the test window. The benchmark label switches to ``BTC`` in crypto
+        mode; otherwise it is the total stock market proxy.
 
-        :returns: Dash image component with the figure embedded.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash image component with the figure embedded and saved to disk.
         """
         cumulative = (1 + self.returns).cumprod()
 
@@ -185,8 +206,7 @@ class Backtest:
         max_drawdown = round(drawdown.min() * 100, 1)
         plt.setp(ax.get_xticklabels(), rotation=45)
 
-        ax.set_title(f'Backtest')
-
+        ax.set_title('Backtest')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()
@@ -202,10 +222,18 @@ class Backtest:
         ---------
         Start with the *current* optimized constituents (:attr:`to_consider`).
         Greedily add other tickers by descending average weight until the
-        cumulative mean weight of the plotted set reaches at least 90%.
+        cumulative mean weight of the plotted set reaches at least **99%**
+        (matches implementation target ``0.99``).
 
-        :returns: Dash image component with the figure embedded.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash image component with the figure embedded and saved to disk.
+
+        Raises
+        ------
+        ValueError
+            If weight history is empty or all mean weights are zero.
         """
         import math
         from pathlib import Path
@@ -226,7 +254,7 @@ class Backtest:
         # If everything is zero, avoid division by zero downstream
         total_weight = float(mean_w.sum())
         if math.isclose(total_weight, 0.0, abs_tol=1e-12):
-            raise ValueError("All mean weights are zero; cannot compute 90% coverage set.")
+            raise ValueError("All mean weights are zero; cannot compute 99% coverage set.")
 
         # --- Build the included set greedily ---
         included = set(to_consider)
@@ -237,7 +265,7 @@ class Backtest:
         # Start with current ones; compute included coverage
         included_weight = float(mean_w[list(included)].sum()) if included else 0.0
 
-        # Greedily add until reaching ≥ 90% cumulative mean weight
+        # Greedily add until reaching ≥ 99% cumulative mean weight
         target = 0.99 * total_weight
         while included_weight < target and remaining:
             nxt = remaining.pop(0)
@@ -284,10 +312,13 @@ class Backtest:
         Plot cumulative performance attribution for selected tickers.
 
         Uses the per-asset return contributions in :attr:`returns_decomp` and
-        accumulates them through time, plotted in percent.
+        accumulates them through time, plotted in percent. The set of tickers
+        follows :attr:`to_consider`.
 
-        :returns: Dash image component with the figure embedded.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash image component with the figure embedded and saved to disk.
         """
         returns = self.returns_decomp[self.to_consider]
 
@@ -298,8 +329,7 @@ class Backtest:
         ax.axhline(0, color='black')
         plt.setp(ax.get_xticklabels(), rotation=45)
 
-        ax.set_title(f'Backtest Performance Attribution')
-
+        ax.set_title('Backtest Performance Attribution')
         ax.set_ylabel('%')
         ax.legend()
         ax.grid()
@@ -307,13 +337,14 @@ class Backtest:
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
 
-
     def plot_drawdown(self):
         """
-        Plot the portfolio drawdown curve (area below zero).
+        Plot the portfolio drawdown curve (area below zero) over the test window.
 
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash image component with the figure embedded and saved to disk.
         """
         cumulative = (1 + self.returns).cumprod()
 
@@ -323,18 +354,36 @@ class Backtest:
         fig, ax = plt.subplots()
         ax.fill_between(drawdown.index, drawdown * 100, 0, color='red', alpha=.5)
 
-        ax.set_title(f'Drawdown')
+        ax.set_title('Drawdown')
         ax.set_ylabel('%')
         ax.grid()
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
 
-
     def plot_info(self):
+        """
+        Assemble a compact metrics table (Dash DataTable) for the backtest window.
+
+        Metrics reported
+        ----------------
+        * CAGR — average annual growth rate (from the test-period cumulative).
+        * Sharpe ratio — monthly mean/std scaled by ``sqrt(12)``.
+        * Max/Avg drawdown — from the test-period equity curve.
+        * Beta — covariance with benchmark (VTI or BTC-USD) over benchmark variance.
+        * Volatility — monthly std scaled by ``sqrt(12)``.
+        * VaR 95% — empirical 5th percentile of monthly returns.
+        * R² — OLS fit of portfolio returns on the benchmark over the test window.
+
+        Returns
+        -------
+        dash_table.DataTable
+            A ready-to-render Dash table with metric names, values, and short
+            descriptions.
+        """
         info = {}
         explain = {}
-        self.cumulative = (1+self.returns).cumprod()
+        self.cumulative = (1 + self.returns).cumprod()
 
         nb_years = int(self.portfolio.data.period[:-1])
         pa_perf = (round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1))
@@ -345,7 +394,6 @@ class Backtest:
         info['Sharpe ratio'] = round(sharpe * np.sqrt(12), 2)
         explain['Sharpe ratio'] = 'Risk-adjusted return'
 
-
         running_max = self.cumulative.cummax()
         drawdown = (self.cumulative - running_max) / running_max
         info['Max drawdown'] = str(round(drawdown.min() * 100, 1)) + ' %'
@@ -353,30 +401,25 @@ class Backtest:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-
-
         label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
         spy = self.portfolio.data.spy[label].pct_change().dropna()[self.cutoff-1:]
         beta = self.returns.cov(spy) / spy.var()
         info['Beta'] = round(beta, 2)
         explain['Beta'] = 'Sensitivity to market movements'
 
-
         vol = self.returns.std() * np.sqrt(12)
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 
         var95 = np.percentile(self.returns, (1 - .95) * 100)
-        info['VaR 95%'] = str(round(var95*100, 1)) + ' %'
+        info['VaR 95%'] = str(round(var95 * 100, 1)) + ' %'
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
-
 
         X = sm.add_constant(spy)
         model = sm.OLS(self.returns, X).fit()
         r2 = model.rsquared
-        info['R2'] = str(round(100*r2)) + ' %'
+        info['R2'] = str(round(100 * r2)) + ' %'
         explain['R2'] = '% of returns explained by benchmark'
-
 
         # Convert dict into list of dicts for DataTable
         data = [{"Metric": k, "Value": info[k], 'Detail': explain[k]} for k in info]
@@ -395,13 +438,13 @@ class Backtest:
             style_header={
                 'fontWeight': '600',
                 'border': 'none',
-                'textAlign': 'center'  # Center header text
+                'textAlign': 'center'
             },
             style_cell={
-                'padding': '14px',  # Larger padding → bigger rows
+                'padding': '14px',
                 'border': 'none',
-                'textAlign': 'center',  # Center content horizontally
-                'fontSize': '16px'  # Increase font size
+                'textAlign': 'center',
+                'fontSize': '16px'
             },
             style_data_conditional=[
                 {

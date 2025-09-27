@@ -1,13 +1,14 @@
 """
 Optimization and plotting for portfolio weights.
 
-This module defines :class:`Opti`, a small helper that:
+This module defines :class:`Opti`, a helper that:
 
 * Builds bounds and constraints for a portfolio optimization (long-only or
-  long/short with L1 weight budget).
-* Minimizes a user-provided mean–variance-style objective exposed by a
-  :class:`~portfolio.Portfolio` instance.
-* Computes in-sample cumulative performance and a few diagnostic plots
+  long/short with an L1 weight budget).
+* Minimizes a user-provided objective exposed by a
+  :class:`~etf_code.portfolio.Portfolio` instance (mean–variance or Sharpe-style,
+  depending on how the portfolio defines ``objective``).
+* Computes in-sample cumulative performance and several diagnostic visuals
   (allocation pie, cumulative vs. benchmark, contribution, and drawdown),
   returning each plot as a Dash-ready ``html.Img`` element while also saving
   PNGs to disk.
@@ -17,7 +18,9 @@ Notes
 * The solver is SciPy's ``minimize`` with SLSQP by default.
 * For long/short, the equality constraint is ``sum(|w|) = 1``; for long-only,
   it is ``sum(w) = 1``.
+* Colors for plots are generated deterministically from Matplotlib's ``tab20``.
 """
+
 import math
 
 import numpy as np
@@ -57,19 +60,19 @@ class Opti:
         A portfolio object exposing:
         * ``n`` (universe size),
         * ``allow_short`` (bool),
-        * ``objective(w=...)`` (callable for minimization),
+        * ``objective(w=..., single_ticker=None)`` (callable for minimization),
         * ``etf_list`` (tickers),
-        * ``color_map`` (ticker -> HEX),
         * ``data`` with ``returns``, ``spy``, and ``rf_rate``,
         * ``currency`` (base currency code),
-        * ``name`` (label for titles).
+        * ``name`` (label for titles),
+        * ``crypto`` (bool; used only for labeling the benchmark line).
 
     Attributes
     ----------
     optimum : dict[str, float] | None
         Sparse weight mapping after thresholding small weights and renormalizing.
     optimum_all : dict[str, float] | None
-        Full weight vector (including zeros) as a mapping.
+        Full weight vector (including near-zeros) as a mapping.
     w_opt : numpy.ndarray | None
         Optimized weight vector.
     constraints : list[dict] | None
@@ -77,7 +80,11 @@ class Opti:
     bounds : list[tuple[float, float]] | None
         Per-asset bounds, long-only or long/short per portfolio settings.
     cumulative : pandas.Series | None
-        In-sample cumulative performance of the optimized portfolio.
+        In-sample cumulative performance of the optimized portfolio (gross of RF).
+    returns : pandas.Series | pandas.DataFrame | None
+        Subset of simple returns used to compute :attr:`cumulative`.
+    color_map : dict[str, str] | None
+        Ticker-to-HEX color mapping used by plotting helpers.
     portfolio : Portfolio
         Reference to the provided portfolio object.
     w0 : numpy.ndarray
@@ -95,12 +102,17 @@ class Opti:
         1) builds bounds and constraints,
         2) sets a uniform initial guess,
         3) runs the optimization,
-        4) computes cumulative in-sample performance.
+        4) computes cumulative in-sample performance,
+        5) builds a deterministic color map.
 
-        :param portfolio: Portfolio-like object exposing an ``objective`` and data.
-        :type portfolio: Portfolio
-        :returns: ``None``.
-        :rtype: None
+        Parameters
+        ----------
+        portfolio : Portfolio
+            Portfolio-like object exposing an ``objective`` and market data.
+
+        Returns
+        -------
+        None
         """
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
@@ -113,14 +125,14 @@ class Opti:
 
     def get_color_map(self):
         """
-        Build a deterministic HEX color mapping for the current universe.
+        Build a deterministic HEX color mapping for the optimized universe.
 
-        Colors are drawn from Matplotlib's ``tab20`` colormap. FX pseudo-tickers
-        for all non-base currencies are appended so that currency series can be
-        plotted alongside ETFs.
+        Colors are drawn from Matplotlib's ``tab20`` colormap and assigned in the
+        order of :attr:`optimum_all` keys to ensure reproducibility.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
         cmap = cm.get_cmap('tab20', len(self.optimum_all))
         self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum_all.keys())}
@@ -132,8 +144,9 @@ class Opti:
         * If shorting is allowed: ``(-1, 1)``.
         * If long-only: ``(0, 1)``.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
         self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
 
@@ -142,10 +155,15 @@ class Opti:
         """
         L1 norm (sum of absolute values).
 
-        :param lst: Iterable of numbers.
-        :type lst: list[float] | numpy.ndarray | tuple[float, ...]
-        :returns: Sum of absolute values.
-        :rtype: float
+        Parameters
+        ----------
+        lst : list[float] | numpy.ndarray | tuple[float, ...]
+            Iterable of numbers.
+
+        Returns
+        -------
+        float
+            Sum of absolute values.
         """
         return sum([abs(x) for x in lst])
 
@@ -157,12 +175,17 @@ class Opti:
         If ``output_path`` is not ``None``, the PNG is written to that path.
         The function always returns an inline base64-encoded ``html.Img`` element.
 
-        :param fig: Matplotlib figure to serialize.
-        :type fig: matplotlib.figure.Figure
-        :param output_path: File path for saving the PNG (or ``None``).
-        :type output_path: str | pathlib.Path | None
-        :returns: Dash image component with the figure embedded.
-        :rtype: dash.html.Img
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            Matplotlib figure to serialize.
+        output_path : str | pathlib.Path | None
+            File path for saving the PNG (or ``None`` to skip saving).
+
+        Returns
+        -------
+        dash.html.Img
+            Image component with the figure embedded as a data URI.
         """
         if output_path:
             output_path = Path(output_path)
@@ -187,8 +210,9 @@ class Opti:
         * Long-only: enforce ``sum(w) = 1``.
         * Long/short: enforce ``sum(|w|) = 1``.
 
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
         func = Opti.abs_sum if self.portfolio.allow_short else sum
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
@@ -207,8 +231,9 @@ class Opti:
         Sets :attr:`w_opt`, :attr:`optimum_all`, and :attr:`optimum`. Prints a
         message if SciPy reports failure.
 
-        :returns: ``None`` (updates instance attributes).
-        :rtype: None
+        Returns
+        -------
+        None
         """
         opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds,
                        constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
@@ -231,14 +256,22 @@ class Opti:
         Uses simple returns from ``self.portfolio.data.returns`` and the
         sparse weight mapping in :attr:`optimum`.
 
-        :returns: ``None`` (sets :attr:`cumulative`).
-        :rtype: None
+        Notes
+        -----
+        This method *re-runs* the optimization internally (duplicating the logic
+        in :meth:`optimize`) before computing cumulative performance. This mirrors
+        the existing behavior and ensures :attr:`optimum` and :attr:`optimum_all`
+        are refreshed, but may be redundant if called repeatedly.
+
+        Returns
+        -------
+        None
         """
         self.returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = list(self.optimum.values())
         self.cumulative = (1 + self.returns @ weights).cumprod()
 
-
+        # Re-run optimization (kept intentionally to match current behavior)
         opt = minimize(lambda w: self.portfolio.objective(w=w), self.w0, method=Opti.solver_method, bounds=self.bounds,
                        constraints=self.constraints, options={'ftol': 1e-6, 'maxiter': 1000})
 
@@ -257,12 +290,15 @@ class Opti:
         """
         Plot the optimized allocation as a pie chart.
 
-        Colors are pulled from ``self.portfolio.color_map``. The image is saved
-        under ``graphs/<currency>/<name>- optimal_allocation.png`` and also
-        returned as a Dash image.
+        Colors are pulled from the instance color map built at construction.
+        The image is saved under
+        ``graphs/<currency>/<name>- optimal_allocation.png`` and also returned
+        as a Dash image.
 
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash component containing the pie chart.
         """
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
 
@@ -283,11 +319,14 @@ class Opti:
         """
         Plot in-sample cumulative performance vs. market proxy and RF leg.
 
-        The title includes the annualized performance (p.a.) and maximum
-        drawdown computed from :attr:`cumulative`.
+        The title additionally includes annualized performance and max drawdown
+        computed from :attr:`cumulative`. The benchmark line label switches to
+        ``BTC`` when the portfolio is in crypto mode.
 
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash component containing the time-series chart.
         """
         fig, ax = plt.subplots()
         ax.plot((self.cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
@@ -323,14 +362,16 @@ class Opti:
         The contribution per asset is the weighted cumulative excess over 1
         (in percent). Colors follow the portfolio color map.
 
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash component containing the attribution chart.
         """
         returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = pd.Series(self.optimum)
 
         cumulative_returns = (1 + returns).cumprod() - 1
-        contribution = cumulative_returns.multiply(weights, axis=1)*100
+        contribution = cumulative_returns.multiply(weights, axis=1) * 100
 
         fig, ax = plt.subplots()
         for col in contribution.columns:
@@ -347,10 +388,12 @@ class Opti:
 
     def plot_drawdown(self):
         """
-        Plot the portfolio drawdown curve (area below zero).
+        Plot the portfolio drawdown curve as an area chart below zero.
 
-        :returns: Dash image component for embedding in a layout.
-        :rtype: dash.html.Img
+        Returns
+        -------
+        dash.html.Img
+            Dash component containing the drawdown chart.
         """
         rolling_max = self.cumulative.cummax()
         drawdown = self.cumulative / rolling_max - 1
@@ -365,8 +408,26 @@ class Opti:
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
         return Opti.save_fig_as_dash_img(fig, output_path)
 
-
     def plot_info(self):
+        """
+        Assemble a compact metrics table (Dash DataTable) for the optimized portfolio.
+
+        Metrics reported
+        ----------------
+        * CAGR — average annual growth rate (derived from cumulative).
+        * Sharpe ratio — monthly mean/std scaled by ``sqrt(12)``.
+        * Max/Avg drawdown — from the cumulative equity curve.
+        * Beta — covariance with benchmark (VTI or BTC-USD) over benchmark variance.
+        * Volatility — monthly std scaled by ``sqrt(12)``.
+        * VaR 95% — empirical 5th percentile of monthly returns.
+        * R² — OLS fit of portfolio returns on the benchmark.
+
+        Returns
+        -------
+        dash_table.DataTable
+            A ready-to-render Dash table with metric names, values, and short
+            descriptions.
+        """
         info = {}
         explain = {}
         weights = list(self.optimum.values())
@@ -381,7 +442,6 @@ class Opti:
         info['Sharpe ratio'] = round(sharpe * math.sqrt(12), 2)
         explain['Sharpe ratio'] = 'Risk-adjusted return'
 
-
         running_max = self.cumulative.cummax()
         drawdown = (self.cumulative - running_max) / running_max
         info['Max drawdown'] = str(round(drawdown.min() * 100, 1)) + ' %'
@@ -389,30 +449,25 @@ class Opti:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-
-
         label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
         spy = self.portfolio.data.spy[label].pct_change().dropna()
         beta = returns[1:].cov(spy) / spy.var()
         info['Beta'] = round(beta, 2)
         explain['Beta'] = 'Sensitivity to market movements'
 
-
         vol = returns.std() * math.sqrt(12)
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 
         var95 = np.percentile(returns, (1 - .95) * 100)
-        info['VaR 95%'] = str(round(var95*100, 1)) + ' %'
+        info['VaR 95%'] = str(round(var95 * 100, 1)) + ' %'
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
-
 
         X = sm.add_constant(spy)
         model = sm.OLS(returns[1:], X).fit()
         r2 = model.rsquared
-        info['R2'] = str(round(100*r2)) + ' %'
+        info['R2'] = str(round(100 * r2)) + ' %'
         explain['R2'] = '% of returns explained by benchmark'
-
 
         # Convert dict into list of dicts for DataTable
         data = [{"Metric": k, "Value": info[k], 'Detail': explain[k]} for k in info]
@@ -431,13 +486,13 @@ class Opti:
             style_header={
                 'fontWeight': '600',
                 'border': 'none',
-                'textAlign': 'center'  # Center header text
+                'textAlign': 'center'
             },
             style_cell={
-                'padding': '14px',  # Larger padding → bigger rows
+                'padding': '14px',
                 'border': 'none',
-                'textAlign': 'center',  # Center content horizontally
-                'fontSize': '16px'  # Increase font size
+                'textAlign': 'center',
+                'fontSize': '16px'
             },
             style_data_conditional=[
                 {
@@ -449,7 +504,19 @@ class Opti:
 
 
 def sanity_check_transform_weight():
+    """
+    Quick visual sanity check for the risk-to-performance mapping.
 
+    Runs the full optimization for discrete risk levels (0..10) using a
+    USD, long-only portfolio with static data and sample currency rates.
+    It then fits a line to the resulting annualized performance across
+    risk levels and shows a scatter + fitted line with MSE.
+
+    Notes
+    -----
+    This function *displays* a Matplotlib figure and is intended for manual,
+    ad-hoc sanity checks rather than automated testing.
+    """
     R = list(np.linspace(0, 10, 11))
     returns = []
 
@@ -460,15 +527,15 @@ def sanity_check_transform_weight():
 
     R = np.array(R)
     returns = np.array(returns)
-    a,b = np.polyfit(R, returns, 1)
+    a, b = np.polyfit(R, returns, 1)
 
     x = np.linspace(-1, 11, 1000)
-    y = [a*i+b for i in x]
+    y = [a * i + b for i in x]
 
     mse = 0
-    index, biggest = 0,0
+    index, biggest = 0, 0
     for i in range(11):
-        component = (returns[i] - (a*i+b))**2
+        component = (returns[i] - (a * i + b))**2
         mse += component
         if component > biggest:
             index, biggest = i, component
@@ -480,23 +547,47 @@ def sanity_check_transform_weight():
     plt.show()
 
 
-
 import numpy as np
 from scipy.optimize import curve_fit
 
 # Model function: a * exp(bx) + c
 def exp_func(x, a, b, c):
+    """
+    Exponential model used for curve fitting: ``a * exp(b * x) + c``.
+
+    Parameters
+    ----------
+    x : array-like
+        Input domain.
+    a : float
+    b : float
+    c : float
+
+    Returns
+    -------
+    numpy.ndarray
+        Model values at ``x``.
+    """
     return a * np.exp(b * x) + c
+
 
 def fit_exponential(points):
     """
-    Fit a function of the form a*exp(bx) + c to a set of points.
+    Fit a function of the form ``a * exp(b * x) + c`` to a set of points.
 
-    Parameters:
-        points (list of tuples): [(x1, y1), (x2, y2), ...]
+    Parameters
+    ----------
+    points : list[tuple[float, float]]
+        Sequence of (x, y) observations.
 
-    Returns:
-        (a, b, c) : fitted parameters
+    Returns
+    -------
+    tuple[float, float, float]
+        The fitted parameters ``(a, b, c)``.
+
+    Notes
+    -----
+    This helper prints the fitted parameters to stdout and returns them.
     """
     # Convert to numpy arrays
     x_data = np.array([p[0] for p in points], dtype=float)
@@ -506,10 +597,11 @@ def fit_exponential(points):
     popt, _ = curve_fit(exp_func, x_data, y_data, p0=(1, 0.1, 0))  # initial guess
 
     print(popt)
+    return tuple(popt)
 
 
-
+# Sample calibration points used by :func:`fit_exponential` when testing.
 points = [(0, 49), (1, 35.5), (2, 25), (3, 17.5), (4, 12), (5, 8), (6, 4.75), (7, 3.33), (8, 2.5), (9, 1.2), (10, 0)]
 
-#sanity_check_transform_weight()
-#fit_exponential(points)
+# sanity_check_transform_weight()
+# fit_exponential(points)

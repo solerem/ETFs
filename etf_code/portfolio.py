@@ -1,44 +1,45 @@
 """
 Portfolio construction utilities with correlation clustering and a mean–variance
-objective.
+(or Sharpe-style, for crypto) objective.
 
 This module defines:
 
-* :class:`Info` — configuration and utilities (risk scaling, colors, ticker universe).
+* :class:`Info` — configuration and utilities (risk scaling, ticker universe).
 * :class:`Portfolio` — data wiring and feature engineering over :class:`~data.Data`,
   including de-duplication of highly correlated tickers via hierarchical clustering
-  and a convex mean–variance-style objective you can pass to optimizers.
+  and an objective callable you can pass to optimizers.
 
-The workflow is:
-
+Workflow
+--------
 1. Instantiate :class:`Portfolio` with a target risk level, currency, holdings, etc.
 2. It loads market data through :class:`data.Data`.
 3. It removes too-new tickers (with missing history) and prunes clusters of
-   highly correlated names, keeping the one with the best (lowest) objective
-   value.
-4. It exposes :attr:`Portfolio.objective`, a callable that computes
-   ``weight_cov * variance - mean_excess`` for a weight vector, suitable for
-   SLSQP/L-BFGS-B minimization.
+   highly correlated names, keeping the one with the best (lowest) objective value.
+4. It exposes :attr:`Portfolio.objective`, a callable that computes a portfolio
+   score for a weight vector:
+
+   * Default (non-crypto): ``weight_cov * variance - mean_excess`` (to minimize).
+   * Crypto mode: ``- mean_excess / std_excess`` (to *maximize* Sharpe; we minimize
+     the negative).
 
 Notes
 -----
 * Correlation clustering uses average linkage on the distance matrix
   ``1 - |corr|`` with threshold ``1 - threshold_correlation``.
-* Colors are assigned deterministically from Matplotlib's ``tab20`` colormap,
-  extended with FX pseudo-tickers for non-base currencies.
+* The working universe can be extended with FX pseudo-tickers (non-base currencies).
+  Color maps are not assigned in this module.
 """
 
 from data import Data
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 import pandas as pd
-
 import numpy as np
 
 
 class Info:
     """
-    Shared portfolio information and utilities (risk scaling, color maps, universe).
+    Shared portfolio information and utilities (risk scaling, universes).
 
     Class Attributes
     ----------------
@@ -47,6 +48,8 @@ class Info:
         Used as ``1 - threshold_correlation`` on the correlation distance.
     etf_list : list[str]
         Canonical ETF universe (deduplicated and sorted at import time).
+    crypto_list : list[str]
+        Canonical crypto tickers (``*-USD``) for the crypto universe.
     name : dict[int, str]
         Human labels for discrete risk tiers (may be overridden per instance).
 
@@ -65,14 +68,19 @@ class Info:
     allow_short : bool
         Whether shorting is conceptually allowed (does not alter logic here,
         but exposed for downstream optimizers).
+    rates : dict[str, float] | None
+        Optional mapping of currency pseudo-tickers to annualized rates (in %).
+        Forwarded to :class:`data.Data` to adjust currency return columns.
+    crypto : bool
+        If ``True``, use the crypto universe and Sharpe-style objective.
 
     Attributes
     ----------
-    color_map : dict[str, str] | None
-        Mapping from ticker to HEX color for plotting (set by :meth:`get_color_map`).
     weight_cov : float | None
         Coefficient in the mean–variance objective (set by :meth:`get_weight_cov`).
-    risk, cash, holdings, allow_short, currency : see parameters
+    risk, cash, holdings, allow_short, currency, rates, crypto : see parameters
+    etf_list : list[str]
+        Selected universe for this instance (ETFs or crypto).
     n : int
         Current universe size (set after :attr:`etf_list` finalization).
     """
@@ -93,30 +101,12 @@ class Info:
         'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'IVE', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
         'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK',
         'SI=F', 'PL=F', 'PA=F'
-
     ]
-    etf_list +=  [
-        "^GSPC",      # S&P 500 (USA)
-        "^DJI",       # Dow Jones Industrial Average (USA)
-        "^IXIC",      # Nasdaq Composite (USA)
-        "^NDX",       # Nasdaq-100 (USA)
-        "^RUT",       # Russell 2000 (USA)
-        "^FTSE",      # FTSE 100 (UK)
-        "^GDAXI",     # DAX (Germany)
-        "^FCHI",      # CAC 40 (France)
-        "^STOXX50E",  # Euro Stoxx 50 (Eurozone)
-        "^STOXX",     # STOXX Europe 600
-        "^N225",      # Nikkei 225 (Japan)
-        "^HSI",       # Hang Seng (Hong Kong)
-        "000001.SS",  # Shanghai Composite (China)
-        "399001.SZ",  # Shenzhen Component (China)
-        "^BSESN",     # BSE Sensex (India)
-        "^NSEI",      # Nifty 50 (India)
-        "^AXJO",      # S&P/ASX 200 (Australia)
-        "^GSPTSE",    # S&P/TSX Composite (Canada)
-        "^BVSP"       # Bovespa (Brazil)
+    etf_list += [
+        "^GSPC", "^DJI", "^IXIC", "^NDX", "^RUT", "^FTSE", "^GDAXI", "^FCHI",
+        "^STOXX50E", "^STOXX", "^N225", "^HSI", "000001.SS", "399001.SZ", "^BSESN",
+        "^NSEI", "^AXJO", "^GSPTSE", "^BVSP"
     ]
-
 
     crypto_list  = ['BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
     crypto_list = [f'{x}-USD' for x in crypto_list]
@@ -132,20 +122,29 @@ class Info:
 
     def __init__(self, risk, cash, holdings, currency, allow_short, rates, crypto):
         """
-        Construct an :class:`Info` object and derive risk/plotting utilities.
+        Construct an :class:`Info` object and derive risk-related utilities.
 
-        :param risk: Discrete risk appetite (1–3 recommended).
-        :type risk: int
-        :param cash: Cash on hand (for liquidity calculations).
-        :type cash: float
-        :param holdings: Current holdings as ``{ticker: value}``.
-        :type holdings: dict[str, float] | None
-        :param currency: Base currency (defaults to ``"USD"`` if ``None``).
-        :type currency: str | None
-        :param allow_short: Whether shorting is allowed conceptually.
-        :type allow_short: bool
-        :returns: ``None``.
-        :rtype: None
+        Parameters
+        ----------
+        risk : int
+            Discrete risk appetite (1–3 recommended; larger means more risk).
+        cash : float
+            Cash on hand (used by :meth:`Portfolio.get_liquidity`).
+        holdings : dict[str, float] | None
+            Current holdings as ``{ticker: value}``. If ``None``, treated as empty.
+        currency : str | None
+            Base currency (defaults to ``"USD"`` if ``None``).
+        allow_short : bool
+            Whether shorting is allowed conceptually (no effect here).
+        rates : dict[str, float] | None
+            Optional mapping of currency pseudo-tickers to annualized rates (in %);
+            passed through to :class:`data.Data`.
+        crypto : bool
+            If ``True``, use the crypto universe and Sharpe-style objective.
+
+        Notes
+        -----
+        Calls :meth:`get_weight_cov` to set :attr:`weight_cov` based on ``risk``.
         """
         self.weight_cov = None
         self.risk = risk
@@ -162,24 +161,25 @@ class Info:
 
     def get_weight_cov(self):
         """
-        Derive the risk-aversion coefficient used in the objective.
+        Derive the risk-aversion coefficient used in the (non-crypto) objective.
 
-        The coefficient is computed from the discrete :attr:`risk` as::
+        The coefficient is computed from the discrete :attr:`risk` approximately as::
 
-            weight_cov = 52 * exp(-0.3259 * risk) - 2
+            weight_cov = 52 * exp(-0.326 * risk) - 2
 
         Larger ``risk`` implies a smaller penalty on variance.
 
-        :returns: ``None``.
-        :rtype: None
+        Special cases
+        -------------
+        * If ``risk == 10``, an extra ``+ 1/3`` is added (legacy calibration).
+
+        Returns
+        -------
+        None
         """
         self.weight_cov = 52 * np.exp(-0.326 * self.risk) - 2
         if self.risk == 10:
             self.weight_cov += 1/3
-
-
-
-
 
 
 class Portfolio(Info):
@@ -204,57 +204,47 @@ class Portfolio(Info):
     backtest : pandas.Timestamp | str | None, optional
         If provided, all series are truncated to ``.loc[:backtest]`` for
         in-sample preparation (passed to :class:`data.Data`).
+    rates : dict[str, float] | None, optional
+        Optional mapping of currency pseudo-tickers to annualized rates (in %);
+        forwarded to :class:`data.Data` to adjust currency return columns.
+    crypto : bool, optional
+        If ``True``, use the crypto universe and a Sharpe-style objective
+        (negative mean over std). Default ``False``.
 
     Attributes
     ----------
     data : data.Data
-        Data access object (FX, RF, ETF prices/returns, crypto weights, etc.).
+        Data access object (FX, RF, prices/returns).
     etf_list : list[str]
-        Working universe (ETF list plus FX pseudo-tickers for non-base currencies).
+        Working universe (ETF list; extended with FX pseudo-tickers when not crypto).
     n : int
         Current universe size.
     liquidity : float | None
         Cash plus current holdings value (set by :meth:`get_liquidity`).
     objective : callable | None
-        Mean–variance-style objective function (set by :meth:`get_objective`).
+        Objective function (set by :meth:`get_objective`).
     cov_excess_returns : numpy.ndarray | None
         Covariance matrix of excess returns (set during initialization).
-    crypto_opti : dict[str, float]
-        Crypto tangency-portfolio weights copied from :attr:`data.Data.crypto_opti`.
     """
 
     def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None, rates=None, crypto=False):
         """
         Initialize a :class:`Portfolio`, load data, and prune the universe.
 
-        The constructor performs the following steps:
-
-        1. Initialize super class (:class:`Info`) to set risk, currency, colors.
+        Steps
+        -----
+        1. Initialize :class:`Info` (risk, currency, universe).
         2. Load market data via :class:`data.Data`.
-        3. Extend the universe with FX pseudo-tickers (non-base currencies).
+        3. Extend the universe with FX pseudo-tickers (non-crypto mode).
         4. Drop tickers that are too new (contain missing history).
-        5. Instantiate the mean–variance objective.
+        5. Instantiate the objective.
         6. Cluster by absolute correlation and keep one representative per cluster
            (the one minimizing the objective).
         7. Compute covariance of excess returns and finalize the objective.
-        8. Copy crypto-optimized weights from :class:`data.Data`.
 
-        :param risk: Discrete risk appetite.
-        :type risk: int
-        :param cash: Cash on hand.
-        :type cash: float
-        :param holdings: Current holdings mapping.
-        :type holdings: dict[str, float] | None
-        :param currency: Base currency (defaults to ``"USD"`` if ``None``).
-        :type currency: str | None
-        :param allow_short: Whether shorting is allowed conceptually.
-        :type allow_short: bool
-        :param static: Use cached CSVs instead of downloading if ``True``.
-        :type static: bool
-        :param backtest: In-sample cutoff (inclusive) for training data.
-        :type backtest: pandas.Timestamp | str | None
-        :returns: ``None``.
-        :rtype: None
+        Returns
+        -------
+        None
         """
         super().__init__(risk, cash, holdings, currency, allow_short, rates, crypto)
 
@@ -263,10 +253,10 @@ class Portfolio(Info):
         self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto)
 
         if not crypto:
+            # Extend with currency pseudo-tickers so FX can be considered.
             self.etf_list += [ticker for ticker in Data.possible_currencies]
 
         self.etf_list = sorted(list(set(self.etf_list)))
-
         self.n = len(self.etf_list)
 
         self.drop_too_new()
@@ -278,8 +268,6 @@ class Portfolio(Info):
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
 
-
-
     def remove_etf(self, ticker):
         """
         Remove a ticker from the working universe and all derived tables.
@@ -288,11 +276,15 @@ class Portfolio(Info):
         :attr:`data.log_returns`, and :attr:`data.excess_returns`, updates
         :attr:`etf_list`, and decrements :attr:`n`.
 
-        :param ticker: Ticker symbol to remove.
-        :type ticker: str
-        :returns: ``None``.
-        :rtype: None
-        :raises KeyError: If the ticker is not present in the tables.
+        Parameters
+        ----------
+        ticker : str
+            Ticker symbol to remove.
+
+        Raises
+        ------
+        KeyError
+            If the ticker is not present in the tables.
         """
         self.data.nav.drop(ticker, axis=1, inplace=True)
         self.data.returns.drop(ticker, axis=1, inplace=True)
@@ -307,14 +299,10 @@ class Portfolio(Info):
 
         Any column in :attr:`data.nav` that contains missing values is removed
         via :meth:`remove_etf`.
-
-        :returns: ``None``.
-        :rtype: None
         """
         to_drop = self.data.nav.columns[self.data.nav.isna().any()].tolist()
         for col in to_drop:
             self.remove_etf(col)
-
 
     def drop_highly_correlated(self):
         """
@@ -334,14 +322,11 @@ class Portfolio(Info):
         ------------
         Updates :attr:`etf_list`, :attr:`n`, and removes columns from the data
         frames via :meth:`remove_etf`.
-
-        :returns: ``None``.
-        :rtype: None
         """
-
         log_returns_without_currency = self.data.log_returns.copy()
 
         if not self.crypto:
+            # Keep the base currency column out of the clustering universe.
             log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
         corr = log_returns_without_currency.corr(method='pearson', min_periods=2).abs()
@@ -352,13 +337,14 @@ class Portfolio(Info):
         dist = 0.5 * (dist + dist.T)
         dist = np.clip(dist, 0.0, 2.0)
         np.fill_diagonal(dist.values, 0.0)
-        condensed = squareform(dist.values, checks=True)  # will pass now
+        condensed = squareform(dist.values, checks=True)
         Z = linkage(condensed, method='average')
         t = 1.0 - Portfolio.threshold_correlation  # e.g., 0.05 for 0.95
         clusters = fcluster(Z, t, criterion='distance')
 
-        cluster_df = pd.DataFrame({'ETF': tickers, 'Cluster': clusters})#.set_index('ETF')
+        cluster_df = pd.DataFrame({'ETF': tickers, 'Cluster': clusters})
 
+        # Evaluate objective per single ticker (will use Sharpe-style in crypto mode).
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
         obj_values = pd.Series(obj_values, name='obj_values')
 
@@ -374,43 +360,47 @@ class Portfolio(Info):
         """
         Compute total liquidity as cash plus current holdings value.
 
-        :returns: Total liquidity.
-        :rtype: float
+        Returns
+        -------
+        float
+            Total liquidity.
         """
         self.liquidity = self.cash + sum(self.holdings.values())
 
     def get_objective(self):
         """
-        Define and store the mean–variance-style objective function.
+        Define and store the portfolio objective function.
 
-        The objective is designed for *minimization* and is defined as::
+        Non-crypto mode (mean–variance, minimize):
+            ``f(w) = weight_cov * (w^T Σ_excess w) - mean(ExcessReturns @ w)``
 
-            f(w) = weight_cov * (w^T Σ_excess w) - mean(ExcessReturns @ w)
+        Crypto mode (Sharpe-style, minimize negative Sharpe):
+            ``f(w) = - mean(ExcessReturns @ w) / std(ExcessReturns @ w)``
 
-        For convenience, the callable also supports a single-ticker evaluation
-        mode via ``single_ticker='SPY'`` which computes the same quantity using
-        that column's excess returns.
+        The callable also supports a single-ticker evaluation mode via
+        ``single_ticker='SPY'`` which computes the same quantity using that
+        column's excess returns.
 
         Notes
         -----
-        * :attr:`weight_cov` controls the variance penalty relative to mean.
+        * :attr:`weight_cov` controls the variance penalty in non-crypto mode.
         * :attr:`cov_excess_returns` is set after data-dependent pruning.
-
-        :returns: ``None`` (sets :attr:`objective` to a callable).
-        :rtype: None
         """
-
         def f(w=np.zeros(self.n), single_ticker=None):
             """
-            Objective function handle.
+            Mean–variance objective (non-crypto).
 
-            :param w: Portfolio weights (ignored when ``single_ticker`` is set).
-            :type w: numpy.ndarray
-            :param single_ticker: If provided, evaluate the objective for a
-                                  single column as a 1-asset portfolio.
-            :type single_ticker: str | None
-            :returns: Objective value (lower is better).
-            :rtype: float
+            Parameters
+            ----------
+            w : numpy.ndarray
+                Portfolio weights (ignored when ``single_ticker`` is set).
+            single_ticker : str | None
+                If provided, evaluate the objective for a single column.
+
+            Returns
+            -------
+            float
+                Objective value (lower is better).
             """
             if single_ticker:
                 excess_series = self.data.excess_returns[single_ticker]
@@ -420,30 +410,32 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-
             return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         def f_crypto(w=np.zeros(self.n), single_ticker=None):
             """
-            Objective function handle.
+            Sharpe-style objective (crypto): minimize negative mean/std.
 
-            :param w: Portfolio weights (ignored when ``single_ticker`` is set).
-            :type w: numpy.ndarray
-            :param single_ticker: If provided, evaluate the objective for a
-                                  single column as a 1-asset portfolio.
-            :type single_ticker: str | None
-            :returns: Objective value (lower is better).
-            :rtype: float
+            Parameters
+            ----------
+            w : numpy.ndarray
+                Portfolio weights (ignored when ``single_ticker`` is set).
+            single_ticker : str | None
+                If provided, evaluate the objective for a single column.
+
+            Returns
+            -------
+            float
+                Objective value (lower is better).
             """
             if single_ticker:
                 excess_series = self.data.excess_returns[single_ticker]
                 mean = excess_series.mean()
                 std = excess_series.std()
-                return -mean/std
+                return -mean / std
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-
-            return -mean/excess_series.std()
+            return -mean / excess_series.std()
 
         self.objective = f_crypto if self.crypto else f

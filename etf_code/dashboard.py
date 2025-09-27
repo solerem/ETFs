@@ -86,7 +86,7 @@ class Dashboard(dash.Dash):
         Top-level container reference (not used externally).
     """
 
-    def __init__(self, static=False):
+    def __init__(self):
         """
         Construct the Dash app, inject CSS, build layout, and register callbacks.
 
@@ -123,11 +123,11 @@ class Dashboard(dash.Dash):
             """
         )
 
-        self.static = static
+
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None, None
-        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
+        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, No@ne, None, None
         self.allow_short = False
         self.mode = 'etf'  # 'etf' or 'crypto'
 
@@ -528,7 +528,7 @@ class Dashboard(dash.Dash):
                     self.holdings,
                     self.currency,
                     self.allow_short,
-                    static=self.static,
+                    static=True,
                     rates=self.rates,
                     crypto=(self.mode == 'crypto')
                 )

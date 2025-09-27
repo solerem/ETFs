@@ -37,7 +37,7 @@ Notes
 """
 
 from dashboard import Dashboard
-
+from portfolio import Portfolio
 
 def main(debug: bool = False) -> None:
     """
@@ -53,6 +53,8 @@ def main(debug: bool = False) -> None:
     -------
     None
     """
+    Portfolio()
+    Portfolio(crypto=True)
     db = Dashboard(static=True)
     db.run(debug=debug)
 

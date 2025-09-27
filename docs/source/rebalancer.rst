@@ -1,7 +1,7 @@
 rebalancer module
 =================
 
-.. automodule:: rebalancer
+.. automodule:: etf_code.rebalancer
    :members:
    :show-inheritance:
    :undoc-members:

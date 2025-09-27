@@ -1,7 +1,7 @@
 portfolio module
 ================
 
-.. automodule:: portfolio
+.. automodule:: etf_code.portfolio
    :members:
    :show-inheritance:
    :undoc-members:

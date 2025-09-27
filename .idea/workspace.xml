@@ -7,17 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Add info section">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/exposure.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/exposure.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/rebalancer.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/rebalancer.py" afterDir="false" />
-    </list>
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Updated doc" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -101,14 +91,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00045" summary="Basic add bitcoin backfill">
-      <option name="closed" value="true" />
-      <created>1754935248503</created>
-      <option name="number" value="00045" />
-      <option name="presentableId" value="LOCAL-00045" />
-      <option name="project" value="LOCAL" />
-      <updated>1754935248503</updated>
     </task>
     <task id="LOCAL-00046" summary="delete btc">
       <option name="closed" value="true" />
@@ -494,7 +476,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758949454428</updated>
     </task>
-    <option name="localTasksCounter" value="94" />
+    <task id="LOCAL-00094" summary="Updated doc">
+      <option name="closed" value="true" />
+      <created>1758951212535</created>
+      <option name="number" value="00094" />
+      <option name="presentableId" value="LOCAL-00094" />
+      <option name="project" value="LOCAL" />
+      <updated>1758951212535</updated>
+    </task>
+    <option name="localTasksCounter" value="95" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -509,7 +499,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="format" />
     <MESSAGE value="graph helper" />
     <MESSAGE value="doc" />
     <MESSAGE value="doc &amp; readme" />
@@ -534,6 +523,7 @@
     <MESSAGE value="tweak" />
     <MESSAGE value="fix BT weight graph" />
     <MESSAGE value="Add info section" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add info section" />
+    <MESSAGE value="Updated doc" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updated doc" />
   </component>
 </project>

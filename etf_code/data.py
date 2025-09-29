@@ -132,7 +132,7 @@ class Data:
     helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
-    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
+    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False, allow_short=False):
         """
         Initialize and eagerly load core datasets.
 
@@ -154,11 +154,12 @@ class Data:
         :param crypto: Enable crypto-oriented settings and caches.
         :type crypto: bool
         """
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.alternatives = None, None, None, None, None, None, None, None, None, None, None
-        self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.alternatives, self.long_etf_list, self.short_etf_list = None, None, None, None, None, None, None, None, None, None, None, None, None
+        self.etf_list, self.currency, self.static, self.backtest, self.rates, self.allow_short = etf_list, currency, static, backtest, rates, allow_short
         self.crypto = crypto
         self.period = '5y' if self.crypto else '20y'
 
+        self.get_short_long_list()
         self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
@@ -166,6 +167,17 @@ class Data:
         self.get_full_names()
         self.get_exposure()
         self.get_alternatives()
+
+    def get_short_long_list(self):
+
+        self.long_etf_list = []
+        self.short_etf_list = []
+        for ticker in self.etf_list:
+            if ticker.startswith('-- '):
+                self.short_etf_list.append(ticker)
+            else:
+                self.long_etf_list.append(ticker)
+
 
     def drop_test_data_backtest(self, df):
         """
@@ -254,7 +266,7 @@ class Data:
         self.currency_rate['USD'] = [1.] * len(self.currency_rate)
         my_curr_rate = self.currency_rate[self.currency].copy()
         for col in self.currency_rate.columns:
-            self.currency_rate[col] /= my_curr_rate
+            self.currency_rate[col] = my_curr_rate / self.currency_rate[col]
 
         # self.currency_rate.drop(self.currency, axis=1, inplace=True)
 
@@ -276,7 +288,8 @@ class Data:
                 :rtype: tuple[str, str]
                 """
                 try:
-                    return ticker, yf.Ticker(ticker).fast_info['currency']
+                    ticker_to_test = ticker[3:] if ticker.startswith('-- ') else ticker
+                    return ticker, yf.Ticker(ticker_to_test).fast_info['currency']
                 except Exception:
                     print('Cant retreive etf currency', ticker)
                     return ticker, 'N/A'
@@ -317,7 +330,8 @@ class Data:
             self.spy[spy_ticker].to_csv(Data.data_dir_path / file_name)
 
         if self.currency != 'USD':
-            self.spy[spy_ticker] /= self.currency_rate['USD']
+            self.spy[spy_ticker] *= self.currency_rate['USD']
+
 
         self.spy = self.drop_test_data_backtest(self.spy)
 
@@ -361,7 +375,7 @@ class Data:
             self.rf_rate = self.rf_rate['Close']
 
         # Express risk-free in base currency terms using USD FX.
-        self.rf_rate /= self.currency_rate['USD']
+        self.rf_rate *= self.currency_rate['USD']
 
     def get_nav_returns(self):
         """
@@ -395,14 +409,20 @@ class Data:
             self.nav = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
             self.nav.index = pd.to_datetime(self.nav.index)
         else:
-            self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.nav = yf.download(self.long_etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            r = self.nav.pct_change()
+            r.iloc[0] = 0
+            short_nav = (1 - r).cumprod()
+            short_nav.columns = [f'-- {c}' for c in r.columns]
+            if self.allow_short:
+                self.nav = pd.concat([self.nav, short_nav], axis=1)
             self.nav.to_csv(Data.data_dir_path / file_name)
 
         for ticker in self.nav.columns:
             if ticker not in Data.possible_currencies:
                 curr = self.etf_currency[ticker]
                 if self.currency != curr:
-                    self.nav[ticker] /= self.currency_rate[curr]
+                    self.nav[ticker] *= self.currency_rate[curr]
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
 
@@ -477,10 +497,12 @@ class Data:
         if self.static:
             etf_full_names = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
         else:
-            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker })
-            for ticker in self.etf_list:
+            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.long_etf_list if '=F' not in ticker })
+            for ticker in self.long_etf_list:
                 if '=F' in ticker:
                     etf_full_names[ticker] = yf.Ticker(ticker).info['shortName']
+            for ticker in self.short_etf_list:
+                etf_full_names[ticker] = etf_full_names[ticker[3:]]
 
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker

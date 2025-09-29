@@ -148,7 +148,7 @@ class Opti:
         -------
         None
         """
-        self.bounds = ([(-1, 1)] if self.portfolio.allow_short else [(0, 1)]) * self.portfolio.n
+        self.bounds = [(0, 1)] * self.portfolio.n
 
     @staticmethod
     def abs_sum(lst):

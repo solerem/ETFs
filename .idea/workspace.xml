@@ -7,18 +7,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Updated doc">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Load data at launch">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/currency.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/currency_crypto.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/currency_crypto.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/nav.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/nav_crypto.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/nav_crypto.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/rf_rate.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/rf_rate_crypto.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/rf_rate_crypto.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/spy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_dir/spy_crypto.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data_dir/spy_crypto.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,14 +97,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00048" summary="delete rf_rate">
-      <option name="closed" value="true" />
-      <created>1755130892318</created>
-      <option name="number" value="00048" />
-      <option name="presentableId" value="LOCAL-00048" />
-      <option name="project" value="LOCAL" />
-      <updated>1755130892318</updated>
     </task>
     <task id="LOCAL-00049" summary="Add currencies as actif">
       <option name="closed" value="true" />
@@ -495,7 +482,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758952199032</updated>
     </task>
-    <option name="localTasksCounter" value="97" />
+    <task id="LOCAL-00097" summary="Load data at launch">
+      <option name="closed" value="true" />
+      <created>1758957580182</created>
+      <option name="number" value="00097" />
+      <option name="presentableId" value="LOCAL-00097" />
+      <option name="project" value="LOCAL" />
+      <updated>1758957580182</updated>
+    </task>
+    <option name="localTasksCounter" value="98" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -510,7 +505,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="graph helper" />
     <MESSAGE value="doc" />
     <MESSAGE value="doc &amp; readme" />
     <MESSAGE value="." />
@@ -535,6 +529,7 @@
     <MESSAGE value="fix BT weight graph" />
     <MESSAGE value="Add info section" />
     <MESSAGE value="Updated doc" />
-    <option name="LAST_COMMIT_MESSAGE" value="Updated doc" />
+    <MESSAGE value="Load data at launch" />
+    <option name="LAST_COMMIT_MESSAGE" value="Load data at launch" />
   </component>
 </project>

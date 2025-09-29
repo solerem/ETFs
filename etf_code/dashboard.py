@@ -127,7 +127,7 @@ class Dashboard(dash.Dash):
 
         self.main_div = None
         self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None, None
-        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, No@ne, None, None
+        self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.allow_short = False
         self.mode = 'etf'  # 'etf' or 'crypto'
 

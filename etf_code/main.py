@@ -53,9 +53,9 @@ def main(debug: bool = False) -> None:
     -------
     None
     """
-    Portfolio()
+    Portfolio(allow_short=False)
     Portfolio(crypto=True)
-    db = Dashboard(static=True)
+    db = Dashboard()
     db.run(debug=debug)
 
 

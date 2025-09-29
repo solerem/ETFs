@@ -108,7 +108,7 @@ class Info:
         "^NSEI", "^AXJO", "^GSPTSE", "^BVSP"
     ]
 
-    crypto_list  = ['BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
+    crypto_list  = ['BTC', 'ETH']#, 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
     crypto_list = [f'{x}-USD' for x in crypto_list]
 
     etf_list = sorted(list(set(etf_list)))
@@ -158,6 +158,13 @@ class Info:
         self.name = 'Risk ' + str(self.risk)
         self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
         self.n = len(self.etf_list)
+
+        if self.allow_short:
+            self.add_short_ticker()
+
+    def add_short_ticker(self):
+        short_list = [f'-- {ticker}' for ticker in self.etf_list]
+        self.etf_list += short_list
 
     def get_weight_cov(self):
         """
@@ -249,8 +256,7 @@ class Portfolio(Info):
         super().__init__(risk, cash, holdings, currency, allow_short, rates, crypto)
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
-
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto)
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto, allow_short=self.allow_short)
 
         if not crypto:
             # Extend with currency pseudo-tickers so FX can be considered.
@@ -267,6 +273,9 @@ class Portfolio(Info):
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
+
+
+
 
     def remove_etf(self, ticker):
         """

@@ -120,7 +120,7 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, allow_short, rates, crypto):
+    def __init__(self, risk, cash, holdings, currency, rates, crypto):
         """
         Construct an :class:`Info` object and derive risk-related utilities.
 
@@ -151,7 +151,6 @@ class Info:
         self.cash = cash
         self.holdings = holdings if holdings else {}
         self.rates = rates if rates else {}
-        self.allow_short = allow_short
         self.crypto = crypto
         self.currency = currency if currency else 'USD'
         self.get_weight_cov()
@@ -159,12 +158,6 @@ class Info:
         self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
         self.n = len(self.etf_list)
 
-        if self.allow_short:
-            self.add_short_ticker()
-
-    def add_short_ticker(self):
-        short_list = [f'-- {ticker}' for ticker in self.etf_list]
-        self.etf_list += short_list
 
     def get_weight_cov(self):
         """
@@ -234,7 +227,7 @@ class Portfolio(Info):
         Covariance matrix of excess returns (set during initialization).
     """
 
-    def __init__(self, risk=3, cash=100, holdings=None, currency=None, allow_short=False, static=False, backtest=None, rates=None, crypto=False):
+    def __init__(self, risk=3, cash=100, holdings=None, currency=None, static=False, backtest=None, rates=None, crypto=False):
         """
         Initialize a :class:`Portfolio`, load data, and prune the universe.
 
@@ -253,11 +246,10 @@ class Portfolio(Info):
         -------
         None
         """
-        super().__init__(risk, cash, holdings, currency, allow_short, rates, crypto)
+        super().__init__(risk, cash, holdings, currency, rates, crypto)
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto, allow_short=self.allow_short)
-
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto)
         if not crypto:
             # Extend with currency pseudo-tickers so FX can be considered.
             self.etf_list += [ticker for ticker in Data.possible_currencies]
@@ -268,6 +260,7 @@ class Portfolio(Info):
         self.drop_too_new()
 
         self.get_objective()
+
         self.drop_highly_correlated()
 
         self.get_liquidity()

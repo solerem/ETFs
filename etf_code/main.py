@@ -53,7 +53,7 @@ def main(debug: bool = False) -> None:
     -------
     None
     """
-    Portfolio(allow_short=False)
+    #Portfolio(crypto=False)
     Portfolio(crypto=True)
     db = Dashboard()
     db.run(debug=debug)

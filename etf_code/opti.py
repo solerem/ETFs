@@ -214,7 +214,7 @@ class Opti:
         -------
         None
         """
-        func = Opti.abs_sum if self.portfolio.allow_short else sum
+        func = sum
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
 
     def optimize(self):
@@ -521,7 +521,7 @@ def sanity_check_transform_weight():
     returns = []
 
     for risk in R:
-        opti = Opti(Portfolio(risk=risk, cash=100, holdings=None, currency='USD', allow_short=False, static=True, backtest=None, rates={'EUR': 1.7, 'SGD': 1.8}, crypto=False))
+        opti = Opti(Portfolio(risk=risk, cash=100, holdings=None, currency='USD', static=True, backtest=None, rates={'EUR': 1.7, 'SGD': 1.8}, crypto=False))
         pa_perf = round(((opti.cumulative.iloc[-1]) ** (1 / 20) - 1) * 100, 1)
         returns.append(pa_perf)
 

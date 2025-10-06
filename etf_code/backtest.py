@@ -139,7 +139,6 @@ class Backtest:
             portfolio = Portfolio(
                 risk=self.portfolio.risk,
                 currency=self.portfolio.currency,
-                allow_short=self.portfolio.allow_short,
                 static=True,
                 backtest=self.index[i],
                 rates=self.portfolio.rates,

@@ -126,9 +126,8 @@ class Dashboard(dash.Dash):
 
 
         self.main_div = None
-        self.risk, self.currency, self.allow_short, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None, None
+        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
-        self.allow_short = False
         self.mode = 'etf'  # 'etf' or 'crypto'
 
         self.get_layout()
@@ -527,7 +526,6 @@ class Dashboard(dash.Dash):
                     self.cash_sgd,
                     self.holdings,
                     self.currency,
-                    self.allow_short,
                     static=True,
                     rates=self.rates,
                     crypto=(self.mode == 'crypto')

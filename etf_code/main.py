@@ -54,7 +54,7 @@ def main(debug: bool = False) -> None:
     None
     """
     #Portfolio(crypto=False)
-    Portfolio(crypto=True)
+    #Portfolio(crypto=True)
     db = Dashboard()
     db.run(debug=debug)
 

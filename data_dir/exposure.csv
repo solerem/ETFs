@@ -6,6 +6,8 @@ SHY,bonds,,Treasury Bonds,Global/Other
 TIP,bonds,,Inflation-Protected Bonds,Global/Other
 TLT,bonds,,Treasury Bonds,Global/Other
 GLD,commodities,,,Global/Other
+PA=F,commodities,,,Global/Other
+SI=F,commodities,,,Global/Other
 IGE,commodities,,,Global/Other
 DGT,stocks,Comprehensive/Other,,Global/Other
 DIA,stocks,Comprehensive/Other,,North America

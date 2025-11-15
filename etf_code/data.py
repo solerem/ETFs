@@ -400,7 +400,7 @@ class Data:
         else:
             self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close'].ffill()
             if len(self.nav) % 10 != 0:
-                self.nav = self.nav.iloc[1]
+                self.nav = self.nav.iloc[1:]
             self.nav.to_csv(Data.data_dir_path / file_name)
 
         for ticker in self.nav.columns:

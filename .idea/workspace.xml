@@ -7,14 +7,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="Fix currency logic">
+    <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="short">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/backtest.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/backtest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/portfolio.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/portfolio.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,27 +48,28 @@
   &quot;associatedIndex&quot;: 0
 }</component>
   <component name="ProjectId" id="2wqZjDJkJcFShOvquvoCvQbvsKp" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.config_max.executor&quot;: &quot;Run&quot;,
-    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
-    &quot;Python.data.executor&quot;: &quot;Run&quot;,
-    &quot;Python.info.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.opti.executor&quot;: &quot;Run&quot;,
-    &quot;Python.portfolio.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/maximesolere/PycharmProjects/ETF/docs&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.config_max.executor": "Run",
+    "Python.dashboard.executor": "Run",
+    "Python.data.executor": "Run",
+    "Python.info.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.opti.executor": "Run",
+    "Python.portfolio.executor": "Run",
+    "Python.rebalancer.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/maximesolere/PycharmProjects/ETF/docs",
+    "run.code.analysis.last.selected.profile": "aDefault",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/docs" />
@@ -86,7 +82,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-98f27166c754-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.21829.153" />
+        <option value="bundled-python-sdk-ca5e2b39c7df-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.308" />
       </set>
     </attachedChunks>
   </component>
@@ -98,70 +94,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00050" summary="other curr and new weight cov">
-      <option name="closed" value="true" />
-      <created>1755134075990</created>
-      <option name="number" value="00050" />
-      <option name="presentableId" value="LOCAL-00050" />
-      <option name="project" value="LOCAL" />
-      <updated>1755134075992</updated>
-    </task>
-    <task id="LOCAL-00051" summary="basic crypto side">
-      <option name="closed" value="true" />
-      <created>1756378784498</created>
-      <option name="number" value="00051" />
-      <option name="presentableId" value="LOCAL-00051" />
-      <option name="project" value="LOCAL" />
-      <updated>1756378784499</updated>
-    </task>
-    <task id="LOCAL-00052" summary="back to mean-var">
-      <option name="closed" value="true" />
-      <created>1756439513164</created>
-      <option name="number" value="00052" />
-      <option name="presentableId" value="LOCAL-00052" />
-      <option name="project" value="LOCAL" />
-      <updated>1756439513164</updated>
-    </task>
-    <task id="LOCAL-00053" summary="weight_cov transform function">
-      <option name="closed" value="true" />
-      <created>1756441482187</created>
-      <option name="number" value="00053" />
-      <option name="presentableId" value="LOCAL-00053" />
-      <option name="project" value="LOCAL" />
-      <updated>1756441482187</updated>
-    </task>
-    <task id="LOCAL-00054" summary="checkpoint before tqdm">
-      <option name="closed" value="true" />
-      <created>1756443736350</created>
-      <option name="number" value="00054" />
-      <option name="presentableId" value="LOCAL-00054" />
-      <option name="project" value="LOCAL" />
-      <updated>1756443736350</updated>
-    </task>
-    <task id="LOCAL-00055" summary="loading">
-      <option name="closed" value="true" />
-      <created>1756444801666</created>
-      <option name="number" value="00055" />
-      <option name="presentableId" value="LOCAL-00055" />
-      <option name="project" value="LOCAL" />
-      <updated>1756444801666</updated>
-    </task>
-    <task id="LOCAL-00056" summary="graph fix">
-      <option name="closed" value="true" />
-      <created>1756448057819</created>
-      <option name="number" value="00056" />
-      <option name="presentableId" value="LOCAL-00056" />
-      <option name="project" value="LOCAL" />
-      <updated>1756448057819</updated>
-    </task>
-    <task id="LOCAL-00057" summary="format">
-      <option name="closed" value="true" />
-      <created>1756448530744</created>
-      <option name="number" value="00057" />
-      <option name="presentableId" value="LOCAL-00057" />
-      <option name="project" value="LOCAL" />
-      <updated>1756448530744</updated>
     </task>
     <task id="LOCAL-00058" summary="graph helper">
       <option name="closed" value="true" />
@@ -491,7 +423,71 @@
       <option name="project" value="LOCAL" />
       <updated>1759154302194</updated>
     </task>
-    <option name="localTasksCounter" value="99" />
+    <task id="LOCAL-00099" summary="LO">
+      <option name="closed" value="true" />
+      <created>1759759824471</created>
+      <option name="number" value="00099" />
+      <option name="presentableId" value="LOCAL-00099" />
+      <option name="project" value="LOCAL" />
+      <updated>1759759824471</updated>
+    </task>
+    <task id="LOCAL-00100" summary="short">
+      <option name="closed" value="true" />
+      <created>1763218037033</created>
+      <option name="number" value="00100" />
+      <option name="presentableId" value="LOCAL-00100" />
+      <option name="project" value="LOCAL" />
+      <updated>1763218037034</updated>
+    </task>
+    <task id="LOCAL-00101" summary="short">
+      <option name="closed" value="true" />
+      <created>1763224322127</created>
+      <option name="number" value="00101" />
+      <option name="presentableId" value="LOCAL-00101" />
+      <option name="project" value="LOCAL" />
+      <updated>1763224322127</updated>
+    </task>
+    <task id="LOCAL-00102" summary="short">
+      <option name="closed" value="true" />
+      <created>1763229332556</created>
+      <option name="number" value="00102" />
+      <option name="presentableId" value="LOCAL-00102" />
+      <option name="project" value="LOCAL" />
+      <updated>1763229332556</updated>
+    </task>
+    <task id="LOCAL-00103" summary="short">
+      <option name="closed" value="true" />
+      <created>1763229341578</created>
+      <option name="number" value="00103" />
+      <option name="presentableId" value="LOCAL-00103" />
+      <option name="project" value="LOCAL" />
+      <updated>1763229341578</updated>
+    </task>
+    <task id="LOCAL-00104" summary="short">
+      <option name="closed" value="true" />
+      <created>1763996341766</created>
+      <option name="number" value="00104" />
+      <option name="presentableId" value="LOCAL-00104" />
+      <option name="project" value="LOCAL" />
+      <updated>1763996341766</updated>
+    </task>
+    <task id="LOCAL-00105" summary="short">
+      <option name="closed" value="true" />
+      <created>1764083800359</created>
+      <option name="number" value="00105" />
+      <option name="presentableId" value="LOCAL-00105" />
+      <option name="project" value="LOCAL" />
+      <updated>1764083800359</updated>
+    </task>
+    <task id="LOCAL-00106" summary="short">
+      <option name="closed" value="true" />
+      <created>1765089245823</created>
+      <option name="number" value="00106" />
+      <option name="presentableId" value="LOCAL-00106" />
+      <option name="project" value="LOCAL" />
+      <updated>1765089245824</updated>
+    </task>
+    <option name="localTasksCounter" value="107" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -506,8 +502,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="doc &amp; readme" />
-    <MESSAGE value="." />
     <MESSAGE value="Add ReadTheDocs config" />
     <MESSAGE value="fix ReadTheDocs config" />
     <MESSAGE value="fix bug change currency" />
@@ -531,6 +525,8 @@
     <MESSAGE value="Updated doc" />
     <MESSAGE value="Load data at launch" />
     <MESSAGE value="Fix currency logic" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fix currency logic" />
+    <MESSAGE value="LO" />
+    <MESSAGE value="short" />
+    <option name="LAST_COMMIT_MESSAGE" value="short" />
   </component>
 </project>

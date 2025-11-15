@@ -563,7 +563,7 @@ class Dashboard(dash.Dash):
                     html.Div(self.backtest.plot_weights(), className="chart-frame"),
                     html.Div(self.backtest.plot_drawdown(), className="chart-frame"),
                     html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
-                    html.Div(self.backtest.plot_info()),
+                    #html.Div(self.backtest.plot_info()),
                 ], className="grid-2")
             return 0, dash.no_update
 

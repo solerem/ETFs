@@ -106,7 +106,7 @@ class Rebalancer:
         None
         """
         self.original = self.opti.portfolio.holdings.copy()
-        total = sum(self.original.values())
+        total = sum(abs(v) for v in self.original.values())
 
         for ticker in self.original:
             self.original[ticker] /= total
@@ -206,7 +206,7 @@ class Rebalancer:
         self.rebalance_df.rename(columns={'index': 'Ticker'}, inplace=True)
 
         # Annotate with preferred substitutes when available
-        alt = self.opti.portfolio.data.alternatives
+        """alt = self.opti.portfolio.data.alternatives
         for i, row in self.rebalance_df.iterrows():
             if row['Ticker'] in alt:
-                self.rebalance_df.loc[i, 'Ticker'] = f'{row["Ticker"]} ({alt[row["Ticker"]]})'
+                self.rebalance_df.loc[i, 'Ticker'] = f'{row["Ticker"]} ({alt[row["Ticker"]]})'"""

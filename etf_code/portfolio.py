@@ -85,7 +85,7 @@ class Info:
         Current universe size (set after :attr:`etf_list` finalization).
     """
 
-    threshold_correlation = .95
+    threshold_correlation = .9
 
     etf_list = [
         'SPY', 'QQQ', 'DIA', 'MDY', 'IWM', 'XLY', 'XLP', 'XLE', 'XLV', 'XLF', 'XLI', 'XLB', 'XLK', 'XLU', 'EFA', 'EEM',
@@ -103,8 +103,8 @@ class Info:
         'SI=F', 'PL=F', 'PA=F'
     ]
     etf_list += [
-        "^GSPC", "^DJI", "^IXIC", "^NDX", "^RUT", "^FTSE", "^GDAXI", "^FCHI",
-        "^STOXX50E", "^STOXX", "^N225", "^HSI", "000001.SS", "399001.SZ", "^BSESN",
+        "^GSPC", "^DJI", "^IXIC", "^RUT", "^GDAXI", "^FCHI",
+        "^STOXX50E", "^STOXX", "^HSI", "399001.SZ", "^BSESN",
         "^NSEI", "^AXJO", "^GSPTSE", "^BVSP"
     ]
 
@@ -367,7 +367,7 @@ class Portfolio(Info):
         float
             Total liquidity.
         """
-        self.liquidity = self.cash + sum(self.holdings.values())
+        self.liquidity = self.cash + sum(abs(v) for v in self.holdings.values())
 
     def get_objective(self):
         """
@@ -412,7 +412,9 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
+            lambda_reg = .0#2/(self.risk+1)
+            reg =  lambda_reg * np.sum(w**2)
+            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean - reg
 
         def f_crypto(w=np.zeros(self.n), single_ticker=None):
             """

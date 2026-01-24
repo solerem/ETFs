@@ -2,13 +2,11 @@ import pandas as pd
 from portfolio import Portfolio
 from opti import Opti
 from tqdm import tqdm
-import matplotlib
-from dash import dash_table
-matplotlib.use('Agg')
-from matplotlib import pyplot as plt
+from dash import dash_table, dcc
 from data import Data
 import statsmodels.api as sm
 import numpy as np
+import plotly.graph_objects as go
 
 class Backtest:
     def __init__(self, opti):
@@ -47,41 +45,68 @@ class Backtest:
 
     def plot_backtest(self):
         cumulative = (1 + self.returns).cumprod()
-
-        fig, ax = plt.subplots()
-        ax.plot((cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
+        cumulative_pct = (cumulative - 1) * 100
 
         spy = self.portfolio.data.spy.copy()
         spy = spy.loc[self.index[self.cutoff]:]
         spy = (spy / spy.iloc[0] - 1) * 100
-        label = 'BTC' if self.portfolio.crypto else 'Total stock market'
-        ax.plot(spy, label=f'{label} ({self.portfolio.currency})', linestyle='--')
+        spy_col = 'BTC-USD' if self.portfolio.crypto else 'VTI'
+        spy_name = 'BTC' if self.portfolio.crypto else 'Total stock market'
+        if isinstance(spy, pd.DataFrame):
+            if spy_col in spy.columns:
+                spy = spy[spy_col]
+            else:
+                spy = spy.iloc[:, 0]
 
         rf_rate = ((self.portfolio.data.rf_rate.loc[self.index[self.cutoff]:] + 1).cumprod() - 1) * 100
-        ax.plot(rf_rate, label='Rate', linestyle='--')
 
-        ax.axhline(0, color='black')
-
-        nb_years = int(self.opti.portfolio.data.period[:-1]) * (1 - self.ratio_train_test)
-        pa_perf = round(((cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
-
-        running_max = cumulative.cummax()
-        drawdown = (cumulative - running_max) / running_max
-        max_drawdown = round(drawdown.min() * 100, 1)
-        plt.setp(ax.get_xticklabels(), rotation=45)
-
-        ax.set_title('Backtest')
-        ax.set_ylabel('%')
-        ax.legend()
-        ax.grid()
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=cumulative_pct.index,
+            y=cumulative_pct.values,
+            mode='lines',
+            name="Strategy",
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=spy.index,
+            y=spy.values,
+            mode='lines',
+            name="Stocks",
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=rf_rate.index,
+            y=rf_rate.values,
+            mode='lines',
+            name='Rate',
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_hline(y=0, line_color='black')
+        fig.update_layout(
+            title='Backtest Performance',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_weights(self):
         import math
         from pathlib import Path
-        import matplotlib.pyplot as plt
 
         # --- Prep & safety ---
         w = self.w_opt.copy()
@@ -119,71 +144,119 @@ class Backtest:
         # Final plotting order: sort included by descending mean weight for readability
         tickers_to_plot = sorted(included, key=lambda x: float(mean_w.get(x, 0.0)), reverse=True)
 
-        # --- Colors (fallback to matplotlib cycle if any missing) ---
+        data = w[tickers_to_plot].abs().astype(float)
+        row_sums = data.sum(axis=1).replace(0, np.nan)
+        data = data.div(row_sums, axis=0).fillna(0.0) * 100.0
+        fig = go.Figure()
         color_map = self.opti.color_map
-        colors = [color_map[t] for t in tickers_to_plot]
+        for col in tickers_to_plot:
+            series_color = color_map.get(col)
+            fig.add_trace(go.Scatter(
+                x=data.index,
+                y=data[col].values,
+                mode='lines',
+                name=col,
+                stackgroup='one',
+                stackgaps='interpolate',
+                fill='tonexty',
+                fillcolor=series_color,
+                line=dict(width=0.5, color=series_color),
+                opacity=1.0,
+                hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+            ))
 
-        # --- Build the figure ---
-        fig, ax = plt.subplots()
-        data = (100.0 * w[tickers_to_plot]).astype(float)
+        fig.update_layout(
+            title='Weights history',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(range=[0, 100], tickformat='.1f')
 
-        # Matplotlib's stackplot works best with explicit 1D arrays
-        ys = [data[col].values for col in tickers_to_plot]
-        ax.stackplot(data.index, *ys, labels=tickers_to_plot, colors=colors)
-
-        # Cosmetics
-        ax.set_title("Weights history")
-        ax.set_ylabel("%")
-        ax.set_ylim(0, 100)
-        ax.axhline(100, linewidth=1.0)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-
-        # Legend: compact & outside if many series
-        n = len(tickers_to_plot)
-        if n <= 12:
-            ax.legend(loc="upper left", frameon=False)
-        else:
-            ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0, frameon=False)
-
-        # --- Save & return Dash image ---
         output_path = Opti.graph_dir_path / f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_perf_attrib(self):
         returns = self.returns_decomp[self.to_consider]
-
-        fig, ax = plt.subplots()
+        fig = go.Figure()
         for col in self.to_consider:
-            ax.plot(returns.index, (returns[col].cumsum()) * 100, label=col, color=self.opti.color_map[col])
+            fig.add_trace(go.Scatter(
+                x=returns.index,
+                y=(returns[col].cumsum() * 100).values,
+                mode='lines',
+                name=col,
+                line=dict(color=self.opti.color_map[col]),
+                hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+            ))
 
-        ax.axhline(0, color='black')
-        plt.setp(ax.get_xticklabels(), rotation=45)
-
-        ax.set_title('Backtest Performance Attribution')
-        ax.set_ylabel('%')
-        ax.legend()
-        ax.grid()
+        fig.add_hline(y=0, line_color='black')
+        fig.update_layout(
+            title='Backtest Performance Breakdown',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_drawdown(self):
         cumulative = (1 + self.returns).cumprod()
 
         rolling_max = cumulative.cummax()
         drawdown = cumulative / rolling_max - 1
-
-        fig, ax = plt.subplots()
-        ax.fill_between(drawdown.index, drawdown * 100, 0, color='red', alpha=.5)
-
-        ax.set_title('Drawdown')
-        ax.set_ylabel('%')
-        ax.grid()
+        drawdown_pct = drawdown * 100
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=drawdown_pct.index,
+            y=drawdown_pct.values,
+            mode='lines',
+            fill='tozeroy',
+            name='Drawdown',
+            line=dict(color='red'),
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.update_layout(
+            title='Backtest Drawdown',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_info(self):
         info = {}

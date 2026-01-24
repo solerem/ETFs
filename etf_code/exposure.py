@@ -1,9 +1,7 @@
 from opti import Opti
 from data import Data
-import matplotlib
-
-matplotlib.use('Agg')
-from matplotlib import pyplot as plt
+from dash import dcc
+import plotly.graph_objects as go
 
 
 class Exposure:
@@ -15,15 +13,23 @@ class Exposure:
     def plot_pie_chart(self, dico, title):
         dico = {key: abs(dico[key]) for key in dico if dico[key] != 0}
         sorted_dico = dict(sorted(dico.items(), key=lambda item: item[1], reverse=True))
-
-        fig, ax = plt.subplots()
-        ax.pie(
-            sorted_dico.values(),
-            labels=sorted_dico.keys(),
-            autopct=lambda pct: f'{int(round(pct))}%'
+        fig = go.Figure(data=[go.Pie(labels=list(sorted_dico.keys()),
+                                     values=list(sorted_dico.values()))])
+        fig.update_traces(
+            textinfo='label+percent',
+            texttemplate='%{label}: %{percent:.1%}',
+            hovertemplate='%{label}: %{percent:.1%}<extra></extra>'
         )
-        ax.set_title(title)
-        return Opti.save_fig_as_dash_img(fig, output_path=None)
+        fig.update_layout(
+            title=title,
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_currency(self):
         etf_currency = self.opti.portfolio.data.etf_currency
@@ -60,9 +66,6 @@ class Exposure:
 
     def plot_sector(self):
         return self.plot_other_exposure('Stock Sector')
-
-    def plot_type(self):
-        return self.plot_other_exposure('Bond Type')
 
     def plot_geo(self):
         return self.plot_other_exposure('Geography')

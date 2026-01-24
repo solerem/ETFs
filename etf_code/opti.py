@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 import matplotlib
-from dash import dash_table
+from dash import dash_table, dcc
 from scipy.optimize import curve_fit
 from portfolio import Portfolio
 import matplotlib.cm as cm
@@ -19,6 +19,7 @@ from pathlib import Path
 import statsmodels.api as sm
 import gurobipy as gp
 from gurobipy import GRB
+import plotly.graph_objects as go
 
 class Opti:
     solver_method = 'SLSQP'
@@ -196,47 +197,96 @@ class Opti:
 
     def plot_optimum(self):
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
-
-        fig, ax = plt.subplots()
+        values = [abs(sorted_optimum[x]) for x in sorted_optimum]
+        labels = [x if sorted_optimum[x] >= 0 else '--' + x for x in sorted_optimum]
         colors = [self.color_map[k] for k in sorted_optimum.keys()]
-        ax.pie(
-            [abs(sorted_optimum[x]) for x in sorted_optimum],
-            labels=[x if sorted_optimum[x]>=0 else '--'+x for x in sorted_optimum],
-            colors=colors,
-            autopct=lambda pct: f'{int(round(pct))}%'
+        full_name_list = [self.portfolio.data.etf_full_names.loc[ticker] for ticker in sorted_optimum]
+
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            marker=dict(colors=colors),
+            customdata=full_name_list
+        )])
+        fig.update_traces(
+            textinfo='label+percent',
+            texttemplate='%{label}: %{percent:.1%}',
+            hovertemplate='%{label}: %{percent:.1%}<br>%{customdata}<extra></extra>'
         )
-        ax.set_title('Optimal Allocation')
+        fig.update_layout(title='Optimal Allocation')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_in_sample(self):
-        fig, ax = plt.subplots()
-        ax.plot((self.cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
+        cumulative_pct = (self.cumulative - 1) * 100
 
         spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        label = 'BTC' if self.portfolio.crypto else 'Total stock market'
-        ax.plot(spy, label=f'{label} ({self.portfolio.currency})', linestyle='--')
+        spy_col = 'BTC-USD' if self.portfolio.crypto else 'VTI'
+        spy_name = 'BTC' if self.portfolio.crypto else 'Total stock market'
+        if isinstance(spy, pd.DataFrame):
+            if spy_col in spy.columns:
+                spy = spy[spy_col]
+            else:
+                spy = spy.iloc[:, 0]
 
         rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
-        ax.plot(rf_rate, label='Rate', linestyle='--')
 
-        ax.axhline(0, color='black')
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=cumulative_pct.index,
+            y=cumulative_pct.values,
+            mode='lines',
+            name="Strategy",
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=spy.index,
+            y=spy.values,
+            mode='lines',
+            name="Stocks",
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=rf_rate.index,
+            y=rf_rate.values,
+            mode='lines',
+            name='Rate',
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
 
-        nb_years = int(self.portfolio.data.period[:-1])
-        pa_perf = round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1)
+        fig.update_layout(
+            title='In-sample Performance',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
+        fig.add_hline(y=0, line_color='black')
 
-        running_max = self.cumulative.cummax()
-        drawdown = (self.cumulative - running_max) / running_max
-        max_drawdown = round(drawdown.min() * 100, 1)
-
-        ax.set_title(f'In-Sample')
-        ax.set_ylabel('%')
-        ax.legend()
-        ax.grid()
-
+        # Preserve image export for existing static file output
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_weighted_perf(self):
         returns = self.portfolio.data.returns[self.optimum.keys()]
@@ -244,33 +294,74 @@ class Opti:
 
         cumulative_returns = (1 + returns).cumprod() - 1
         contribution = cumulative_returns.multiply(weights, axis=1) * 100
-
-        fig, ax = plt.subplots()
+        fig = go.Figure()
         for col in contribution.columns:
-            ax.plot(contribution.index, contribution[col], label=col, color=self.color_map[col])
+            fig.add_trace(go.Scatter(
+                x=contribution.index,
+                y=contribution[col].values,
+                mode='lines',
+                name=col,
+                line=dict(color=self.color_map[col]),
+                hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+            ))
 
-        ax.legend()
-        ax.set_title('In-Sample Performance Attribution')
-        ax.axhline(0, color='black')
-        ax.set_ylabel('%')
-        ax.grid()
+        fig.add_hline(y=0, line_color='black')
+        fig.update_layout(
+            title='In-sample Performance Breakdown',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_drawdown(self):
         rolling_max = self.cumulative.cummax()
         drawdown = self.cumulative / rolling_max - 1
+        drawdown_pct = drawdown * 100
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=drawdown_pct.index,
+            y=drawdown_pct.values,
+            mode='lines',
+            fill='tozeroy',
+            name='Drawdown',
+            line=dict(color='red'),
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
 
-        fig, ax = plt.subplots()
-        ax.fill_between(drawdown.index, drawdown * 100, 0, color='red', alpha=.5)
-
-        ax.set_title(f'Drawdown')
-        ax.set_ylabel('%')
-        ax.grid()
+        fig.update_layout(
+            title='Drawdown',
+            yaxis_title='%',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
+        )
+        fig.update_yaxes(tickformat='.1f')
 
         output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
-        return Opti.save_fig_as_dash_img(fig, output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fig.write_image(str(output_path))
+        except Exception:
+            pass
+
+        return dcc.Graph(
+            figure=fig,
+            config={'displaylogo': False, 'scrollZoom': True},
+            style={'height': '420px'}
+        )
 
     def plot_info(self):
         info = {}

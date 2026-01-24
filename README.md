@@ -13,7 +13,7 @@ A compact toolkit (with a Dash UI) to **build, optimize, backtest, and rebalance
 - **Mean–variance optimizer** (SLSQP) with long‑only or long/short budget (L1)  
 - **Correlation clustering** to prune near‑duplicate tickers (threshold on |corr|)  
 - **Walk‑forward backtests** with monthly re‑optimization and test returns  
-- **Exposure breakdowns** (asset class, sector, bond type, geography, currencies)  
+- **Exposure breakdowns** (asset class, sector, geography, currencies)  
 - **Rebalance plan** (buy/sell amounts + before/after allocations)  
 - **Dash app** for click‑through workflows and plot previews  
 - **Static caching** to avoid repeated downloads while iterating
@@ -123,7 +123,7 @@ img_ccy   = ex.plot_currency()   # trading currencies (incl. FX pseudo-tickers)
 - **Portfolio** (`portfolio.Portfolio`) trims too‑new tickers and runs **hierarchical clustering** on distance `1 - |corr|` (average linkage). For each cluster, it keeps the member with the lowest objective. It exposes `objective(w=...) = weight_cov * variance - mean_excess`. The risk‑aversion `weight_cov` is derived from the discrete **risk** (1..3).
 - **Opti** builds **bounds** (`(0,1)` long‑only or `(-1,1)` long/short) and an **equality constraint** (sum(w)=1 or sum(|w|)=1), then solves with **SciPy SLSQP**. Very small absolute weights (<1%) are zeroed and the vector is renormalized by L1.
 - **Backtest** performs a **train/test split** (default **0.85** in‑sample), re‑optimizes monthly in a walk‑forward loop (`static=True` + `backtest=<timestamp>` to truncate to in‑sample), then computes **out‑of‑sample returns** and plots.
-- **Exposure** aggregates optimized weights by category (asset class, sector, bond type, geography, trading currency).
+- **Exposure** aggregates optimized weights by category (asset class, sector, geography, trading currency).
 - **Rebalancer** converts weights × liquidity into **target currency amounts**, diffs vs holdings, and returns a tidy **rebalance table**.
 
 ---

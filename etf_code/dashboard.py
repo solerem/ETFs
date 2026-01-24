@@ -22,11 +22,11 @@ class Dashboard(dash.Dash):
             """
             <style>
               @media (min-width: 992px){ .sticky-card{ position: sticky; top: 1rem; } }
-              .chart-frame{ max-width:100%; max-height:60vh; overflow:auto; }
+              .chart-frame{ max-width:100%; max-height:none; overflow:visible; }
               .chart-frame img, .chart-frame svg, .chart-frame canvas{
                 display:block; max-width:100%; height:auto !important;
               }
-              .chart-frame .dash-graph{ height:420px !important; }
+              .chart-frame .dash-graph{ height:520px !important; }
               .grid-2{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:1rem; align-items:start; }
               @media (max-width: 991.98px){ .grid-2{ grid-template-columns: 1fr; } }
             </style>
@@ -155,18 +155,10 @@ class Dashboard(dash.Dash):
                     ]),
 
                     dcc.Tab(label="Rebalance", value="tab-rebalance", children=[
-                        html.Div(className="d-flex align-items-center mb-3", children=[
-                            dbc.Button([html.I(className="bi bi-arrow-repeat me-2"), "Rebalance"],
-                                       id='rebalance-button', n_clicks=0, color="primary")
-                        ]),
                         html.Div(id='rebalance-div', className="table-wrap")
                     ]),
 
                     dcc.Tab(label="Exposure", value="tab-exposure", id='exposure-tab', children=[
-                        html.Div(className="d-flex align-items-center mb-3", children=[
-                            dbc.Button([html.I(className="bi bi-pie-chart me-2"), "Display exposure"],
-                                       id='display-exposure', n_clicks=0, color="primary")
-                        ]),
                         html.Div(id='exposure-graphs')
                     ]),
 
@@ -281,6 +273,8 @@ class Dashboard(dash.Dash):
         @self.callback(
             Output('create-portfolio', 'n_clicks'),
             Output('portfolio-distrib', 'children'),
+            Output('rebalance-div', 'children'),
+            Output('exposure-graphs', 'children'),
             Input('create-portfolio', 'n_clicks'),
         )
         def create_portfolio(create_portfolio_n_click):
@@ -296,44 +290,18 @@ class Dashboard(dash.Dash):
                     crypto=(self.mode == 'crypto')
                 )
                 self.opti = Opti(self.portfolio)
-                return 0, html.Div([
+
+                portfolio_div = html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),
                     html.Div(self.opti.plot_optimum(), className="chart-frame"),
                     html.Div(self.opti.plot_drawdown(), className="chart-frame"),
                     html.Div(self.opti.plot_weighted_perf(), className="chart-frame"),
                     html.Div(self.opti.plot_info()),
                 ], className="grid-2")
-            return 0, dash.no_update
 
-        @self.callback(
-            Output('create-backtest', 'n_clicks'),
-            Output('backtest-graphs', 'children'),
-            Input('create-backtest', 'n_clicks'),
-            prevent_initial_call=True
-        )
-        def create_backtest(create_backtest_n_click):
-            if create_backtest_n_click:
-                self.backtest = Backtest(self.opti)
-                return 0, html.Div([
-                    html.Div(self.backtest.plot_backtest(), className="chart-frame"),
-                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
-                    html.Div(self.backtest.plot_drawdown(), className="chart-frame"),
-                    html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
-                    html.Div(self.backtest.plot_info()),
-                ], className="grid-2")
-            return 0, dash.no_update
-
-        @self.callback(
-            Output('rebalance-button', 'n_clicks'),
-            Output('rebalance-div', 'children'),
-            Input('rebalance-button', 'n_clicks'),
-            Input('radio-currency', 'value')
-        )
-        def rebalance(rebalance_n_click, selected_currency):
-            if rebalance_n_click:
                 self.rebalancer = Rebalancer(self.opti)
                 df = self.rebalancer.rebalance_df.copy()
-                df.rename(columns={'Buy/Sell': f'Buy/Sell ({selected_currency})'}, inplace=True)
+                df.rename(columns={'Buy/Sell': f'Buy/Sell ({self.currency})'}, inplace=True)
 
                 table = dash_table.DataTable(
                     data=df.to_dict('records'),
@@ -355,22 +323,34 @@ class Dashboard(dash.Dash):
                     ]
                 )
 
-                return 0, dbc.Card(dbc.CardBody(table), className="shadow-sm")
-            return 0, dash.no_update
+                rebalance_div = dbc.Card(dbc.CardBody(table), className="shadow-sm")
 
-        @self.callback(
-            Output('display-exposure', 'n_clicks'),
-            Output('exposure-graphs', 'children'),
-            Input('display-exposure', 'n_clicks'),
-        )
-        def display_exposure(display_exposure_n_click):
-            if display_exposure_n_click:
                 self.exposure = Exposure(self.opti)
-                return 0, html.Div([
+                exposure_div = html.Div([
                     html.Div(self.exposure.plot_currency(), className="chart-frame"),
                     html.Div(self.exposure.plot_category(), className="chart-frame"),
                     html.Div(self.exposure.plot_sector(), className="chart-frame"),
-                    html.Div(self.exposure.plot_type(), className="chart-frame"),
                     html.Div(self.exposure.plot_geo(), className="chart-frame"),
                 ], className="grid-2")
+
+                return 0, portfolio_div, rebalance_div, exposure_div
+            return 0, dash.no_update, dash.no_update, dash.no_update
+
+        @self.callback(
+            Output('create-backtest', 'n_clicks'),
+            Output('backtest-graphs', 'children'),
+            Input('create-backtest', 'n_clicks'),
+            prevent_initial_call=True
+        )
+        def create_backtest(create_backtest_n_click):
+            if create_backtest_n_click:
+                self.backtest = Backtest(self.opti)
+                return 0, html.Div([
+                    html.Div(self.backtest.plot_backtest(), className="chart-frame"),
+                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
+                    html.Div(self.backtest.plot_drawdown(), className="chart-frame"),
+                    html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
+                    html.Div(self.backtest.plot_info()),
+                ], className="grid-2")
             return 0, dash.no_update
+

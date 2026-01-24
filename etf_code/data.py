@@ -13,7 +13,7 @@ class Data:
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure, self.alternatives = None, None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
         self.crypto = crypto
         self.period = '5y' if self.crypto else '20y'
@@ -24,17 +24,12 @@ class Data:
         self.get_spy()
         self.get_full_names()
         self.get_exposure()
-        self.get_alternatives()
 
 
     def drop_test_data_backtest(self, df):
         if self.backtest:
             df = df.loc[:self.backtest]
         return df
-
-    def get_alternatives(self):
-        df = pd.read_csv(Data.data_dir_path / 'alternatives.csv', sep=';')
-        self.alternatives = {row['TICKER']: row['BEST'] for _, row in df.iterrows()}
 
     @staticmethod
     def get_test_data_backtest(df, cutoff):

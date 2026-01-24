@@ -34,8 +34,6 @@ class Dashboard(dash.Dash):
             """
         )
 
-
-
         self.main_div = None
         self.risk, self.currency, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
@@ -279,7 +277,6 @@ class Dashboard(dash.Dash):
         )
         def create_portfolio(create_portfolio_n_click):
             if create_portfolio_n_click:
-
                 self.portfolio = Portfolio(
                     self.risk,
                     self.cash_sgd,
@@ -353,4 +350,3 @@ class Dashboard(dash.Dash):
                     html.Div(self.backtest.plot_info()),
                 ], className="grid-2")
             return 0, dash.no_update
-

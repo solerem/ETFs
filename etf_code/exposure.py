@@ -34,7 +34,7 @@ class Exposure:
     def plot_currency(self):
         etf_currency = self.opti.portfolio.data.etf_currency
 
-        currency_dict = {curr: 0 for curr in Data.possible_currencies+Data.helper_currencies}
+        currency_dict = {curr: 0 for curr in Data.possible_currencies + Data.helper_currencies}
         for ticker in self.optimum:
             if ticker in Data.possible_currencies:
                 currency_dict[ticker] += self.optimum[ticker]

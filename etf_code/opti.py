@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 from portfolio import Portfolio
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+
 matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 from data import Data
@@ -21,6 +22,7 @@ import statsmodels.api as sm
 import gurobipy as gp
 from gurobipy import GRB
 import plotly.graph_objects as go
+
 
 class Opti:
     solver_method = 'SLSQP'
@@ -70,8 +72,6 @@ class Opti:
         abs_smooth = np.sqrt(w * w + eps)
         return 1.0 / (1.0 + np.exp(-alpha * (abs_smooth - tau)))
 
-
-
     def get_constraints(self):
         func = sum
         func = Opti.abs_sum
@@ -84,23 +84,19 @@ class Opti:
 
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
 
-
-    def optimize(self, max_assets=10, borrow_years=1/12):
-        borrow_rate_annual = {tick:0. for tick in self.portfolio.etf_list}
+    def optimize(self, max_assets=10, borrow_years=1 / 12):
+        borrow_rate_annual = {tick: 0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
-
-
 
         df_repo = pd.read_csv(Data.static_dir_path / 'repo.csv', sep=';')
         df_repo['REPO'] = df_repo['REPO'].str.replace(',', '.').astype(float)
 
         for _, row in df_repo.iterrows():
-            borrow_rate_annual[row['TICKER']] = row['REPO']/100
-
+            borrow_rate_annual[row['TICKER']] = row['REPO'] / 100
 
         # Build data for a mean-variance objective from historical returns
         rets = self.portfolio.data.returns[self.portfolio.etf_list]
-        rets[self.portfolio.currency] += ((1.01)**(1/12))-1
+        rets[self.portfolio.currency] += ((1.01) ** (1 / 12)) - 1
         mu = rets.mean().values  # expected returns (vector)
         Sigma = rets.cov().values  # covariance matrix (n x n)
         n = self.portfolio.n
@@ -148,7 +144,6 @@ class Opti:
             Sigma[i, j] * w_expr[i] * w_expr[j] for i in range(n) for j in range(n)
         )
         ret_term = gp.quicksum(mu[i] * w_expr[i] for i in range(n))
-
 
         # Build per-asset borrow cost
         borrow_cost = gp.quicksum(
@@ -265,7 +260,7 @@ class Opti:
         ))
 
         fig.update_layout(
-            title='In-sample Performance',
+            title='In-sample Performance vs Benchmark',
             yaxis_title='%',
             hovermode='x unified',
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
@@ -366,7 +361,7 @@ class Opti:
         info = {}
         explain = {}
         weights = list(self.optimum.values())
-        #self.returns = self.returns[self.optimum.keys()]
+        # self.returns = self.returns[self.optimum.keys()]
         returns = self.returns @ weights
 
         nb_years = int(self.portfolio.data.period[:-1])
@@ -399,10 +394,13 @@ class Opti:
         info['VaR 95%'] = str(round(var95 * 100, 1)) + ' %'
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
 
-        X = sm.add_constant(spy)
-        model = sm.OLS(returns[1:], X).fit()
-        r2 = model.rsquared
-        info['R2'] = str(round(100 * r2)) + ' %'
+        try:
+            X = sm.add_constant(spy)
+            model = sm.OLS(returns[1:], X).fit()
+            r2 = model.rsquared
+            info['R2'] = str(round(100 * r2)) + ' %'
+        except:
+            info['R2'] = '0'
         explain['R2'] = '% of returns explained by benchmark'
 
         # Convert dict into list of dicts for DataTable
@@ -437,5 +435,3 @@ class Opti:
                 }
             ]
         )
-
-

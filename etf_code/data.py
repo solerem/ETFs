@@ -12,6 +12,8 @@ class Data:
     helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
     static_dir_path = data_dir_path / "STATIC"
+    weight_cov_path = data_dir_path / "weight_cov.parquet"
+    _weight_cov_params = None
 
     @staticmethod
     def _coerce_datetime_index(index):
@@ -19,7 +21,7 @@ class Data:
             return index
         if pd.api.types.is_integer_dtype(index):
             sample = index[0] if len(index) else 0
-            unit = 'ms' if abs(sample) < 10**12 else 'ns'
+            unit = 'ms' if abs(sample) < 10 ** 12 else 'ns'
             return pd.to_datetime(index, unit=unit)
         return pd.to_datetime(index)
 
@@ -29,7 +31,7 @@ class Data:
             return pd.to_datetime(series)
         if pd.api.types.is_integer_dtype(series):
             sample = series.dropna().iloc[0] if series.notna().any() else 0
-            unit = 'ms' if abs(sample) < 10**12 else 'ns'
+            unit = 'ms' if abs(sample) < 10 ** 12 else 'ns'
             return pd.to_datetime(series, unit=unit)
         return pd.to_datetime(series)
 
@@ -47,7 +49,7 @@ class Data:
     @staticmethod
     def _write_parquet_timeseries(data, path, date_col='Date'):
         df = data.to_frame() if isinstance(data, pd.Series) else data
-        df = df.reset_index()
+        df = df.copy().reset_index()
         if 'index' in df.columns:
             df = df.rename(columns={'index': date_col})
         if date_col in df.columns:
@@ -56,6 +58,19 @@ class Data:
             df.to_parquet(path, index=False, engine='pyarrow')
         except Exception:
             df.to_parquet(path, index=False)
+
+    @classmethod
+    def get_weight_cov_params(cls, static=False):
+        if not static:
+            from weight_tune import save_weights
+            save_weights()
+
+        if cls._weight_cov_params is None:
+            df = pd.read_parquet(cls.weight_cov_path)
+            params = df.set_index("currency")[["a", "b", "c"]]
+            cls._weight_cov_params = params.to_dict(orient="index")
+
+        return cls._weight_cov_params
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
@@ -69,7 +84,6 @@ class Data:
         self.get_spy()
         self.get_full_names()
         self.get_exposure()
-
 
     def drop_test_data_backtest(self, df):
         if self.backtest:
@@ -85,8 +99,10 @@ class Data:
         if self.static:
             self.currency_rate = Data._read_parquet_timeseries(Data.data_dir_path / currency_file)
         else:
-            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies+Data.helper_currencies if ticker != 'USD']
-            self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=False)['Close'].bfill()
+            to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies + Data.helper_currencies if
+                           ticker != 'USD']
+            self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=False)[
+                'Close'].bfill()
             Data._write_parquet_timeseries(self.currency_rate, Data.data_dir_path / currency_file)
 
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
@@ -108,7 +124,8 @@ class Data:
         if self.crypto:
             self.etf_currency = pd.Series({ticker: 'USD' for ticker in self.etf_list})
         elif self.static:
-            self.etf_currency = pd.Series(pd.read_csv(Data.static_dir_path / 'curr_etf.csv', index_col=0)['0'])
+            df = pd.read_parquet(Data.data_dir_path / 'curr_etf.parquet')
+            self.etf_currency = df['currency'] if 'currency' in df.columns else df.iloc[:, 0]
         else:
             def get_currency(ticker):
                 try:
@@ -122,7 +139,8 @@ class Data:
                 results = executor.map(get_currency, self.etf_list)
 
             self.etf_currency = dict(results)
-            pd.Series(self.etf_currency).to_csv(Data.static_dir_path / 'curr_etf.csv')
+            pd.Series(self.etf_currency).to_frame('currency').to_parquet(Data.data_dir_path / 'curr_etf.parquet',
+                                                                         index=True)
 
     def get_spy(self):
         file_name = 'spy_crypto.parquet' if self.crypto else 'spy.parquet'
@@ -136,7 +154,6 @@ class Data:
 
         if self.currency != 'USD':
             self.spy[spy_ticker] *= self.currency_rate['USD']
-
 
         self.spy = self.drop_test_data_backtest(self.spy)
 
@@ -190,7 +207,7 @@ class Data:
 
         for curr in self.rates:
             if curr:
-                self.returns[curr] = (1+self.returns[curr]) * ((1+self.rates[curr]/100) ** (1/12)) - 1
+                self.returns[curr] = (1 + self.returns[curr]) * ((1 + self.rates[curr] / 100) ** (1 / 12)) - 1
 
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
@@ -219,7 +236,8 @@ class Data:
         if self.static:
             etf_full_names = pd.read_csv(Data.static_dir_path / file_name, index_col=0)
         else:
-            etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker })
+            etf_full_names = pd.Series(
+                {ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker})
             for ticker in self.etf_list:
                 if '=F' in ticker:
                     etf_full_names[ticker] = yf.Ticker(ticker).info['shortName']

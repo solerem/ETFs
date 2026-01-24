@@ -8,6 +8,7 @@ import statsmodels.api as sm
 import numpy as np
 import plotly.graph_objects as go
 
+
 class Backtest:
     def __init__(self, opti, save_images=False):
         self.opti = opti
@@ -285,7 +286,7 @@ class Backtest:
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
         label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
-        spy = self.portfolio.data.spy[label].pct_change().dropna()[self.cutoff-1:]
+        spy = self.portfolio.data.spy[label].pct_change().dropna()[self.cutoff - 1:]
         beta = self.returns.cov(spy) / spy.var()
         info['Beta'] = round(beta, 2)
         explain['Beta'] = 'Sensitivity to market movements'

@@ -30,7 +30,8 @@ class Info:
         "^NSEI", "^AXJO", "^GSPTSE", "^BVSP"
     ]
 
-    crypto_list  = ['BTC', 'ETH']#, 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
+    crypto_list = ['BTC',
+                   'ETH']  # , 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
     crypto_list = [f'{x}-USD' for x in crypto_list]
 
     etf_list = sorted(list(set(etf_list)))
@@ -42,7 +43,7 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, rates, crypto):
+    def __init__(self, risk, cash, holdings, currency, rates, crypto, static=False, override_weight_cov=None):
         self.weight_cov = None
         self.risk = risk
         self.cash = cash
@@ -50,24 +51,51 @@ class Info:
         self.rates = rates if rates else {}
         self.crypto = crypto
         self.currency = currency if currency else 'USD'
-        self.get_weight_cov()
+        self.static = static
         self.name = 'Risk ' + str(self.risk)
         self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
         self.n = len(self.etf_list)
 
-
-    def get_weight_cov(self):
-        self.weight_cov = 52 * np.exp(-0.326 * self.risk) - 2
-        if self.risk == 10:
-            self.weight_cov += 1/3
+    def get_weight_cov(self, override_weight_cov=None):
+        if override_weight_cov is not None:
+            self.weight_cov = float(override_weight_cov)
+            return
+        params = Data.get_weight_cov_params(static=self.static)
+        coeffs = params[self.currency]
+        self.weight_cov = (
+                float(coeffs["a"]) * np.exp(float(coeffs["b"]) * self.risk)
+                + float(coeffs["c"])
+        )
 
 
 class Portfolio(Info):
-    def __init__(self, risk=3, cash=100, holdings=None, currency=None, static=False, backtest=None, rates=None, crypto=False):
-        super().__init__(risk, cash, holdings, currency, rates, crypto)
+    def __init__(
+            self,
+            risk=3,
+            cash=100,
+            holdings=None,
+            currency=None,
+            static=False,
+            backtest=None,
+            rates=None,
+            crypto=False,
+            override_weight_cov=None,
+    ):
+        super().__init__(
+            risk,
+            cash,
+            holdings,
+            currency,
+            rates,
+            crypto,
+            static=static,
+            override_weight_cov=override_weight_cov,
+        )
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates, crypto=crypto)
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates,
+                         crypto=crypto)
+        self.get_weight_cov(override_weight_cov=override_weight_cov)
         if not crypto:
             # Extend with currency pseudo-tickers so FX can be considered.
             self.etf_list += [ticker for ticker in Data.possible_currencies]
@@ -80,9 +108,6 @@ class Portfolio(Info):
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
-
-
-
 
     def remove_etf(self, ticker):
         self.data.nav.drop(ticker, axis=1, inplace=True)
@@ -101,8 +126,8 @@ class Portfolio(Info):
         log_returns_without_currency = self.data.log_returns.copy()
 
         if not self.crypto:
-            # Keep the base currency column out of the clustering universe.
-            log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
+            if self.currency in log_returns_without_currency.columns:
+                log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
         corr = log_returns_without_currency.corr(method='pearson', min_periods=2).abs()
         tickers = corr.columns.tolist()
@@ -149,9 +174,7 @@ class Portfolio(Info):
 
             excess_series = self.data.excess_returns @ w
             mean = excess_series.mean()
-            lambda_reg = .0#2/(self.risk+1)
-            reg =  lambda_reg * np.sum(w**2)
-            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean - reg
+            return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
         def f_crypto(w=np.zeros(self.n), single_ticker=None):
             if single_ticker:

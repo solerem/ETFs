@@ -1,33 +1,10 @@
-"""
-Optimization and plotting for portfolio weights.
-
-This module defines :class:`Opti`, a helper that:
-
-* Builds bounds and constraints for a portfolio optimization (long-only or
-  long/short with an L1 weight budget).
-* Minimizes a user-provided objective exposed by a
-  :class:`~etf_code.portfolio.Portfolio` instance (mean–variance or Sharpe-style,
-  depending on how the portfolio defines ``objective``).
-* Computes in-sample cumulative performance and several diagnostic visuals
-  (allocation pie, cumulative vs. benchmark, contribution, and drawdown),
-  returning each plot as a Dash-ready ``html.Img`` element while also saving
-  PNGs to disk.
-
-Notes
------
-* The solver is SciPy's ``minimize`` with SLSQP by default.
-* For long/short, the equality constraint is ``sum(|w|) = 1``; for long-only,
-  it is ``sum(w) = 1``.
-* Colors for plots are generated deterministically from Matplotlib's ``tab20``.
-"""
-
 import math
 
 import numpy as np
 import matplotlib
 from dash import dash_table
 from scipy.optimize import curve_fit
-from etf_code.portfolio import Portfolio
+from portfolio import Portfolio
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 matplotlib.use('TkAgg')
@@ -44,77 +21,10 @@ import gurobipy as gp
 from gurobipy import GRB
 
 class Opti:
-    """
-    Portfolio optimizer and plotting utility.
-
-    Class Attributes
-    ----------------
-    solver_method : str
-        Optimization algorithm passed to :func:`scipy.optimize.minimize`
-        (default: ``"SLSQP"``).
-    graph_dir_path : pathlib.Path
-        Root directory where PNG plots will be saved.
-
-    Parameters
-    ----------
-    portfolio : Portfolio
-        A portfolio object exposing:
-        * ``n`` (universe size),
-        * ``allow_short`` (bool),
-        * ``objective(w=..., single_ticker=None)`` (callable for minimization),
-        * ``etf_list`` (tickers),
-        * ``data`` with ``returns``, ``spy``, and ``rf_rate``,
-        * ``currency`` (base currency code),
-        * ``name`` (label for titles),
-        * ``crypto`` (bool; used only for labeling the benchmark line).
-
-    Attributes
-    ----------
-    optimum : dict[str, float] | None
-        Sparse weight mapping after thresholding small weights and renormalizing.
-    optimum_all : dict[str, float] | None
-        Full weight vector (including near-zeros) as a mapping.
-    w_opt : numpy.ndarray | None
-        Optimized weight vector.
-    constraints : list[dict] | None
-        Nonlinear equality constraint(s) for the optimizer.
-    bounds : list[tuple[float, float]] | None
-        Per-asset bounds, long-only or long/short per portfolio settings.
-    cumulative : pandas.Series | None
-        In-sample cumulative performance of the optimized portfolio (gross of RF).
-    returns : pandas.Series | pandas.DataFrame | None
-        Subset of simple returns used to compute :attr:`cumulative`.
-    color_map : dict[str, str] | None
-        Ticker-to-HEX color mapping used by plotting helpers.
-    portfolio : Portfolio
-        Reference to the provided portfolio object.
-    w0 : numpy.ndarray
-        Starting point for optimization (uniform weights).
-    """
-
     solver_method = 'SLSQP'
     graph_dir_path = Path(__file__).resolve().parent.parent / "graphs"
 
     def __init__(self, portfolio):
-        """
-        Initialize the optimizer, solve for weights, and compute performance.
-
-        The constructor:
-        1) builds bounds and constraints,
-        2) sets a uniform initial guess,
-        3) runs the optimization,
-        4) computes cumulative in-sample performance,
-        5) builds a deterministic color map.
-
-        Parameters
-        ----------
-        portfolio : Portfolio
-            Portfolio-like object exposing an ``objective`` and market data.
-
-        Returns
-        -------
-        None
-        """
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.get_bounds()
@@ -126,69 +36,18 @@ class Opti:
         self.get_color_map()
 
     def get_color_map(self):
-        """
-        Build a deterministic HEX color mapping for the optimized universe.
-
-        Colors are drawn from Matplotlib's ``tab20`` colormap and assigned in the
-        order of :attr:`optimum_all` keys to ensure reproducibility.
-
-        Returns
-        -------
-        None
-        """
         cmap = cm.get_cmap('tab20', len(self.optimum_all))
         self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum_all.keys())}
 
     def get_bounds(self):
-        """
-        Build per-asset bounds based on shorting permission.
-
-        * If shorting is allowed: ``(-1, 1)``.
-        * If long-only: ``(0, 1)``.
-
-        Returns
-        -------
-        None
-        """
         self.bounds = [(-1, 1)] * self.portfolio.n
 
     @staticmethod
     def abs_sum(lst):
-        """
-        L1 norm (sum of absolute values).
-
-        Parameters
-        ----------
-        lst : list[float] | numpy.ndarray | tuple[float, ...]
-            Iterable of numbers.
-
-        Returns
-        -------
-        float
-            Sum of absolute values.
-        """
         return sum([abs(x) for x in lst])
 
     @staticmethod
     def save_fig_as_dash_img(fig, output_path):
-        """
-        Convert a Matplotlib figure to a Dash ``html.Img`` (and save to disk).
-
-        If ``output_path`` is not ``None``, the PNG is written to that path.
-        The function always returns an inline base64-encoded ``html.Img`` element.
-
-        Parameters
-        ----------
-        fig : matplotlib.figure.Figure
-            Matplotlib figure to serialize.
-        output_path : str | pathlib.Path | None
-            File path for saving the PNG (or ``None`` to skip saving).
-
-        Returns
-        -------
-        dash.html.Img
-            Image component with the figure embedded as a data URI.
-        """
         if output_path:
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,16 +72,6 @@ class Opti:
 
 
     def get_constraints(self):
-        """
-        Construct the weight-budget equality constraint.
-
-        * Long-only: enforce ``sum(w) = 1``.
-        * Long/short: enforce ``sum(|w|) = 1``.
-
-        Returns
-        -------
-        None
-        """
         func = sum
         func = Opti.abs_sum
 
@@ -236,20 +85,6 @@ class Opti:
 
 
     def optimize(self, max_assets=10, borrow_years=1/12):
-        """
-        Solve the portfolio optimization problem using Gurobi with a cardinality constraint
-        and a borrow-cost penalty for short positions, modeled via w_plus/w_minus.
-
-        Parameters
-        ----------
-        max_assets : int
-            Maximum number of assets allowed in the portfolio (cardinality).
-        borrow_rate_annual : float
-            Annual borrow fee for short positions (e.g. 0.02 for 2% per year).
-        borrow_years : float
-            Effective number of years over which to charge the borrow fee
-            in the objective (1.0 = 1 year; use 20.0 if you want 20-year cost).
-        """
 
         borrow_rate_annual = {tick:0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
@@ -355,41 +190,11 @@ class Opti:
         }
 
     def get_cumulative(self):
-        """
-        Compute in-sample cumulative performance for the optimized weights.
-
-        Uses simple returns from ``self.portfolio.data.returns`` and the
-        sparse weight mapping in :attr:`optimum`.
-
-        Notes
-        -----
-        This method *re-runs* the optimization internally (duplicating the logic
-        in :meth:`optimize`) before computing cumulative performance. This mirrors
-        the existing behavior and ensures :attr:`optimum` and :attr:`optimum_all`
-        are refreshed, but may be redundant if called repeatedly.
-
-        Returns
-        -------
-        None
-        """
         self.returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = list(self.optimum.values())
         self.cumulative = (1 + self.returns @ weights).cumprod()
 
     def plot_optimum(self):
-        """
-        Plot the optimized allocation as a pie chart.
-
-        Colors are pulled from the instance color map built at construction.
-        The image is saved under
-        ``graphs/<currency>/<name>- optimal_allocation.png`` and also returned
-        as a Dash image.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash component containing the pie chart.
-        """
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
 
         fig, ax = plt.subplots()
@@ -406,18 +211,6 @@ class Opti:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_in_sample(self):
-        """
-        Plot in-sample cumulative performance vs. market proxy and RF leg.
-
-        The title additionally includes annualized performance and max drawdown
-        computed from :attr:`cumulative`. The benchmark line label switches to
-        ``BTC`` when the portfolio is in crypto mode.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash component containing the time-series chart.
-        """
         fig, ax = plt.subplots()
         ax.plot((self.cumulative - 1) * 100, label=str(self.portfolio.name) + f' ({self.portfolio.currency})')
 
@@ -446,17 +239,6 @@ class Opti:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_weighted_perf(self):
-        """
-        Plot in-sample performance attribution by constituent.
-
-        The contribution per asset is the weighted cumulative excess over 1
-        (in percent). Colors follow the portfolio color map.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash component containing the attribution chart.
-        """
         returns = self.portfolio.data.returns[self.optimum.keys()]
         weights = pd.Series(self.optimum)
 
@@ -477,14 +259,6 @@ class Opti:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_drawdown(self):
-        """
-        Plot the portfolio drawdown curve as an area chart below zero.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash component containing the drawdown chart.
-        """
         rolling_max = self.cumulative.cummax()
         drawdown = self.cumulative / rolling_max - 1
 
@@ -499,25 +273,6 @@ class Opti:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_info(self):
-        """
-        Assemble a compact metrics table (Dash DataTable) for the optimized portfolio.
-
-        Metrics reported
-        ----------------
-        * CAGR — average annual growth rate (derived from cumulative).
-        * Sharpe ratio — monthly mean/std scaled by ``sqrt(12)``.
-        * Max/Avg drawdown — from the cumulative equity curve.
-        * Beta — covariance with benchmark (VTI or BTC-USD) over benchmark variance.
-        * Volatility — monthly std scaled by ``sqrt(12)``.
-        * VaR 95% — empirical 5th percentile of monthly returns.
-        * R² — OLS fit of portfolio returns on the benchmark.
-
-        Returns
-        -------
-        dash_table.DataTable
-            A ready-to-render Dash table with metric names, values, and short
-            descriptions.
-        """
         info = {}
         explain = {}
         weights = list(self.optimum.values())
@@ -555,8 +310,8 @@ class Opti:
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
 
         X = sm.add_constant(spy)
-        #model = sm.OLS(returns[1:], X).fit()
-        r2 = 0#model.rsquared
+        model = sm.OLS(returns[1:], X).fit()
+        r2 = model.rsquared
         info['R2'] = str(round(100 * r2)) + ' %'
         explain['R2'] = '% of returns explained by benchmark'
 
@@ -595,19 +350,6 @@ class Opti:
 
 
 def sanity_check_transform_weight():
-    """
-    Quick visual sanity check for the risk-to-performance mapping.
-
-    Runs the full optimization for discrete risk levels (0..10) using a
-    USD, long-only portfolio with static data and sample currency rates.
-    It then fits a line to the resulting annualized performance across
-    risk levels and shows a scatter + fitted line with MSE.
-
-    Notes
-    -----
-    This function *displays* a Matplotlib figure and is intended for manual,
-    ad-hoc sanity checks rather than automated testing.
-    """
     R = list(np.linspace(0, 10, 11))
     returns = []
 
@@ -643,43 +385,10 @@ from scipy.optimize import curve_fit
 
 # Model function: a * exp(bx) + c
 def exp_func(x, a, b, c):
-    """
-    Exponential model used for curve fitting: ``a * exp(b * x) + c``.
-
-    Parameters
-    ----------
-    x : array-like
-        Input domain.
-    a : float
-    b : float
-    c : float
-
-    Returns
-    -------
-    numpy.ndarray
-        Model values at ``x``.
-    """
     return a * np.exp(b * x) + c
 
 
 def fit_exponential(points):
-    """
-    Fit a function of the form ``a * exp(b * x) + c`` to a set of points.
-
-    Parameters
-    ----------
-    points : list[tuple[float, float]]
-        Sequence of (x, y) observations.
-
-    Returns
-    -------
-    tuple[float, float, float]
-        The fitted parameters ``(a, b, c)``.
-
-    Notes
-    -----
-    This helper prints the fitted parameters to stdout and returns them.
-    """
     # Convert to numpy arrays
     x_data = np.array([p[0] for p in points], dtype=float)
     y_data = np.array([p[1] for p in points], dtype=float)

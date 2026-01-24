@@ -8,8 +8,66 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4d263a84-8361-42ab-9d07-1b54aa58604e" name="Changes" comment="short">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/etf_code/opti.py" beforeDir="false" afterPath="$PROJECT_DIR$/etf_code/opti.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/curr_etf.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/currency.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/currency_crypto.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/full_names.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/full_names_crypto.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/nav.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/nav_crypto.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/repo.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/rf_rate.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/rf_rate_crypto.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/spy.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data_dir/spy_crypto.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.readthedocs.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/Makefile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/backtest.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/doctrees/environment.pickle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/doctrees/index.doctree" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/.buildinfo" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_sources/index.rst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/alabaster.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/basic.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/custom.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/doctools.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/documentation_options.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/file.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/github-banner.svg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/language_data.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/minus.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/plus.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/pygments.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/searchtools.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/_static/sphinx_highlight.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/genindex.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/objects.inv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/search.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/build/html/searchindex.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/conf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/dashboard.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/data.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/exposure.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/index.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/main.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/make.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/modules.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/opti.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/portfolio.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/rebalancer.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/backtest.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/conf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/dashboard.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/data.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/exposure.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/main.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/modules.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/opti.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/portfolio.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/rebalancer.rst" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,6 +85,11 @@
     <option name="NEW_BASE" value="origin/main" />
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="solerem &lt;maxime.solere@gmail.com&gt;" />
+      </list>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="MIXED" />
     <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
@@ -52,24 +115,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.config_max.executor": "Run",
-    "Python.dashboard.executor": "Run",
-    "Python.data.executor": "Run",
-    "Python.info.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.opti.executor": "Run",
-    "Python.portfolio.executor": "Run",
-    "Python.rebalancer.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/maximesolere/PycharmProjects/ETF/docs",
-    "run.code.analysis.last.selected.profile": "aDefault",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.config_max.executor&quot;: &quot;Run&quot;,
+    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data.executor&quot;: &quot;Run&quot;,
+    &quot;Python.info.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.opti.executor&quot;: &quot;Run&quot;,
+    &quot;Python.portfolio.executor&quot;: &quot;Run&quot;,
+    &quot;Python.rebalancer.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/maximesolere/PycharmProjects/ETF/docs&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/docs" />
@@ -94,14 +157,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746771197217</updated>
-    </task>
-    <task id="LOCAL-00058" summary="graph helper">
-      <option name="closed" value="true" />
-      <created>1756449579631</created>
-      <option name="number" value="00058" />
-      <option name="presentableId" value="LOCAL-00058" />
-      <option name="project" value="LOCAL" />
-      <updated>1756449579631</updated>
     </task>
     <task id="LOCAL-00059" summary="doc">
       <option name="closed" value="true" />
@@ -487,7 +542,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765089245824</updated>
     </task>
-    <option name="localTasksCounter" value="107" />
+    <task id="LOCAL-00107" summary="short">
+      <option name="closed" value="true" />
+      <created>1769251338872</created>
+      <option name="number" value="00107" />
+      <option name="presentableId" value="LOCAL-00107" />
+      <option name="project" value="LOCAL" />
+      <updated>1769251338873</updated>
+    </task>
+    <option name="localTasksCounter" value="108" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

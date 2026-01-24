@@ -344,7 +344,7 @@ class Dashboard(dash.Dash):
         )
         def create_backtest(create_backtest_n_click):
             if create_backtest_n_click:
-                self.backtest = Backtest(self.opti)
+                self.backtest = Backtest(self.opti, save_images=False)
                 return 0, html.Div([
                     html.Div(self.backtest.plot_backtest(), className="chart-frame"),
                     html.Div(self.backtest.plot_weights(), className="chart-frame"),

@@ -1,4 +1,5 @@
 from data import Data
+import time
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 import pandas as pd
@@ -73,13 +74,9 @@ class Portfolio(Info):
 
         self.etf_list = sorted(list(set(self.etf_list)))
         self.n = len(self.etf_list)
-
         self.drop_too_new()
-
         self.get_objective()
-
         self.drop_highly_correlated()
-
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
@@ -130,10 +127,14 @@ class Portfolio(Info):
         cluster_df = cluster_df.set_index('ETF').join(obj_values)
         best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
-        to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs]
-        for ticker in to_drop:
-            if ticker != self.currency:
-                self.remove_etf(ticker)
+        to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs and ticker != self.currency]
+        if to_drop:
+            self.data.nav.drop(columns=to_drop, inplace=True, errors='ignore')
+            self.data.returns.drop(columns=to_drop, inplace=True, errors='ignore')
+            self.data.log_returns.drop(columns=to_drop, inplace=True, errors='ignore')
+            self.data.excess_returns.drop(columns=to_drop, inplace=True, errors='ignore')
+            self.etf_list = list(self.data.nav.columns)
+            self.n = len(self.etf_list)
 
     def get_liquidity(self):
         self.liquidity = self.cash + sum(abs(v) for v in self.holdings.values())

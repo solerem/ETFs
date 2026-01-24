@@ -9,9 +9,10 @@ import numpy as np
 import plotly.graph_objects as go
 
 class Backtest:
-    def __init__(self, opti):
+    def __init__(self, opti, save_images=False):
         self.opti = opti
         self.portfolio = self.opti.portfolio
+        self.save_images = save_images
         # Adaptive train/test split (matches implementation)
         self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else .9
         self.to_consider = self.opti.optimum.keys()
@@ -91,12 +92,13 @@ class Backtest:
         )
         fig.update_yaxes(tickformat='.1f')
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
+        if self.save_images:
+            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fig.write_image(str(output_path))
+            except Exception:
+                pass
 
         return dcc.Graph(
             figure=fig,
@@ -173,12 +175,13 @@ class Backtest:
         )
         fig.update_yaxes(range=[0, 100], tickformat='.1f')
 
-        output_path = Opti.graph_dir_path / f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
+        if self.save_images:
+            output_path = Opti.graph_dir_path / f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fig.write_image(str(output_path))
+            except Exception:
+                pass
 
         return dcc.Graph(
             figure=fig,
@@ -208,12 +211,13 @@ class Backtest:
         )
         fig.update_yaxes(tickformat='.1f')
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
+        if self.save_images:
+            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fig.write_image(str(output_path))
+            except Exception:
+                pass
 
         return dcc.Graph(
             figure=fig,
@@ -245,12 +249,13 @@ class Backtest:
         )
         fig.update_yaxes(tickformat='.1f')
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
+        if self.save_images:
+            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fig.write_image(str(output_path))
+            except Exception:
+                pass
 
         return dcc.Graph(
             figure=fig,

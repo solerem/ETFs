@@ -1,4 +1,5 @@
 import math
+import time
 
 import numpy as np
 import matplotlib
@@ -33,7 +34,6 @@ class Opti:
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
         self.optimize()
         self.get_cumulative()
-
         self.get_color_map()
 
     def get_color_map(self):
@@ -86,13 +86,12 @@ class Opti:
 
 
     def optimize(self, max_assets=10, borrow_years=1/12):
-
         borrow_rate_annual = {tick:0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
 
 
 
-        df_repo = pd.read_csv(Data.data_dir_path / 'repo.csv', sep=';')
+        df_repo = pd.read_csv(Data.static_dir_path / 'repo.csv', sep=';')
         df_repo['REPO'] = df_repo['REPO'].str.replace(',', '.').astype(float)
 
         for _, row in df_repo.iterrows():
@@ -440,59 +439,3 @@ class Opti:
         )
 
 
-def sanity_check_transform_weight():
-    R = list(np.linspace(0, 10, 11))
-    returns = []
-
-    for risk in R:
-        opti = Opti(Portfolio(risk=risk, cash=100, holdings=None, currency='USD', static=True, backtest=None, rates={'EUR': 1.7, 'SGD': 1.8}, crypto=False))
-        pa_perf = round(((opti.cumulative.iloc[-1]) ** (1 / 20) - 1) * 100, 1)
-        returns.append(pa_perf)
-
-    R = np.array(R)
-    returns = np.array(returns)
-    a, b = np.polyfit(R, returns, 1)
-
-    x = np.linspace(-1, 11, 1000)
-    y = [a * i + b for i in x]
-
-    mse = 0
-    index, biggest = 0, 0
-    for i in range(11):
-        component = (returns[i] - (a * i + b))**2
-        mse += component
-        if component > biggest:
-            index, biggest = i, component
-
-    plt.scatter(R, returns)
-    plt.plot(x, y)
-    plt.title(f'MSE: {round(mse/11, 3)}, largest: {index}')
-
-    plt.show()
-
-
-import numpy as np
-from scipy.optimize import curve_fit
-
-# Model function: a * exp(bx) + c
-def exp_func(x, a, b, c):
-    return a * np.exp(b * x) + c
-
-
-def fit_exponential(points):
-    # Convert to numpy arrays
-    x_data = np.array([p[0] for p in points], dtype=float)
-    y_data = np.array([p[1] for p in points], dtype=float)
-
-    # Fit using curve_fit
-    popt, _ = curve_fit(exp_func, x_data, y_data, p0=(1, 0.1, 0))  # initial guess
-
-    print(popt)
-    return tuple(popt)
-
-
-# Sample calibration points used by :func:`fit_exponential` when testing.
-points = [(0, 49), (1, 35.5), (2, 25), (3, 17.5), (4, 12), (5, 8), (6, 4.75), (7, 3.33), (8, 2.5), (9, 1.2), (10, 0)]
-
-# sanity_check_transform_weight()
-# fit_exponential(points)

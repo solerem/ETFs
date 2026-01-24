@@ -11,6 +11,51 @@ class Data:
     possible_currencies = ['USD', 'EUR', 'SGD', 'AUD', 'GBP', 'HKD', 'JPY']
     helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
+    static_dir_path = data_dir_path / "STATIC"
+
+    @staticmethod
+    def _coerce_datetime_index(index):
+        if isinstance(index, pd.DatetimeIndex):
+            return index
+        if pd.api.types.is_integer_dtype(index):
+            sample = index[0] if len(index) else 0
+            unit = 'ms' if abs(sample) < 10**12 else 'ns'
+            return pd.to_datetime(index, unit=unit)
+        return pd.to_datetime(index)
+
+    @staticmethod
+    def _coerce_datetime_series(series):
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return pd.to_datetime(series)
+        if pd.api.types.is_integer_dtype(series):
+            sample = series.dropna().iloc[0] if series.notna().any() else 0
+            unit = 'ms' if abs(sample) < 10**12 else 'ns'
+            return pd.to_datetime(series, unit=unit)
+        return pd.to_datetime(series)
+
+    @staticmethod
+    def _read_parquet_timeseries(path):
+        df = pd.read_parquet(path, engine='pyarrow')
+
+        if 'Date' in df.columns:
+            df['Date'] = Data._coerce_datetime_series(df['Date'])
+            df = df.set_index('Date')
+        elif not isinstance(df.index, pd.DatetimeIndex):
+            df.index = Data._coerce_datetime_index(df.index)
+        return df
+
+    @staticmethod
+    def _write_parquet_timeseries(data, path, date_col='Date'):
+        df = data.to_frame() if isinstance(data, pd.Series) else data
+        df = df.reset_index()
+        if 'index' in df.columns:
+            df = df.rename(columns={'index': date_col})
+        if date_col in df.columns:
+            df[date_col] = pd.to_datetime(df[date_col])
+        try:
+            df.to_parquet(path, index=False, engine='pyarrow')
+        except Exception:
+            df.to_parquet(path, index=False)
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
@@ -36,14 +81,13 @@ class Data:
         return df.loc[cutoff:]
 
     def get_currency(self):
-        currency_file = 'currency_crypto.csv' if self.crypto else 'currency.csv'
+        currency_file = 'currency_crypto.parquet' if self.crypto else 'currency.parquet'
         if self.static:
-            self.currency_rate = pd.read_csv(Data.data_dir_path / currency_file, index_col=0)
-            self.currency_rate.index = pd.to_datetime(self.currency_rate.index)
+            self.currency_rate = Data._read_parquet_timeseries(Data.data_dir_path / currency_file)
         else:
             to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies+Data.helper_currencies if ticker != 'USD']
             self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=False)['Close'].bfill()
-            self.currency_rate.to_csv(Data.data_dir_path / currency_file)
+            Data._write_parquet_timeseries(self.currency_rate, Data.data_dir_path / currency_file)
 
         self.currency_rate.columns = self.currency_rate.columns.get_level_values(0)
         self.currency_rate.columns = [col[3:6] for col in self.currency_rate.columns]
@@ -64,7 +108,7 @@ class Data:
         if self.crypto:
             self.etf_currency = pd.Series({ticker: 'USD' for ticker in self.etf_list})
         elif self.static:
-            self.etf_currency = pd.Series(pd.read_csv(Data.data_dir_path / 'curr_etf.csv', index_col=0)['0'])
+            self.etf_currency = pd.Series(pd.read_csv(Data.static_dir_path / 'curr_etf.csv', index_col=0)['0'])
         else:
             def get_currency(ticker):
                 try:
@@ -78,18 +122,17 @@ class Data:
                 results = executor.map(get_currency, self.etf_list)
 
             self.etf_currency = dict(results)
-            pd.Series(self.etf_currency).to_csv(Data.data_dir_path / 'curr_etf.csv')
+            pd.Series(self.etf_currency).to_csv(Data.static_dir_path / 'curr_etf.csv')
 
     def get_spy(self):
-        file_name = 'spy_crypto.csv' if self.crypto else 'spy.csv'
+        file_name = 'spy_crypto.parquet' if self.crypto else 'spy.parquet'
         spy_ticker = 'BTC-USD' if self.crypto else 'VTI'
 
         if self.static:
-            self.spy = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
-            self.spy.index = pd.to_datetime(self.spy.index)
+            self.spy = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
             self.spy = yf.download(spy_ticker, period=self.period, interval='1mo', auto_adjust=True)['Close']
-            self.spy[spy_ticker].to_csv(Data.data_dir_path / file_name)
+            Data._write_parquet_timeseries(self.spy[spy_ticker], Data.data_dir_path / file_name)
 
         if self.currency != 'USD':
             self.spy[spy_ticker] *= self.currency_rate['USD']
@@ -98,14 +141,14 @@ class Data:
         self.spy = self.drop_test_data_backtest(self.spy)
 
     def get_rf_rate(self):
-        file_name = 'rf_rate_crypto.csv' if self.crypto else 'rf_rate.csv'
+        file_name = 'rf_rate_crypto.parquet' if self.crypto else 'rf_rate.parquet'
 
         if self.static:
-            irx = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
+            irx = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
             irx.index = pd.to_datetime(irx.index, utc=True)
         else:
             irx = yf.Ticker('^IRX').history(period=self.period, interval='1d')['Close'] / 100
-            irx.to_csv(Data.data_dir_path / file_name)
+            Data._write_parquet_timeseries(irx, Data.data_dir_path / file_name)
 
         rf_monthly = irx.resample('MS').first()
         self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
@@ -120,16 +163,15 @@ class Data:
         self.rf_rate *= self.currency_rate['USD']
 
     def get_nav_returns(self):
-        file_name = 'nav_crypto.csv' if self.crypto else 'nav.csv'
+        file_name = 'nav_crypto.parquet' if self.crypto else 'nav.parquet'
 
         if self.static:
-            self.nav = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
-            self.nav.index = pd.to_datetime(self.nav.index)
+            self.nav = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
             self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close'].ffill()
             if len(self.nav) % 10 != 0:
                 self.nav = self.nav.iloc[1:]
-            self.nav.to_csv(Data.data_dir_path / file_name)
+            Data._write_parquet_timeseries(self.nav, Data.data_dir_path / file_name)
 
         for ticker in self.nav.columns:
             if ticker not in Data.possible_currencies:
@@ -175,7 +217,7 @@ class Data:
         file_name = 'full_names_crypto.csv' if self.crypto else 'full_names.csv'
 
         if self.static:
-            etf_full_names = pd.read_csv(Data.data_dir_path / file_name, index_col=0)
+            etf_full_names = pd.read_csv(Data.static_dir_path / file_name, index_col=0)
         else:
             etf_full_names = pd.Series({ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker })
             for ticker in self.etf_list:
@@ -184,9 +226,9 @@ class Data:
 
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker
-            etf_full_names.to_csv(Data.data_dir_path / file_name)
+            etf_full_names.to_csv(Data.static_dir_path / file_name)
 
         self.etf_full_names = etf_full_names
 
     def get_exposure(self):
-        self.exposure = pd.read_csv(Data.data_dir_path / 'exposure.csv', index_col=0)
+        self.exposure = pd.read_csv(Data.static_dir_path / 'exposure.csv', index_col=0)

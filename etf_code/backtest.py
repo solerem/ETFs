@@ -1,29 +1,3 @@
-"""
-Rolling backtest utilities for an optimized portfolio.
-
-This module defines :class:`Backtest`, which:
-
-* Walks forward through monthly dates and re-optimizes the portfolio at each step
-  using in-sample data up to that date (via :class:`~portfolio.Portfolio` and
-  :class:`~opti.Opti` in *static* mode with an in-sample cutoff).
-* Builds a time series of optimal weights (:attr:`w_opt`) across the test window.
-* Computes out-of-sample (test) returns from the held-out period.
-* Produces diagnostic plots (equity curve, stacked weights, performance
-  attribution, and drawdown) as Dash-ready images while saving PNGs to disk.
-
-Notes
------
-* The train/test split is controlled by :attr:`Backtest.ratio_train_test`. It is
-  set adaptively from the underlying data horizon:
-  ``0.8`` when using the short crypto horizon (``period == '5y'``), otherwise
-  ``0.9`` for the long horizon (``'20y'``).
-* Re-optimization loops monthly from the cutoff to the end of the data,
-  constructing a fresh :class:`~portfolio.Portfolio` with ``static=True`` and
-  ``backtest=<current_date>`` at each step.
-* Figures are saved under ``graphs/<currency>/`` using
-  :meth:`opti.Opti.save_fig_as_dash_img`.
-"""
-
 import pandas as pd
 from portfolio import Portfolio
 from opti import Opti
@@ -37,67 +11,7 @@ import statsmodels.api as sm
 import numpy as np
 
 class Backtest:
-    """
-    Rolling re-optimization backtest.
-
-    Class Attributes
-    ----------------
-    ratio_train_test : float
-        Fraction of the sample used for training/in-sample. Set to ``0.8`` when
-        the underlying :class:`data.Data` uses the short horizon (``'5y'``),
-        otherwise ``0.9`` for the long horizon (``'20y'``).
-
-    Parameters
-    ----------
-    opti : Opti
-        A fully-initialized optimizer instance whose portfolio defines the
-        configuration (universe, risk, currency, shorting, etc.) and whose
-        optimized constituents (:attr:`Opti.optimum`) seed the initial
-        ``to_consider`` set for plots.
-
-    Attributes
-    ----------
-    opti : Opti
-        The reference optimizer object passed in.
-    portfolio : Portfolio
-        Convenience alias to ``opti.portfolio``.
-    to_consider : dict_keys[str]
-        The keys of ``opti.optimum``; used to focus attribution plots.
-    w_opt : pandas.DataFrame | None
-        Time-indexed weights per ticker for the walk-forward re-optimizations.
-        Columns cover the working universe at initialization time.
-    returns : pandas.Series | None
-        Out-of-sample (test) portfolio returns (simple monthly).
-    n : int | None
-        Number of rows (time points) in the underlying NAV table.
-    cutoff : int | None
-        Index position separating train/test based on :attr:`ratio_train_test`.
-    index : list[pandas.Timestamp] | None
-        Copy of the underlying ``DatetimeIndex`` for iteration.
-    returns_decomp : pandas.DataFrame | None
-        Per-asset contributions to test-period returns (weights × returns).
-    cumulative : pandas.Series | None
-        Test-period cumulative equity curve (set in :meth:`plot_info`).
-    """
-
     def __init__(self, opti):
-        """
-        Initialize the backtest, compute rolling weights, and derive returns.
-
-        The constructor:
-        1) Parses data and builds a time series of optimal weights by repeatedly
-           re-optimizing up to each test date in *static* mode.
-        2) Computes test-period returns via :meth:`get_returns`.
-
-        Parameters
-        ----------
-        opti : Opti
-            Optimizer instance providing the baseline portfolio.
-
-        Returns
-        -------
-        None
-        """
         self.opti = opti
         self.portfolio = self.opti.portfolio
         # Adaptive train/test split (matches implementation)
@@ -109,27 +23,6 @@ class Backtest:
         self.get_returns()
 
     def parse_data(self):
-        """
-        Build rolling optimal weights by re-optimizing through time.
-
-        Steps
-        -----
-        1. Determine the train/test split using :attr:`ratio_train_test`.
-        2. For each test date ``t`` (from cutoff to end):
-           - Create a new :class:`~portfolio.Portfolio` with ``static=True`` and
-             ``backtest=index[t]`` so that all data are truncated to in-sample
-             up to that date.
-           - Run :class:`~opti.Opti` on that portfolio and store the optimal
-             weight vector into :attr:`w_opt` at timestamp ``index[t]``.
-
-        Side Effects
-        ------------
-        Sets :attr:`n`, :attr:`cutoff`, :attr:`index`, and fills :attr:`w_opt`.
-
-        Returns
-        -------
-        None
-        """
         self.n = len(self.portfolio.data.nav)
         self.cutoff = int(self.ratio_train_test * self.n)
         self.index = list(self.portfolio.data.nav.index)
@@ -148,39 +41,11 @@ class Backtest:
             self.w_opt.loc[self.index[i]] = optimum
 
     def get_returns(self):
-        """
-        Compute out-of-sample (test) returns and decomposition.
-
-        * Select the test-period rows from the full return matrix using
-          :meth:`data.Data.get_test_data_backtest` with the cutoff timestamp.
-        * Multiply by time-aligned weights to obtain per-asset contributions.
-        * Sum across columns to obtain the total test return series.
-
-        Side Effects
-        ------------
-        Sets :attr:`returns_decomp` and :attr:`returns`.
-
-        Returns
-        -------
-        None
-        """
         self.returns_decomp = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])
         self.returns_decomp *= self.w_opt
         self.returns = self.returns_decomp.sum(axis=1)
 
     def plot_backtest(self):
-        """
-        Plot the backtest equity curve vs. benchmark and risk-free leg.
-
-        The title reflects annualized performance (p.a.) and maximum drawdown
-        over the test window. The benchmark label switches to ``BTC`` in crypto
-        mode; otherwise it is the total stock market proxy.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash image component with the figure embedded and saved to disk.
-        """
         cumulative = (1 + self.returns).cumprod()
 
         fig, ax = plt.subplots()
@@ -214,26 +79,6 @@ class Backtest:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_weights(self):
-        """
-        Plot a stacked weight history for the most material tickers.
-
-        Heuristic
-        ---------
-        Start with the *current* optimized constituents (:attr:`to_consider`).
-        Greedily add other tickers by descending average weight until the
-        cumulative mean weight of the plotted set reaches at least **99%**
-        (matches implementation target ``0.99``).
-
-        Returns
-        -------
-        dash.html.Img
-            Dash image component with the figure embedded and saved to disk.
-
-        Raises
-        ------
-        ValueError
-            If weight history is empty or all mean weights are zero.
-        """
         import math
         from pathlib import Path
         import matplotlib.pyplot as plt
@@ -307,18 +152,6 @@ class Backtest:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_perf_attrib(self):
-        """
-        Plot cumulative performance attribution for selected tickers.
-
-        Uses the per-asset return contributions in :attr:`returns_decomp` and
-        accumulates them through time, plotted in percent. The set of tickers
-        follows :attr:`to_consider`.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash image component with the figure embedded and saved to disk.
-        """
         returns = self.returns_decomp[self.to_consider]
 
         fig, ax = plt.subplots()
@@ -337,14 +170,6 @@ class Backtest:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_drawdown(self):
-        """
-        Plot the portfolio drawdown curve (area below zero) over the test window.
-
-        Returns
-        -------
-        dash.html.Img
-            Dash image component with the figure embedded and saved to disk.
-        """
         cumulative = (1 + self.returns).cumprod()
 
         rolling_max = cumulative.cummax()
@@ -361,25 +186,6 @@ class Backtest:
         return Opti.save_fig_as_dash_img(fig, output_path)
 
     def plot_info(self):
-        """
-        Assemble a compact metrics table (Dash DataTable) for the backtest window.
-
-        Metrics reported
-        ----------------
-        * CAGR — average annual growth rate (from the test-period cumulative).
-        * Sharpe ratio — monthly mean/std scaled by ``sqrt(12)``.
-        * Max/Avg drawdown — from the test-period equity curve.
-        * Beta — covariance with benchmark (VTI or BTC-USD) over benchmark variance.
-        * Volatility — monthly std scaled by ``sqrt(12)``.
-        * VaR 95% — empirical 5th percentile of monthly returns.
-        * R² — OLS fit of portfolio returns on the benchmark over the test window.
-
-        Returns
-        -------
-        dash_table.DataTable
-            A ready-to-render Dash table with metric names, values, and short
-            descriptions.
-        """
         info = {}
         explain = {}
         self.cumulative = (1 + self.returns).cumprod()

@@ -26,7 +26,6 @@ import plotly.graph_objects as go
 
 class Opti:
     solver_method = 'SLSQP'
-    graph_dir_path = Path(__file__).resolve().parent.parent / "graphs"
 
     def __init__(self, portfolio):
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
@@ -39,8 +38,8 @@ class Opti:
         self.get_color_map()
 
     def get_color_map(self):
-        cmap = cm.get_cmap('tab20', len(self.optimum_all))
-        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum_all.keys())}
+        cmap = cm.get_cmap('tab20', len(self.optimum))
+        self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum.keys())}
 
     def get_bounds(self):
         self.bounds = [(-1, 1)] * self.portfolio.n
@@ -192,7 +191,7 @@ class Opti:
     def plot_optimum(self):
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
         values = [abs(sorted_optimum[x]) for x in sorted_optimum]
-        labels = [x if sorted_optimum[x] >= 0 else '--' + x for x in sorted_optimum]
+        labels = [x if sorted_optimum[x] >= 0 else 'short ' + x for x in sorted_optimum]
         colors = [self.color_map[k] for k in sorted_optimum.keys()]
         full_name_list = [self.portfolio.data.etf_full_names.loc[ticker] for ticker in sorted_optimum]
 
@@ -209,13 +208,6 @@ class Opti:
         )
         fig.update_layout(title='Optimal Allocation')
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- optimal_allocation.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
-
         return dcc.Graph(
             figure=fig,
             config={'displaylogo': False, 'scrollZoom': True},
@@ -225,37 +217,50 @@ class Opti:
     def plot_in_sample(self):
         cumulative_pct = (self.cumulative - 1) * 100
 
-        spy = (self.portfolio.data.spy / self.portfolio.data.spy.iloc[0] - 1) * 100
-        spy_col = 'BTC-USD' if self.portfolio.crypto else 'VTI'
-        spy_name = 'BTC' if self.portfolio.crypto else 'Total stock market'
-        if isinstance(spy, pd.DataFrame):
-            if spy_col in spy.columns:
-                spy = spy[spy_col]
-            else:
-                spy = spy.iloc[:, 0]
+        spy_col = 'BTC-USD' if self.portfolio.crypto else 'SPY'
+        spy = (self.portfolio.data.benchmarks[spy_col] / self.portfolio.data.benchmarks[spy_col].iloc[0] - 1) * 100
 
-        rf_rate = ((self.portfolio.data.rf_rate + 1).cumprod() - 1) * 100
+        bonds_col = 'BTC-USD' if self.portfolio.crypto else 'AGG'
+        bonds = (self.portfolio.data.benchmarks[bonds_col] / self.portfolio.data.benchmarks[bonds_col].iloc[0] - 1) * 100
+
+        gold_col = 'BTC-USD' if self.portfolio.crypto else 'GLD'
+        gold = (self.portfolio.data.benchmarks[gold_col] / self.portfolio.data.benchmarks[gold_col].iloc[0] - 1) * 100
+
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=cumulative_pct.index,
-            y=cumulative_pct.values,
-            mode='lines',
-            name="Strategy",
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
         fig.add_trace(go.Scatter(
             x=spy.index,
             y=spy.values,
             mode='lines',
             name="Stocks",
+            line=dict(color='red'),
+            opacity=0.6,
             hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
         ))
         fig.add_trace(go.Scatter(
-            x=rf_rate.index,
-            y=rf_rate.values,
+            x=bonds.index,
+            y=bonds.values,
             mode='lines',
-            name='Rate',
+            name="Bonds",
+            line=dict(color='blue'),
+            opacity=0.6,
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=gold.index,
+            y=gold.values,
+            mode='lines',
+            name="Gold",
+            line=dict(color='orange'),
+            opacity=0.6,
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=cumulative_pct.index,
+            y=cumulative_pct.values,
+            mode='lines',
+            name="Portfolio",
+            line=dict(width=4, color='green'),
             hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
         ))
 
@@ -267,14 +272,6 @@ class Opti:
         )
         fig.update_yaxes(tickformat='.1f')
         fig.add_hline(y=0, line_color='black')
-
-        # Preserve image export for existing static file output
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- in_sample.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
 
         return dcc.Graph(
             figure=fig,
@@ -290,11 +287,12 @@ class Opti:
         contribution = cumulative_returns.multiply(weights, axis=1) * 100
         fig = go.Figure()
         for col in contribution.columns:
+            display_name = col if self.optimum[col] >= 0 else 'short ' + col
             fig.add_trace(go.Scatter(
                 x=contribution.index,
                 y=contribution[col].values,
                 mode='lines',
-                name=col,
+                name=display_name,
                 line=dict(color=self.color_map[col]),
                 hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
             ))
@@ -307,13 +305,6 @@ class Opti:
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(tickformat='.1f')
-
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- perf_attrib.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
 
         return dcc.Graph(
             figure=fig,
@@ -344,13 +335,6 @@ class Opti:
         )
         fig.update_yaxes(tickformat='.1f')
 
-        output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- drawdown.png'
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fig.write_image(str(output_path))
-        except Exception:
-            pass
-
         return dcc.Graph(
             figure=fig,
             config={'displaylogo': False, 'scrollZoom': True},
@@ -380,11 +364,11 @@ class Opti:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-        label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
-        spy = self.portfolio.data.spy[label].pct_change().dropna()
+        label = 'BTC-USD' if self.portfolio.crypto else 'SPY'
+        spy = self.portfolio.data.benchmarks[label].pct_change().dropna()
         beta = returns[1:].cov(spy) / spy.var()
-        info['Beta'] = round(beta, 2)
-        explain['Beta'] = 'Sensitivity to market movements'
+        info['Beta (Stocks)'] = round(beta, 2)
+        explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'
 
         vol = returns.std() * math.sqrt(12)
         info['Volatility'] = round(vol, 2)
@@ -398,10 +382,10 @@ class Opti:
             X = sm.add_constant(spy)
             model = sm.OLS(returns[1:], X).fit()
             r2 = model.rsquared
-            info['R2'] = str(round(100 * r2)) + ' %'
+            info['R2 (Stocks)'] = str(round(100 * r2)) + ' %'
         except:
-            info['R2'] = '0'
-        explain['R2'] = '% of returns explained by benchmark'
+            info['R2 (Stocks)'] = '0'
+        explain['R2 (Stocks)'] = '% of returns explained by stock benchmark'
 
         # Convert dict into list of dicts for DataTable
         data = [{"Metric": k, "Value": info[k], 'Detail': explain[k]} for k in info]

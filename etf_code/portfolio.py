@@ -13,7 +13,7 @@ class Info:
         'SPY', 'QQQ', 'DIA', 'MDY', 'IWM', 'XLY', 'XLP', 'XLE', 'XLV', 'XLF', 'XLI', 'XLB', 'XLK', 'XLU', 'EFA', 'EEM',
         'EWA', 'EWC', 'EWH', 'EWG', 'EWI', 'EWU', 'EWM', 'EWS', 'EWP', 'EWD', 'LQD', 'TLT', 'TIP', 'GLD', 'VTI',
         'IWN', 'IUSG', 'IYJ', 'EWL', 'VHT', 'IWB', 'XLU', 'IGE', 'RTH', 'VWO', 'IWV', 'EWW', 'EWC', 'EWN', 'VPU', 'PWB',
-        'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW',
+        'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW', 'DBC',
         'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IVV', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV',
         'EWT', 'IYW', 'IMCG', 'EWH', 'IGPT', 'PJP', 'SPYG', 'ITOT', 'FXI', 'EWI', 'XLE', 'XLY', 'EWA', 'ILCG', 'IMCV',
         'XLI', 'IWM', 'DVY', 'VBK', 'EWG', 'IGV', 'IJS', 'XNTK', 'IYT', 'SPTM', 'PEY', 'VBR', 'EEM', 'PWV', 'TLT',
@@ -43,13 +43,14 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, rates, crypto, static=False, override_weight_cov=None):
+    def __init__(self, risk, cash, holdings, currency, rates, crypto, static=False, refit_weights = False):
         self.weight_cov = None
         self.risk = risk
         self.cash = cash
         self.holdings = holdings if holdings else {}
         self.rates = rates if rates else {}
         self.crypto = crypto
+        self.refit_weights = refit_weights
         self.currency = currency if currency else 'USD'
         self.static = static
         self.name = 'Risk ' + str(self.risk)
@@ -60,7 +61,7 @@ class Info:
         if override_weight_cov is not None:
             self.weight_cov = float(override_weight_cov)
             return
-        params = Data.get_weight_cov_params(static=self.static)
+        params = Data.get_weight_cov_params(static=self.static, refit_weights=self.refit_weights)
         coeffs = params[self.currency]
         self.weight_cov = (
                 float(coeffs["a"]) * np.exp(float(coeffs["b"]) * self.risk)
@@ -80,6 +81,7 @@ class Portfolio(Info):
             rates=None,
             crypto=False,
             override_weight_cov=None,
+            refit_weights=False,
     ):
         super().__init__(
             risk,
@@ -89,7 +91,7 @@ class Portfolio(Info):
             rates,
             crypto,
             static=static,
-            override_weight_cov=override_weight_cov,
+            refit_weights=refit_weights,
         )
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None

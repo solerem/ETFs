@@ -3,7 +3,7 @@ from portfolio import Portfolio
 
 
 def main(debug: bool = False) -> None:
-    Portfolio(crypto=False)
+    Portfolio(crypto=False, refit_weights=False)
 
     db = Dashboard()
     db.run(debug=debug)

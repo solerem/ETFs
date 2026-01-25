@@ -5,6 +5,9 @@ import pandas as pd
 import concurrent.futures
 from pathlib import Path
 from scipy.optimize import minimize
+import warnings
+
+warnings.filterwarnings('ignore', category=pd.errors.Pandas4Warning, module='yfinance')
 
 
 class Data:
@@ -60,8 +63,8 @@ class Data:
             df.to_parquet(path, index=False)
 
     @classmethod
-    def get_weight_cov_params(cls, static=False):
-        if not static:
+    def get_weight_cov_params(cls, static=False, refit_weights=False):
+        if not static and refit_weights:
             from weight_tune import save_weights
             save_weights()
 
@@ -73,7 +76,7 @@ class Data:
         return cls._weight_cov_params
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
-        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.spy, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
+        self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.benchmarks, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
         self.crypto = crypto
         self.period = '5y' if self.crypto else '20y'
@@ -81,7 +84,7 @@ class Data:
         self.get_currency()
         self.get_rf_rate()
         self.get_nav_returns()
-        self.get_spy()
+        self.get_benchmarks()
         self.get_full_names()
         self.get_exposure()
 
@@ -129,7 +132,7 @@ class Data:
         else:
             def get_currency(ticker):
                 try:
-                    ticker_to_test = ticker[3:] if ticker.startswith('-- ') else ticker
+                    ticker_to_test = ticker[6:] if ticker.startswith('short') else ticker
                     return ticker, yf.Ticker(ticker_to_test).fast_info['currency']
                 except Exception:
                     print('Cant retreive etf currency', ticker)
@@ -142,20 +145,42 @@ class Data:
             pd.Series(self.etf_currency).to_frame('currency').to_parquet(Data.data_dir_path / 'curr_etf.parquet',
                                                                          index=True)
 
-    def get_spy(self):
-        file_name = 'spy_crypto.parquet' if self.crypto else 'spy.parquet'
-        spy_ticker = 'BTC-USD' if self.crypto else 'VTI'
+    def get_benchmarks(self):
+        file_name = 'benchmark_crypto.parquet' if self.crypto else 'benchmark.parquet'
+        spy_ticker = 'BTC-USD' if self.crypto else 'SPY'
+        bonds_ticker = 'BTC-USD' if self.crypto else 'AGG'
+        gold_ticker = 'BTC-USD' if self.crypto else 'GLD'
 
         if self.static:
-            self.spy = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
+            self.benchmarks = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
-            self.spy = yf.download(spy_ticker, period=self.period, interval='1mo', auto_adjust=True)['Close']
-            Data._write_parquet_timeseries(self.spy[spy_ticker], Data.data_dir_path / file_name)
+            # Download all three benchmarks
+            if self.crypto:
+                # For crypto, all three are the same ticker
+                data = yf.download(spy_ticker, period=self.period, interval='1mo', auto_adjust=True)['Close']
+                self.benchmarks = pd.DataFrame({
+                    'SPY': data[spy_ticker],
+                    'AGG': data[spy_ticker],
+                    'GLD': data[spy_ticker]
+                })
+            else:
+                # Download all three separately
+                tickers = [spy_ticker, bonds_ticker, gold_ticker]
+                data = yf.download(tickers, period=self.period, interval='1mo', auto_adjust=True)['Close']
+                # Rename columns to standard names
+                self.benchmarks = pd.DataFrame({
+                    'SPY': data[spy_ticker],
+                    'AGG': data[bonds_ticker],
+                    'GLD': data[gold_ticker]
+                })
+            Data._write_parquet_timeseries(self.benchmarks, Data.data_dir_path / file_name)
 
+        # Apply currency conversion if needed
         if self.currency != 'USD':
-            self.spy[spy_ticker] *= self.currency_rate['USD']
+            for col in self.benchmarks.columns:
+                self.benchmarks[col] *= self.currency_rate['USD']
 
-        self.spy = self.drop_test_data_backtest(self.spy)
+        self.benchmarks = self.drop_test_data_backtest(self.benchmarks)
 
     def get_rf_rate(self):
         file_name = 'rf_rate_crypto.parquet' if self.crypto else 'rf_rate.parquet'
@@ -212,29 +237,14 @@ class Data:
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)
 
-    def plot(self, tickers):
-        for t in tickers:
-            historic = (self.nav[t] / self.nav[t].iloc[0] - 1) * 100
-            plt.plot(historic, label=t)
-
-        spy = (self.spy / self.spy.iloc[0] - 1) * 100
-        plt.plot(spy, label='Total stock market', ls='--')
-
-        rf_rate = ((self.rf_rate + 1).cumprod() - 1) * 100
-        plt.plot(rf_rate, label='rate', ls='--')
-
-        plt.axhline(0, color='black')
-
-        plt.ylabel('%')
-        plt.grid()
-        plt.legend()
-        plt.show()
 
     def get_full_names(self):
-        file_name = 'full_names_crypto.csv' if self.crypto else 'full_names.csv'
+        file_name = 'full_names_crypto.parquet' if self.crypto else 'full_names.parquet'
 
         if self.static:
-            etf_full_names = pd.read_csv(Data.static_dir_path / file_name, index_col=0)
+            df = pd.read_parquet(Data.data_dir_path / file_name)
+            # Convert DataFrame back to Series (first column contains the values)
+            etf_full_names = df.iloc[:, 0] if len(df.columns) > 0 else pd.Series(dtype=object)
         else:
             etf_full_names = pd.Series(
                 {ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker})
@@ -244,7 +254,7 @@ class Data:
 
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker
-            etf_full_names.to_csv(Data.static_dir_path / file_name)
+            etf_full_names.to_frame('name').to_parquet(Data.data_dir_path / file_name, index=True)
 
         self.etf_full_names = etf_full_names
 

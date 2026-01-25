@@ -10,10 +10,9 @@ import plotly.graph_objects as go
 
 
 class Backtest:
-    def __init__(self, opti, save_images=False):
+    def __init__(self, opti):
         self.opti = opti
         self.portfolio = self.opti.portfolio
-        self.save_images = save_images
         # Adaptive train/test split (matches implementation)
         self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else .9
         self.to_consider = self.opti.optimum.keys()
@@ -49,57 +48,66 @@ class Backtest:
         cumulative = (1 + self.returns).cumprod()
         cumulative_pct = (cumulative - 1) * 100
 
-        spy = self.portfolio.data.spy.copy()
+        spy_col = 'BTC-USD' if self.portfolio.crypto else 'SPY'
+        spy = self.portfolio.data.benchmarks[spy_col].copy()
         spy = spy.loc[self.index[self.cutoff]:]
         spy = (spy / spy.iloc[0] - 1) * 100
-        spy_col = 'BTC-USD' if self.portfolio.crypto else 'VTI'
-        spy_name = 'BTC' if self.portfolio.crypto else 'Total stock market'
-        if isinstance(spy, pd.DataFrame):
-            if spy_col in spy.columns:
-                spy = spy[spy_col]
-            else:
-                spy = spy.iloc[:, 0]
 
-        rf_rate = ((self.portfolio.data.rf_rate.loc[self.index[self.cutoff]:] + 1).cumprod() - 1) * 100
+        bonds_col = 'BTC-USD' if self.portfolio.crypto else 'AGG'
+        bonds = self.portfolio.data.benchmarks[bonds_col].copy()
+        bonds = bonds.loc[self.index[self.cutoff]:]
+        bonds = (bonds / bonds.iloc[0] - 1) * 100
+
+        gold_col = 'BTC-USD' if self.portfolio.crypto else 'GLD'
+        gold = self.portfolio.data.benchmarks[gold_col].copy()
+        gold = gold.loc[self.index[self.cutoff]:]
+        gold = (gold / gold.iloc[0] - 1) * 100
+
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=cumulative_pct.index,
-            y=cumulative_pct.values,
-            mode='lines',
-            name="Strategy",
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
         fig.add_trace(go.Scatter(
             x=spy.index,
             y=spy.values,
             mode='lines',
             name="Stocks",
+            line=dict(color='red'),
+            opacity=0.6,
             hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
         ))
         fig.add_trace(go.Scatter(
-            x=rf_rate.index,
-            y=rf_rate.values,
+            x=bonds.index,
+            y=bonds.values,
             mode='lines',
-            name='Rate',
+            name="Bonds",
+            line=dict(color='blue'),
+            opacity=0.6,
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=gold.index,
+            y=gold.values,
+            mode='lines',
+            name="Gold",
+            line=dict(color='orange'),
+            opacity=0.6,
+            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=cumulative_pct.index,
+            y=cumulative_pct.values,
+            mode='lines',
+            name="Portfolio",
+            line=dict(width=4, color='green'),
             hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
         ))
         fig.add_hline(y=0, line_color='black')
         fig.update_layout(
-            title='Backtest Performance',
+            title='Backtest Performance vs Benchmark',
             yaxis_title='%',
             hovermode='x unified',
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(tickformat='.1f')
-
-        if self.save_images:
-            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_backtest.png'
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                fig.write_image(str(output_path))
-            except Exception:
-                pass
 
         return dcc.Graph(
             figure=fig,
@@ -153,12 +161,15 @@ class Backtest:
         fig = go.Figure()
         color_map = self.opti.color_map
         for col in tickers_to_plot:
+            # Check if this is a short position (negative mean weight or in optimum as negative)
+            is_short = mean_w.get(col, 0.0) < 0 or self.opti.optimum.get(col, 0) < 0
+            display_name = 'short ' + col if is_short else col
             series_color = color_map.get(col)
             fig.add_trace(go.Scatter(
                 x=data.index,
                 y=data[col].values,
                 mode='lines',
-                name=col,
+                name=display_name,
                 stackgroup='one',
                 stackgaps='interpolate',
                 fill='tonexty',
@@ -176,13 +187,6 @@ class Backtest:
         )
         fig.update_yaxes(range=[0, 100], tickformat='.1f')
 
-        if self.save_images:
-            output_path = Opti.graph_dir_path / f"{self.portfolio.currency}/{self.portfolio.name}- Backtest_weights.png"
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            try:
-                fig.write_image(str(output_path))
-            except Exception:
-                pass
 
         return dcc.Graph(
             figure=fig,
@@ -194,11 +198,12 @@ class Backtest:
         returns = self.returns_decomp[self.to_consider]
         fig = go.Figure()
         for col in self.to_consider:
+            display_name = col if self.opti.optimum[col] >= 0 else 'short ' + col
             fig.add_trace(go.Scatter(
                 x=returns.index,
                 y=(returns[col].cumsum() * 100).values,
                 mode='lines',
-                name=col,
+                name=display_name,
                 line=dict(color=self.opti.color_map[col]),
                 hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
             ))
@@ -211,14 +216,6 @@ class Backtest:
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(tickformat='.1f')
-
-        if self.save_images:
-            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_perf_attrib.png'
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                fig.write_image(str(output_path))
-            except Exception:
-                pass
 
         return dcc.Graph(
             figure=fig,
@@ -250,14 +247,6 @@ class Backtest:
         )
         fig.update_yaxes(tickformat='.1f')
 
-        if self.save_images:
-            output_path = Opti.graph_dir_path / f'{self.portfolio.currency}/{self.portfolio.name}- Backtest_drawdown.png'
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                fig.write_image(str(output_path))
-            except Exception:
-                pass
-
         return dcc.Graph(
             figure=fig,
             config={'displaylogo': False, 'scrollZoom': True},
@@ -269,7 +258,12 @@ class Backtest:
         explain = {}
         self.cumulative = (1 + self.returns).cumprod()
 
-        nb_years = int(self.portfolio.data.period[:-1])
+        # Calculate actual backtest period in years
+        start_date = self.returns.index[0]
+        end_date = self.returns.index[-1]
+        nb_years = (end_date - start_date).days / 365.25
+        if nb_years <= 0:
+            nb_years = len(self.returns) / 12.0  # Fallback to months/12 if days calculation fails
         pa_perf = (round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1))
         info['CAGR'] = str(round(pa_perf, 1)) + ' %'
         explain['CAGR'] = 'Average annual growth rate'
@@ -285,11 +279,11 @@ class Backtest:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-        label = 'BTC-USD' if self.portfolio.crypto else 'VTI'
-        spy = self.portfolio.data.spy[label].pct_change().dropna()[self.cutoff - 1:]
+        label = 'BTC-USD' if self.portfolio.crypto else 'SPY'
+        spy = self.portfolio.data.benchmarks[label].pct_change().dropna()[self.cutoff - 1:]
         beta = self.returns.cov(spy) / spy.var()
-        info['Beta'] = round(beta, 2)
-        explain['Beta'] = 'Sensitivity to market movements'
+        info['Beta (Stocks)'] = round(beta, 2)
+        explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'
 
         vol = self.returns.std() * np.sqrt(12)
         info['Volatility'] = round(vol, 2)
@@ -302,8 +296,8 @@ class Backtest:
         X = sm.add_constant(spy)
         model = sm.OLS(self.returns, X).fit()
         r2 = model.rsquared
-        info['R2'] = str(round(100 * r2)) + ' %'
-        explain['R2'] = '% of returns explained by benchmark'
+        info['R2 (Stocks)'] = str(round(100 * r2)) + ' %'
+        explain['R2 (Stocks)'] = '% of returns explained by stock benchmark'
 
         # Convert dict into list of dicts for DataTable
         data = [{"Metric": k, "Value": info[k], 'Detail': explain[k]} for k in info]

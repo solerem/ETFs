@@ -49,7 +49,6 @@ class Dashboard(dash.Dash):
             dbc.Navbar(
                 dbc.Container([
                     dbc.NavbarBrand("ETF Portfolio Optimization", className="fw-semibold"),
-                    dbc.NavItem(dbc.Badge("beta", color="secondary", className="ms-2"))
                 ]),
                 color="primary",
                 dark=True,
@@ -63,13 +62,6 @@ class Dashboard(dash.Dash):
                 ], className="g-4")
             ], fluid=True),
 
-            html.Footer(
-                dbc.Container(
-                    html.Small("Built with Dash + Bootstrap Components", className="text-muted"),
-                    className="py-4"
-                ),
-                className="border-top mt-5"
-            )
         ])
 
     def _sidebar_controls(self):
@@ -80,26 +72,12 @@ class Dashboard(dash.Dash):
             ])),
             dbc.CardBody([
 
-                # Mode toggle (ETF / Crypto)
-                dbc.Label("Mode", html_for="mode-toggle", className="fw-semibold"),
-                dbc.RadioItems(
-                    id='mode-toggle',
-                    options=[{'label': 'ETF', 'value': 'etf'},
-                             {'label': 'Crypto', 'value': 'crypto'}],
-                    value='etf',
-                    inline=True,
-                    inputClassName="me-1", labelClassName="me-3",
-                ),
+                # Risk controls
+                dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
+                dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
+                           marks={i: str(i) for i in range(0, 11)},
+                           tooltip={"placement": "bottom", "always_visible": False}),
                 html.Div(className="mb-3"),
-
-                # Risk controls (hidden in Crypto mode)
-                html.Div(id='risk-section', children=[
-                    dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
-                    dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
-                               marks={i: str(i) for i in range(0, 11)},
-                               tooltip={"placement": "bottom", "always_visible": False}),
-                    html.Div(className="mb-3"),
-                ]),
 
                 dbc.Label("Base currency", html_for="radio-currency", className="fw-semibold"),
                 dcc.Dropdown(
@@ -123,32 +101,25 @@ class Dashboard(dash.Dash):
                     html.Div(id='holdings-container', children=[], className="vstack gap-2")
                 ]),
 
-                # Savings Rates (hidden in Crypto mode)
-                html.Div(id='rates-section', children=[
-                    html.Div(className="d-flex align-items-center mb-2", children=[
-                        html.Div(className="fw-semibold me-auto", children="Savings Rates"),
-                        dbc.Button([html.I(className="bi bi-plus-lg me-1"), "Add Rate"],
-                                   id='button-rates', n_clicks=0, color="secondary", size="sm", outline=True)
-                    ]),
-                    html.Div(id='rates-container', children=[], className="vstack gap-2")
-                ])
+                # Savings Rates
+                html.Div(className="d-flex align-items-center mb-2", children=[
+                    html.Div(className="fw-semibold me-auto", children="Savings Rates"),
+                    dbc.Button([html.I(className="bi bi-plus-lg me-1"), "Add Rate"],
+                               id='button-rates', n_clicks=0, color="secondary", size="sm", outline=True)
+                ]),
+                html.Div(id='rates-container', children=[], className="vstack gap-2"),
+                
+                html.Div(className="mt-4"),
+                dbc.Button([html.I(className="bi bi-magic me-2"), "Create Portfolio"],
+                           id='create-portfolio', n_clicks=0, color="primary", className="w-100")
             ])
         ], className="shadow-sm sticky-card")
 
     def _content_area(self):
         return dbc.Card([
-            dbc.CardHeader(
-                html.Div([html.Span(className="bi bi-graph-up-arrow me-2"),
-                          html.Span("Workspace", className="fw-semibold")])
-            ),
             dbc.CardBody([
                 dcc.Tabs(id="main-tabs", value="tab-portfolio", children=[
                     dcc.Tab(label="Optimal Portfolio", value="tab-portfolio", children=[
-                        html.Div(className="d-flex align-items-center mb-3", children=[
-                            dbc.Button([html.I(className="bi bi-magic me-2"), "Create Portfolio"],
-                                       id='create-portfolio', n_clicks=0, color="primary"),
-                            html.Span("  — computes optimal weights and charts", className="text-muted ms-2")
-                        ]),
                         dbc.Spinner(html.Div(id='portfolio-distrib'), size="md")
                     ]),
 
@@ -156,7 +127,7 @@ class Dashboard(dash.Dash):
                         html.Div(id='rebalance-div', className="table-wrap")
                     ]),
 
-                    dcc.Tab(label="Exposure", value="tab-exposure", id='exposure-tab', children=[
+                    dcc.Tab(label="Exposure", value="tab-exposure", children=[
                         html.Div(id='exposure-graphs')
                     ]),
 
@@ -164,7 +135,6 @@ class Dashboard(dash.Dash):
                         html.Div(className="d-flex align-items-center mb-3", children=[
                             dbc.Button([html.I(className="bi bi-play-fill me-2"), "Launch Backtest"],
                                        id='create-backtest', n_clicks=0, color="primary"),
-                            html.Span("  — rolling walk-forward re-optimization", className="text-muted ms-2")
                         ]),
                         dbc.Spinner(html.Div(id='backtest-graphs'), size="md")
                     ]),
@@ -176,7 +146,6 @@ class Dashboard(dash.Dash):
 
         @self.callback(
             Output('init-store', 'data'),
-            Input('mode-toggle', 'value'),
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('cash', 'value'),
@@ -185,16 +154,14 @@ class Dashboard(dash.Dash):
             Input({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'rates-value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(mode, risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers,
+        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers,
                             rates_values):
-            self.mode = mode or 'etf'
+            self.mode = 'etf'
             self.risk = risk
             self.currency = currency
             self.cash_sgd = cash_sgd
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
-            # Ignore savings rates in crypto mode
-            self.rates = {} if self.mode == 'crypto' else {ticker: value for ticker, value in
-                                                           zip(rates_tickers, rates_values)}
+            self.rates = {ticker: value for ticker, value in zip(rates_tickers, rates_values)}
             return 0
 
         @self.callback(
@@ -254,19 +221,6 @@ class Dashboard(dash.Dash):
                 )
             return holdings
 
-        @self.callback(
-            Output('risk-section', 'style'),
-            Output('rates-section', 'style'),
-            Output('exposure-tab', 'style'),
-            Input('mode-toggle', 'value')
-        )
-        def toggle_sections(mode):
-            hide = {'display': 'none'}
-            show = {}
-            is_crypto = (mode == 'crypto')
-            return (hide if is_crypto else show,
-                    hide if is_crypto else show,
-                    hide if is_crypto else show)
 
         @self.callback(
             Output('create-portfolio', 'n_clicks'),
@@ -341,7 +295,7 @@ class Dashboard(dash.Dash):
         )
         def create_backtest(create_backtest_n_click):
             if create_backtest_n_click:
-                self.backtest = Backtest(self.opti, save_images=False)
+                self.backtest = Backtest(self.opti)
                 return 0, html.Div([
                     html.Div(self.backtest.plot_backtest(), className="chart-frame"),
                     html.Div(self.backtest.plot_weights(), className="chart-frame"),

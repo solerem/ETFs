@@ -36,7 +36,7 @@ class Backtest:
                 rates=self.portfolio.rates,
                 crypto=self.opti.portfolio.crypto
             )
-            optimum = Opti(portfolio).optimum_all
+            optimum = Opti(portfolio, long_only=self.opti.long_only).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
 
     def get_returns(self):

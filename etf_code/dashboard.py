@@ -21,6 +21,9 @@ class Dashboard(dash.Dash):
             "</head>",
             """
             <style>
+              body { background-color: #4a4a4a !important; }
+              .dash-container { background-color: #4a4a4a !important; }
+              #react-entry-point { background-color: #4a4a4a !important; }
               @media (min-width: 992px){ .sticky-card{ position: sticky; top: 1rem; } }
               .chart-frame{ max-width:100%; max-height:none; overflow:visible; }
               .chart-frame img, .chart-frame svg, .chart-frame canvas{
@@ -29,6 +32,46 @@ class Dashboard(dash.Dash):
               .chart-frame .dash-graph{ height:520px !important; }
               .grid-2{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:1rem; align-items:start; }
               @media (max-width: 991.98px){ .grid-2{ grid-template-columns: 1fr; } }
+              .card { background-color: #e9ecef !important; }
+              .card-body { background-color: #e9ecef !important; }
+              .card-header { background-color: #e9ecef !important; }
+              .rc-slider-track { background-color: #212529 !important; }
+              .rc-slider-handle { border-color: #212529 !important; }
+              .rc-slider-handle:active { border-color: #212529 !important; box-shadow: 0 0 0 5px rgba(33, 37, 41, 0.2) !important; }
+              .rc-slider-dot-active { border-color: #212529 !important; }
+              .position-toggle-btn{ 
+                flex: 1; 
+                font-size: 1rem; 
+                font-weight: 500; 
+                padding: 0.625rem 1rem;
+                min-height: 44px;
+                border-radius: 0;
+                background-color: white;
+                border: 1px solid #dee2e6;
+                color: #212529;
+              }
+              .position-toggle-btn:first-child {
+                border-top-left-radius: 0.375rem;
+                border-bottom-left-radius: 0.375rem;
+              }
+              .position-toggle-btn:last-child {
+                border-top-right-radius: 0.375rem;
+                border-bottom-right-radius: 0.375rem;
+              }
+              .position-toggle-btn.active {
+                z-index: 1;
+                background-color: #212529 !important;
+                border-color: #212529 !important;
+                color: white !important;
+              }
+              .position-toggle-btn:not(.active) {
+                background-color: white !important;
+                border-color: #212529 !important;
+                color: #212529 !important;
+              }
+              .position-toggle-btn:hover:not(.active) {
+                background-color: #f8f9fa !important;
+              }
             </style>
             </head>
             """
@@ -38,6 +81,7 @@ class Dashboard(dash.Dash):
         self.risk, self.currency, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.mode = 'etf'  # 'etf' or 'crypto'
+        self.long_only = False  # False for Long/Short, True for Long only
 
         self.get_layout()
         self.callbacks()
@@ -71,6 +115,30 @@ class Dashboard(dash.Dash):
                 html.Span("Controls", className="fw-semibold")
             ])),
             dbc.CardBody([
+
+                # Long/Short toggle
+                dbc.Label("Position Type", html_for="long-only-toggle", className="fw-semibold"),
+                html.Div([
+                    dbc.ButtonGroup([
+                        dbc.Button(
+                            "Long/Short",
+                            id="btn-long-short",
+                            n_clicks=0,
+                            active=True,
+                            color="secondary",
+                            className="position-toggle-btn"
+                        ),
+                        dbc.Button(
+                            "Long only",
+                            id="btn-long-only",
+                            n_clicks=0,
+                            active=False,
+                            color="secondary",
+                            className="position-toggle-btn"
+                        )
+                    ], id="long-only-toggle", className="w-100 mb-3")
+                ]),
+                html.Div(className="mb-3"),
 
                 # Risk controls
                 dbc.Label("Risk level", html_for="risk-input", className="fw-semibold"),
@@ -145,21 +213,51 @@ class Dashboard(dash.Dash):
     def callbacks(self):
 
         @self.callback(
+            Output('btn-long-short', 'active'),
+            Output('btn-long-only', 'active'),
+            Output('btn-long-short', 'outline'),
+            Output('btn-long-only', 'outline'),
+            Input('btn-long-short', 'n_clicks'),
+            Input('btn-long-only', 'n_clicks'),
+            prevent_initial_call=False
+        )
+        def update_toggle_buttons(btn_long_short_clicks, btn_long_only_clicks):
+            ctx = dash.callback_context
+            if not ctx.triggered:
+                # Initial load - default to Long/Short
+                return True, False, False, True
+            
+            trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+            # Always return mutually exclusive states
+            if trigger_id == 'btn-long-only':
+                # Long only is active, Long/Short is not
+                return False, True, True, False
+            elif trigger_id == 'btn-long-short':
+                # Long/Short is active, Long only is not
+                return True, False, False, True
+            
+            # Default fallback
+            return True, False, False, True
+
+        @self.callback(
             Output('init-store', 'data'),
             Input('risk-input', 'value'),
             Input('radio-currency', 'value'),
             Input('cash', 'value'),
+            Input('btn-long-short', 'active'),
+            Input('btn-long-only', 'active'),
             Input({'type': 'holdings-ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'holdings-value-input', 'index': ALL}, 'value'),
             Input({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'rates-value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, cash_sgd, holdings_tickers, holdings_values, rates_tickers,
-                            rates_values):
+        def input_callbacks(risk, currency, cash_sgd, btn_long_short_active, btn_long_only_active,
+                            holdings_tickers, holdings_values, rates_tickers, rates_values):
             self.mode = 'etf'
             self.risk = risk
             self.currency = currency
             self.cash_sgd = cash_sgd
+            self.long_only = btn_long_only_active if btn_long_only_active else False
             self.holdings = {ticker: value for ticker, value in zip(holdings_tickers, holdings_values)}
             self.rates = {ticker: value for ticker, value in zip(rates_tickers, rates_values)}
             return 0
@@ -240,7 +338,7 @@ class Dashboard(dash.Dash):
                     rates=self.rates,
                     crypto=(self.mode == 'crypto')
                 )
-                self.opti = Opti(self.portfolio)
+                self.opti = Opti(self.portfolio, long_only=self.long_only)
 
                 portfolio_div = html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),

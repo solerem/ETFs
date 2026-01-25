@@ -20,7 +20,7 @@ class WeightTune:
             backtest=None,
             rates=None,
             crypto=False,
-            max_assets=10,
+            max_assets=20,
             borrow_years=1 / 12,
     ):
         self.portfolio = Portfolio(

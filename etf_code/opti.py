@@ -27,9 +27,10 @@ import plotly.graph_objects as go
 class Opti:
     solver_method = 'SLSQP'
 
-    def __init__(self, portfolio):
+    def __init__(self, portfolio, long_only=False):
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
+        self.long_only = long_only
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
@@ -42,7 +43,10 @@ class Opti:
         self.color_map = {asset: mcolors.to_hex(cmap(i)) for i, asset in enumerate(self.optimum.keys())}
 
     def get_bounds(self):
-        self.bounds = [(-1, 1)] * self.portfolio.n
+        if self.long_only:
+            self.bounds = [(0, 1)] * self.portfolio.n
+        else:
+            self.bounds = [(-1, 1)] * self.portfolio.n
 
     @staticmethod
     def abs_sum(lst):
@@ -83,7 +87,7 @@ class Opti:
 
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
 
-    def optimize(self, max_assets=10, borrow_years=1 / 12):
+    def optimize(self, max_assets=20, borrow_years=1 / 12):
         borrow_rate_annual = {tick: 0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
 
@@ -122,6 +126,11 @@ class Opti:
         for i in range(n):
             m.addConstr(w_plus[i] <= M * z[i])
             m.addConstr(w_minus[i] <= M * z[i])
+        
+        # For long-only mode, force w_minus to be 0
+        if self.long_only:
+            for i in range(n):
+                m.addConstr(w_minus[i] == 0, name=f"long_only_{i}")
 
         # L1 budget: sum(|w_i|) = sum(w_plus[i] + w_minus[i]) = 1
         m.addConstr(

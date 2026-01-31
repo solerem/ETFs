@@ -78,7 +78,7 @@ class Dashboard(dash.Dash):
         )
 
         self.main_div = None
-        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates = None, None, None, None, None
+        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, 20
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.mode = 'etf'  # 'etf' or 'crypto'
         self.long_only = False  # False for Long/Short, True for Long only
@@ -145,6 +145,11 @@ class Dashboard(dash.Dash):
                 dcc.Slider(id='risk-input', min=0, max=10, step=1, value=5,
                            marks={i: str(i) for i in range(0, 11)},
                            tooltip={"placement": "bottom", "always_visible": False}),
+                html.Div(className="mb-3"),
+
+                dbc.Label("Max number of assets", html_for="max-assets-input", className="fw-semibold"),
+                dbc.Input(id='max-assets-input', type='number', value=20, min=1, max=100, step=1,
+                          placeholder="Max positions (e.g. 20)"),
                 html.Div(className="mb-3"),
 
                 dbc.Label("Base currency", html_for="radio-currency", className="fw-semibold"),
@@ -242,6 +247,7 @@ class Dashboard(dash.Dash):
         @self.callback(
             Output('init-store', 'data'),
             Input('risk-input', 'value'),
+            Input('max-assets-input', 'value'),
             Input('radio-currency', 'value'),
             Input('cash', 'value'),
             Input('btn-long-short', 'active'),
@@ -251,10 +257,11 @@ class Dashboard(dash.Dash):
             Input({'type': 'rates-ticker-input', 'index': ALL}, 'value'),
             Input({'type': 'rates-value-input', 'index': ALL}, 'value'),
         )
-        def input_callbacks(risk, currency, cash_sgd, btn_long_short_active, btn_long_only_active,
+        def input_callbacks(risk, max_assets, currency, cash_sgd, btn_long_short_active, btn_long_only_active,
                             holdings_tickers, holdings_values, rates_tickers, rates_values):
             self.mode = 'etf'
             self.risk = risk
+            self.max_assets = 20 if max_assets is None else max(1, int(max_assets))
             self.currency = currency
             self.cash_sgd = cash_sgd
             self.long_only = btn_long_only_active if btn_long_only_active else False
@@ -338,7 +345,7 @@ class Dashboard(dash.Dash):
                     rates=self.rates,
                     crypto=(self.mode == 'crypto')
                 )
-                self.opti = Opti(self.portfolio, long_only=self.long_only)
+                self.opti = Opti(self.portfolio, long_only=self.long_only, max_assets=self.max_assets)
 
                 portfolio_div = html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),

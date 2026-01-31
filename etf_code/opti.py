@@ -27,14 +27,15 @@ import plotly.graph_objects as go
 class Opti:
     solver_method = 'SLSQP'
 
-    def __init__(self, portfolio, long_only=False):
+    def __init__(self, portfolio, long_only=False, max_assets=20):
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.long_only = long_only
+        self.max_assets = max_assets
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
-        self.optimize()
+        self.optimize(max_assets=self.max_assets)
         self.get_cumulative()
         self.get_color_map()
 

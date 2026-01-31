@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Info:
-    threshold_correlation = .85
+    threshold_correlation = .89
 
     etf_list = [
         'SPY', 'QQQ', 'DIA', 'MDY',
@@ -23,8 +23,8 @@ class Info:
         'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
         'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK', 'EWK', 'EWO', 'SDY', 'FVD',
         'SI=F', 'PL=F', 'PA=F', "^IXIC", "^GDAXI", "^FCHI",
-        "^STOXX50E", "^STOXX", "^HSI", "399001.SZ", "^BSESN",
-        "^NSEI", "^AXJO", "^BVSP", 'KBE', 'PRF', 'OIH', 'PFM', 'PHO', 'PBJ', 'BBH', 'PPH', 'IWC', 'KIE', 'FXE'
+        "^STOXX", "^HSI", "399001.SZ", "^BSESN",
+        "^AXJO", "^BVSP", 'KBE', 'PRF', 'OIH', 'PFM', 'PHO', 'PBJ', 'BBH', 'PPH', 'IWC', 'KIE', 'FXE'
     ]
 
     etf_list = sorted(list(set(etf_list)))
@@ -65,6 +65,7 @@ class Portfolio(Info):
             rates=None,
             override_weight_cov=None,
             refit_weights=False,
+            data=None,
     ):
         super().__init__(
             risk,
@@ -77,7 +78,12 @@ class Portfolio(Info):
         )
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates)
+        if data is not None:
+            self.data = data
+            self.etf_list = list(self.data.nav.columns)
+            self.n = len(self.etf_list)
+        else:
+            self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates)
         self.get_weight_cov(override_weight_cov=override_weight_cov)
         # Extend with currency pseudo-tickers so FX can be considered.
         self.etf_list += [ticker for ticker in Data.possible_currencies]
@@ -110,7 +116,11 @@ class Portfolio(Info):
         if self.currency in log_returns_without_currency.columns:
             log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
-        corr = log_returns_without_currency.corr(method='pearson', min_periods=2).abs()
+        arr = log_returns_without_currency.to_numpy()  # (T, N)
+        corr = np.corrcoef(arr.T)  # (N, N), rows of arr.T = variables (ETFs)
+        corr = np.abs(corr)
+        corr = pd.DataFrame(corr, index=log_returns_without_currency.columns,
+                            columns=log_returns_without_currency.columns)
         tickers = corr.columns.tolist()
         diag_mask = np.eye(len(corr), dtype=bool)
         corr = corr.mask(diag_mask, 1.0)
@@ -148,9 +158,15 @@ class Portfolio(Info):
     def get_objective(self):
         def f(w=np.zeros(self.n), single_ticker=None):
             if single_ticker:
-                excess_series = self.data.excess_returns[single_ticker]
-                mean = excess_series.mean()
-                var = excess_series.var()
+                mean_er = getattr(self.data, 'mean_er', None)
+                var_er = getattr(self.data, 'var_er', None)
+                if mean_er is not None and var_er is not None and single_ticker in mean_er.index:
+                    mean = mean_er[single_ticker]
+                    var = var_er[single_ticker]
+                else:
+                    excess_series = self.data.excess_returns[single_ticker]
+                    mean = excess_series.mean()
+                    var = excess_series.var()
                 return self.weight_cov * var - mean
 
             excess_series = self.data.excess_returns @ w

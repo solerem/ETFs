@@ -1,10 +1,14 @@
 import dash
 import pandas as pd
+import threading
 from dash import html, dcc, Input, Output, State
 from dash.dependencies import ALL
 from dash import dash_table
 
 import dash_bootstrap_components as dbc
+
+# Shared state for backtest progress (written by worker thread, read by interval callback)
+_backtest_state = {"running": False, "current": 0, "total": 1, "done": False, "result": None, "error": None}
 
 from data import Data
 from backtest import Backtest
@@ -202,7 +206,9 @@ class Dashboard(dash.Dash):
                             dbc.Button([html.I(className="bi bi-play-fill me-2"), "Launch Backtest"],
                                        id='create-backtest', n_clicks=0, color="primary"),
                         ]),
-                        dbc.Spinner(html.Div(id='backtest-graphs'), size="md")
+                        html.Div(id='backtest-progress-container', className="mb-3"),
+                        html.Div(id='backtest-graphs'),
+                        dcc.Interval(id='backtest-interval', interval=400, n_intervals=0)
                     ]),
                 ])
             ])
@@ -385,20 +391,82 @@ class Dashboard(dash.Dash):
                 return 0, portfolio_div, rebalance_div, exposure_div
             return 0, dash.no_update, dash.no_update, dash.no_update
 
+        def _run_backtest(opti):
+            global _backtest_state
+            try:
+                _backtest_state["running"] = True
+                _backtest_state["done"] = False
+                _backtest_state["current"] = 0
+                _backtest_state["total"] = 1
+                _backtest_state["result"] = None
+                _backtest_state["error"] = None
+
+                def progress(current, total):
+                    _backtest_state["current"] = current
+                    _backtest_state["total"] = total
+
+                backtest = Backtest(opti, progress_callback=progress)
+                _backtest_state["backtest"] = backtest
+                result_div = html.Div([
+                    html.Div(backtest.plot_backtest(), className="chart-frame"),
+                    html.Div(backtest.plot_weights(), className="chart-frame"),
+                    html.Div(backtest.plot_drawdown(), className="chart-frame"),
+                    html.Div(backtest.plot_perf_attrib(), className="chart-frame"),
+                    html.Div(backtest.plot_info()),
+                ], className="grid-2")
+                _backtest_state["result"] = result_div
+                _backtest_state["done"] = True
+            except Exception as e:
+                _backtest_state["error"] = str(e)
+                _backtest_state["done"] = True
+            finally:
+                _backtest_state["running"] = False
+
         @self.callback(
             Output('create-backtest', 'n_clicks'),
+            Output('backtest-progress-container', 'children'),
             Output('backtest-graphs', 'children'),
             Input('create-backtest', 'n_clicks'),
+            Input('backtest-interval', 'n_intervals'),
             prevent_initial_call=True
         )
-        def create_backtest(create_backtest_n_click):
-            if create_backtest_n_click:
-                self.backtest = Backtest(self.opti)
-                return 0, html.Div([
-                    html.Div(self.backtest.plot_backtest(), className="chart-frame"),
-                    html.Div(self.backtest.plot_weights(), className="chart-frame"),
-                    html.Div(self.backtest.plot_drawdown(), className="chart-frame"),
-                    html.Div(self.backtest.plot_perf_attrib(), className="chart-frame"),
-                    html.Div(self.backtest.plot_info()),
-                ], className="grid-2")
-            return 0, dash.no_update
+        def create_backtest(create_backtest_n_click, _n_intervals):
+            global _backtest_state
+            if create_backtest_n_click and not _backtest_state["running"] and not _backtest_state["done"]:
+                if self.opti is None:
+                    return 0, [], html.Div("Create a portfolio first.", className="text-muted")
+                threading.Thread(target=_run_backtest, args=(self.opti,), daemon=True).start()
+                progress_bar = dbc.Progress(
+                    value=0,
+                    label="0%",
+                    striped=True,
+                    animated=True,
+                    style={"height": "24px"}
+                )
+                return 0, progress_bar, dash.no_update
+
+            if _backtest_state["running"]:
+                current = _backtest_state["current"]
+                total = max(1, _backtest_state["total"])
+                pct = int(100 * current / total) if total else 0
+                progress_bar = dbc.Progress(
+                    value=pct,
+                    label=f"{pct}%",
+                    striped=True,
+                    animated=True,
+                    style={"height": "24px"}
+                )
+                return dash.no_update, progress_bar, dash.no_update
+
+            if _backtest_state["done"]:
+                _backtest_state["done"] = False
+                if _backtest_state.get("error"):
+                    err = _backtest_state["error"]
+                    _backtest_state["error"] = None
+                    return 0, [], html.Div(f"Error: {err}", className="text-danger")
+                result = _backtest_state.get("result")
+                if result is not None:
+                    self.backtest = _backtest_state.get("backtest")
+                return 0, [], result if result is not None else dash.no_update
+
+            return dash.no_update, dash.no_update, dash.no_update

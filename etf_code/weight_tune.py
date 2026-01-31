@@ -339,5 +339,5 @@ def save_weights():
         rows.append({"currency": currency, **weights})
 
     df = pd.DataFrame(rows)
-    output_path = Path(Data.data_dir_path / "weight_cov.parquet")
-    df.to_parquet(output_path, index=False, engine="pyarrow")
+    output_path = Path(Data.data_dir_path / "weight_cov.csv")
+    df.to_csv(output_path, index=False)

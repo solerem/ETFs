@@ -1,18 +1,19 @@
 import pandas as pd
-from portfolio import Portfolio
+from portfolio import Portfolio, Info
 from opti import Opti
+from data import Data
 from tqdm import tqdm
 from dash import dash_table, dcc
-from data import Data
 import statsmodels.api as sm
 import numpy as np
 import plotly.graph_objects as go
 
 
 class Backtest:
-    def __init__(self, opti):
+    def __init__(self, opti, progress_callback=None):
         self.opti = opti
         self.portfolio = self.opti.portfolio
+        self.progress_callback = progress_callback
         # Adaptive train/test split (matches implementation)
         self.ratio_train_test = .9
         self.to_consider = self.opti.optimum.keys()
@@ -22,18 +23,45 @@ class Backtest:
         self.get_returns()
 
     def parse_data(self):
-        self.n = len(self.portfolio.data.nav)
+        # Load all CSV/parquet once (no backtest slice)
+        full_data = Data(
+            self.portfolio.currency,
+            Info.etf_list,
+            static=True,
+            backtest=None,
+            rates=self.portfolio.rates,
+        )
+        # Precompute expanding mean/var of excess returns for each date (used in objective(single_ticker=...))
+        full_data.expanding_mean_er = full_data.excess_returns.expanding().mean()
+        full_data.expanding_var_er = full_data.excess_returns.expanding().var().fillna(0.0)
+        self.n = len(full_data.nav)
         self.cutoff = int(self.ratio_train_test * self.n)
-        self.index = list(self.portfolio.data.nav.index)
+        self.index = list(full_data.nav.index)
 
         self.w_opt = pd.DataFrame({ticker: [] for ticker in self.opti.portfolio.etf_list})
-        for i in tqdm(range(self.cutoff, self.n)):
+        total = self.n - self.cutoff
+        it = range(self.cutoff, self.n)
+        if self.progress_callback is None:
+            it = tqdm(it)
+        for idx, i in enumerate(it):
+            if self.progress_callback is not None:
+                self.progress_callback(idx + 1, total)
+            # Slice pre-loaded data to this date (no disk read)
+            sliced_data = Data(
+                self.portfolio.currency,
+                Info.etf_list,
+                static=True,
+                backtest=self.index[i],
+                rates=self.portfolio.rates,
+                _full_data=full_data,
+            )
             portfolio = Portfolio(
                 risk=self.portfolio.risk,
                 currency=self.portfolio.currency,
                 static=True,
                 backtest=self.index[i],
                 rates=self.portfolio.rates,
+                data=sliced_data,
             )
             optimum = Opti(portfolio, long_only=self.opti.long_only).optimum_all
             self.w_opt.loc[self.index[i]] = optimum

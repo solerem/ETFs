@@ -227,14 +227,9 @@ class Opti:
     def plot_in_sample(self):
         cumulative_pct = (self.cumulative - 1) * 100
 
-        spy_col = 'BTC-USD' if self.portfolio.crypto else 'SPY'
-        spy = (self.portfolio.data.benchmarks[spy_col] / self.portfolio.data.benchmarks[spy_col].iloc[0] - 1) * 100
-
-        bonds_col = 'BTC-USD' if self.portfolio.crypto else 'AGG'
-        bonds = (self.portfolio.data.benchmarks[bonds_col] / self.portfolio.data.benchmarks[bonds_col].iloc[0] - 1) * 100
-
-        gold_col = 'BTC-USD' if self.portfolio.crypto else 'GLD'
-        gold = (self.portfolio.data.benchmarks[gold_col] / self.portfolio.data.benchmarks[gold_col].iloc[0] - 1) * 100
+        spy = (self.portfolio.data.benchmarks['SPY'] / self.portfolio.data.benchmarks['SPY'].iloc[0] - 1) * 100
+        bonds = (self.portfolio.data.benchmarks['AGG'] / self.portfolio.data.benchmarks['AGG'].iloc[0] - 1) * 100
+        gold = (self.portfolio.data.benchmarks['GLD'] / self.portfolio.data.benchmarks['GLD'].iloc[0] - 1) * 100
 
 
         fig = go.Figure()
@@ -374,8 +369,7 @@ class Opti:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-        label = 'BTC-USD' if self.portfolio.crypto else 'SPY'
-        spy = self.portfolio.data.benchmarks[label].pct_change().dropna()
+        spy = self.portfolio.data.benchmarks['SPY'].pct_change().dropna()
         beta = returns[1:].cov(spy) / spy.var()
         info['Beta (Stocks)'] = round(beta, 2)
         explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'

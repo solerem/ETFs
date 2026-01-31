@@ -10,8 +10,8 @@ class Info:
     threshold_correlation = .9
 
     etf_list = [
-        'SPY', 'QQQ', 'DIA', 'MDY', 'IWM', 'XLY', 'XLP', 'XLE', 'XLV', 'XLF', 'XLI', 'XLB', 'XLK', 'XLU', 'EFA', 'EEM',
-        'EWA', 'EWC', 'EWH', 'EWG', 'EWI', 'EWU', 'EWM', 'EWS', 'EWP', 'EWD', 'LQD', 'TLT', 'TIP', 'GLD', 'VTI',
+        'SPY', 'QQQ', 'DIA', 'MDY',
+        'EWM', 'GLD',
         'IWN', 'IUSG', 'IYJ', 'EWL', 'VHT', 'IWB', 'XLU', 'IGE', 'RTH', 'VWO', 'IWV', 'EWW', 'EWC', 'EWN', 'VPU', 'PWB',
         'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW', 'DBC',
         'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IVV', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV',
@@ -27,15 +27,10 @@ class Info:
     etf_list += [
         "^GSPC", "^DJI", "^IXIC", "^RUT", "^GDAXI", "^FCHI",
         "^STOXX50E", "^STOXX", "^HSI", "399001.SZ", "^BSESN",
-        "^NSEI", "^AXJO", "^GSPTSE", "^BVSP"
+        "^NSEI", "^AXJO", "^BVSP"
     ]
 
-    crypto_list = ['BTC',
-                   'ETH']  # , 'XRP', 'SOL', 'DOGE', 'ADA', 'LINK', 'AVAX', 'XLM', 'HBAR', 'LTC', 'CRO', 'DOT', 'AAVE', 'NEAR', 'ETC']
-    crypto_list = [f'{x}-USD' for x in crypto_list]
-
     etf_list = sorted(list(set(etf_list)))
-    crypto_list = sorted(list(set(crypto_list)))
 
     name = {
         1: 'Low risk',
@@ -43,18 +38,17 @@ class Info:
         3: 'High risk'
     }
 
-    def __init__(self, risk, cash, holdings, currency, rates, crypto, static=False, refit_weights = False):
+    def __init__(self, risk, cash, holdings, currency, rates, static=False, refit_weights = False):
         self.weight_cov = None
         self.risk = risk
         self.cash = cash
         self.holdings = holdings if holdings else {}
         self.rates = rates if rates else {}
-        self.crypto = crypto
         self.refit_weights = refit_weights
         self.currency = currency if currency else 'USD'
         self.static = static
         self.name = 'Risk ' + str(self.risk)
-        self.etf_list = Info.crypto_list if self.crypto else Info.etf_list
+        self.etf_list = Info.etf_list.copy()
         self.n = len(self.etf_list)
 
     def get_weight_cov(self, override_weight_cov=None):
@@ -79,7 +73,6 @@ class Portfolio(Info):
             static=False,
             backtest=None,
             rates=None,
-            crypto=False,
             override_weight_cov=None,
             refit_weights=False,
     ):
@@ -89,18 +82,15 @@ class Portfolio(Info):
             holdings,
             currency,
             rates,
-            crypto,
             static=static,
             refit_weights=refit_weights,
         )
 
         self.liquidity, self.objective, self.cov_excess_returns = None, None, None
-        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates,
-                         crypto=crypto)
+        self.data = Data(self.currency, self.etf_list, static=static, backtest=backtest, rates=self.rates)
         self.get_weight_cov(override_weight_cov=override_weight_cov)
-        if not crypto:
-            # Extend with currency pseudo-tickers so FX can be considered.
-            self.etf_list += [ticker for ticker in Data.possible_currencies]
+        # Extend with currency pseudo-tickers so FX can be considered.
+        self.etf_list += [ticker for ticker in Data.possible_currencies]
 
         self.etf_list = sorted(list(set(self.etf_list)))
         self.n = len(self.etf_list)
@@ -127,9 +117,8 @@ class Portfolio(Info):
     def drop_highly_correlated(self):
         log_returns_without_currency = self.data.log_returns.copy()
 
-        if not self.crypto:
-            if self.currency in log_returns_without_currency.columns:
-                log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
+        if self.currency in log_returns_without_currency.columns:
+            log_returns_without_currency.drop(self.currency, axis=1, inplace=True)
 
         corr = log_returns_without_currency.corr(method='pearson', min_periods=2).abs()
         tickers = corr.columns.tolist()
@@ -147,7 +136,7 @@ class Portfolio(Info):
 
         cluster_df = pd.DataFrame({'ETF': tickers, 'Cluster': clusters})
 
-        # Evaluate objective per single ticker (will use Sharpe-style in crypto mode).
+        # Evaluate objective per single ticker.
         obj_values = {ticker: self.objective(single_ticker=ticker) for ticker in self.etf_list}
         obj_values = pd.Series(obj_values, name='obj_values')
 
@@ -155,6 +144,7 @@ class Portfolio(Info):
         best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs and ticker != self.currency]
+        print(to_drop)
         if to_drop:
             self.data.nav.drop(columns=to_drop, inplace=True, errors='ignore')
             self.data.returns.drop(columns=to_drop, inplace=True, errors='ignore')
@@ -178,15 +168,4 @@ class Portfolio(Info):
             mean = excess_series.mean()
             return self.weight_cov * (w @ self.cov_excess_returns @ w) - mean
 
-        def f_crypto(w=np.zeros(self.n), single_ticker=None):
-            if single_ticker:
-                excess_series = self.data.excess_returns[single_ticker]
-                mean = excess_series.mean()
-                std = excess_series.std()
-                return -mean / std
-
-            excess_series = self.data.excess_returns @ w
-            mean = excess_series.mean()
-            return -mean / excess_series.std()
-
-        self.objective = f_crypto if self.crypto else f
+        self.objective = f

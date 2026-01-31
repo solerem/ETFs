@@ -34,7 +34,6 @@ class Backtest:
                 static=True,
                 backtest=self.index[i],
                 rates=self.portfolio.rates,
-                crypto=self.opti.portfolio.crypto
             )
             optimum = Opti(portfolio, long_only=self.opti.long_only).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
@@ -48,18 +47,15 @@ class Backtest:
         cumulative = (1 + self.returns).cumprod()
         cumulative_pct = (cumulative - 1) * 100
 
-        spy_col = 'BTC-USD' if self.portfolio.crypto else 'SPY'
-        spy = self.portfolio.data.benchmarks[spy_col].copy()
+        spy = self.portfolio.data.benchmarks['SPY'].copy()
         spy = spy.loc[self.index[self.cutoff]:]
         spy = (spy / spy.iloc[0] - 1) * 100
 
-        bonds_col = 'BTC-USD' if self.portfolio.crypto else 'AGG'
-        bonds = self.portfolio.data.benchmarks[bonds_col].copy()
+        bonds = self.portfolio.data.benchmarks['AGG'].copy()
         bonds = bonds.loc[self.index[self.cutoff]:]
         bonds = (bonds / bonds.iloc[0] - 1) * 100
 
-        gold_col = 'BTC-USD' if self.portfolio.crypto else 'GLD'
-        gold = self.portfolio.data.benchmarks[gold_col].copy()
+        gold = self.portfolio.data.benchmarks['GLD'].copy()
         gold = gold.loc[self.index[self.cutoff]:]
         gold = (gold / gold.iloc[0] - 1) * 100
 
@@ -279,8 +275,7 @@ class Backtest:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-        label = 'BTC-USD' if self.portfolio.crypto else 'SPY'
-        spy = self.portfolio.data.benchmarks[label].pct_change().dropna()[self.cutoff - 1:]
+        spy = self.portfolio.data.benchmarks['SPY'].pct_change().dropna()[self.cutoff - 1:]
         beta = self.returns.cov(spy) / spy.var()
         info['Beta (Stocks)'] = round(beta, 2)
         explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'

@@ -80,7 +80,6 @@ class Dashboard(dash.Dash):
         self.main_div = None
         self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, 20
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
-        self.mode = 'etf'  # 'etf' or 'crypto'
         self.long_only = False  # False for Long/Short, True for Long only
 
         self.get_layout()
@@ -259,7 +258,6 @@ class Dashboard(dash.Dash):
         )
         def input_callbacks(risk, max_assets, currency, cash_sgd, btn_long_short_active, btn_long_only_active,
                             holdings_tickers, holdings_values, rates_tickers, rates_values):
-            self.mode = 'etf'
             self.risk = risk
             self.max_assets = 20 if max_assets is None else max(1, int(max_assets))
             self.currency = currency
@@ -343,7 +341,6 @@ class Dashboard(dash.Dash):
                     self.currency,
                     static=True,
                     rates=self.rates,
-                    crypto=(self.mode == 'crypto')
                 )
                 self.opti = Opti(self.portfolio, long_only=self.long_only, max_assets=self.max_assets)
 

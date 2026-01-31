@@ -19,7 +19,6 @@ class WeightTune:
             static=True,
             backtest=None,
             rates=None,
-            crypto=False,
             max_assets=20,
             borrow_years=1 / 12,
     ):
@@ -32,7 +31,6 @@ class WeightTune:
             static=static,
             backtest=backtest,
             rates=rates,
-            crypto=crypto,
         )
         self._portfolio_kwargs = {
             "cash": cash,
@@ -41,7 +39,6 @@ class WeightTune:
             "static": static,
             "backtest": backtest,
             "rates": rates,
-            "crypto": crypto,
         }
         self.max_assets = max_assets
         self.borrow_years = borrow_years
@@ -50,8 +47,7 @@ class WeightTune:
 
     def _get_mu_sigma(self):
         rets = self.portfolio.data.returns[self.portfolio.etf_list].copy()
-        if not self.portfolio.crypto:
-            rets[self.portfolio.currency] += ((1.01) ** (1 / 12)) - 1
+        rets[self.portfolio.currency] += ((1.01) ** (1 / 12)) - 1
         mu = rets.mean().values
         sigma = rets.cov().values
         return mu, sigma

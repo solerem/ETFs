@@ -75,11 +75,10 @@ class Data:
 
         return cls._weight_cov_params
 
-    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, crypto=False):
+    def __init__(self, currency, etf_list, static=False, backtest=None, rates=None):
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.benchmarks, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
-        self.crypto = crypto
-        self.period = '5y' if self.crypto else '20y'
+        self.period = '20y'
 
         self.get_currency()
         self.get_rf_rate()
@@ -98,7 +97,7 @@ class Data:
         return df.loc[cutoff:]
 
     def get_currency(self):
-        currency_file = 'currency_crypto.parquet' if self.crypto else 'currency.parquet'
+        currency_file = 'currency.parquet'
         if self.static:
             self.currency_rate = Data._read_parquet_timeseries(Data.data_dir_path / currency_file)
         else:
@@ -124,9 +123,7 @@ class Data:
         for curr in self.currency_rate:
             self.currency_rate[curr] = self.drop_test_data_backtest(self.currency_rate[curr])
 
-        if self.crypto:
-            self.etf_currency = pd.Series({ticker: 'USD' for ticker in self.etf_list})
-        elif self.static:
+        if self.static:
             df = pd.read_parquet(Data.data_dir_path / 'curr_etf.parquet')
             self.etf_currency = df['currency'] if 'currency' in df.columns else df.iloc[:, 0]
         else:
@@ -146,33 +143,21 @@ class Data:
                                                                          index=True)
 
     def get_benchmarks(self):
-        file_name = 'benchmark_crypto.parquet' if self.crypto else 'benchmark.parquet'
-        spy_ticker = 'BTC-USD' if self.crypto else 'SPY'
-        bonds_ticker = 'BTC-USD' if self.crypto else 'AGG'
-        gold_ticker = 'BTC-USD' if self.crypto else 'GLD'
+        file_name = 'benchmark.parquet'
+        spy_ticker = 'SPY'
+        bonds_ticker = 'AGG'
+        gold_ticker = 'GLD'
 
         if self.static:
             self.benchmarks = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
-            # Download all three benchmarks
-            if self.crypto:
-                # For crypto, all three are the same ticker
-                data = yf.download(spy_ticker, period=self.period, interval='1mo', auto_adjust=True)['Close']
-                self.benchmarks = pd.DataFrame({
-                    'SPY': data[spy_ticker],
-                    'AGG': data[spy_ticker],
-                    'GLD': data[spy_ticker]
-                })
-            else:
-                # Download all three separately
-                tickers = [spy_ticker, bonds_ticker, gold_ticker]
-                data = yf.download(tickers, period=self.period, interval='1mo', auto_adjust=True)['Close']
-                # Rename columns to standard names
-                self.benchmarks = pd.DataFrame({
-                    'SPY': data[spy_ticker],
-                    'AGG': data[bonds_ticker],
-                    'GLD': data[gold_ticker]
-                })
+            tickers = [spy_ticker, bonds_ticker, gold_ticker]
+            data = yf.download(tickers, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            self.benchmarks = pd.DataFrame({
+                'SPY': data[spy_ticker],
+                'AGG': data[bonds_ticker],
+                'GLD': data[gold_ticker]
+            })
             Data._write_parquet_timeseries(self.benchmarks, Data.data_dir_path / file_name)
 
         # Apply currency conversion if needed
@@ -183,7 +168,7 @@ class Data:
         self.benchmarks = self.drop_test_data_backtest(self.benchmarks)
 
     def get_rf_rate(self):
-        file_name = 'rf_rate_crypto.parquet' if self.crypto else 'rf_rate.parquet'
+        file_name = 'rf_rate.parquet'
 
         if self.static:
             irx = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
@@ -205,7 +190,7 @@ class Data:
         self.rf_rate *= self.currency_rate['USD']
 
     def get_nav_returns(self):
-        file_name = 'nav_crypto.parquet' if self.crypto else 'nav.parquet'
+        file_name = 'nav.parquet'
 
         if self.static:
             self.nav = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
@@ -223,10 +208,9 @@ class Data:
         self.nav = self.nav.copy()
         self.nav = self.drop_test_data_backtest(self.nav)
 
-        if not self.crypto:
-            for curr in self.currency_rate:
-                if curr in Data.possible_currencies:
-                    self.nav[curr] = self.currency_rate[curr]
+        for curr in self.currency_rate:
+            if curr in Data.possible_currencies:
+                self.nav[curr] = self.currency_rate[curr]
 
         self.returns = self.nav.pct_change(fill_method=None).fillna(0)
 
@@ -239,7 +223,7 @@ class Data:
 
 
     def get_full_names(self):
-        file_name = 'full_names_crypto.parquet' if self.crypto else 'full_names.parquet'
+        file_name = 'full_names.parquet'
 
         if self.static:
             df = pd.read_parquet(Data.data_dir_path / file_name)

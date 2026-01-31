@@ -10,6 +10,12 @@ import warnings
 warnings.filterwarnings('ignore', category=pd.errors.Pandas4Warning, module='yfinance')
 
 
+def _download_nav_chunk(etf_chunk, period):
+    """Download Close prices for a chunk of tickers (used in separate process to avoid yfinance shared state)."""
+    data = yf.download(etf_chunk, period=period, interval='1mo', auto_adjust=True)
+    return data['Close'] if isinstance(data.columns, pd.MultiIndex) else data[['Close']].set_axis(etf_chunk, axis=1)
+
+
 class Data:
     possible_currencies = ['USD', 'EUR', 'SGD', 'AUD', 'GBP', 'HKD', 'JPY']
     helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
@@ -195,7 +201,14 @@ class Data:
         if self.static:
             self.nav = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
-            self.nav = yf.download(self.etf_list, period=self.period, interval='1mo', auto_adjust=True)['Close'].ffill()
+            n_chunks = min(4, len(self.etf_list))
+            chunks = [c.tolist() for c in np.array_split(self.etf_list, n_chunks) if len(c) > 0]
+
+            with concurrent.futures.ProcessPoolExecutor(max_workers=n_chunks) as executor:
+                results = list(executor.map(_download_nav_chunk, chunks, [self.period] * len(chunks)))
+
+            cols_ordered = list(dict.fromkeys(self.etf_list))
+            self.nav = pd.concat(results, axis=1).reindex(columns=cols_ordered).ffill()
             if len(self.nav) % 10 != 0:
                 self.nav = self.nav.iloc[1:]
             Data._write_parquet_timeseries(self.nav, Data.data_dir_path / file_name)
@@ -230,12 +243,12 @@ class Data:
             # Convert DataFrame back to Series (first column contains the values)
             etf_full_names = df.iloc[:, 0] if len(df.columns) > 0 else pd.Series(dtype=object)
         else:
-            etf_full_names = pd.Series(
-                {ticker: (yf.Ticker(ticker).info['longName']) for ticker in self.etf_list if '=F' not in ticker})
-            for ticker in self.etf_list:
-                if '=F' in ticker:
-                    etf_full_names[ticker] = yf.Ticker(ticker).info['shortName']
+            def get_name(ticker):
+                key = 'shortName' if '=F' in ticker else 'longName'
+                return ticker, yf.Ticker(ticker).info.get(key, '')
 
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                etf_full_names = pd.Series(dict(executor.map(get_name, self.etf_list)))
             for ticker in Data.possible_currencies:
                 etf_full_names[ticker] = ticker
             etf_full_names.to_frame('name').to_parquet(Data.data_dir_path / file_name, index=True)

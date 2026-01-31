@@ -10,10 +10,6 @@ import warnings
 warnings.filterwarnings('ignore', category=pd.errors.Pandas4Warning, module='yfinance')
 
 
-def _download_nav_chunk(etf_chunk, period):
-    """Download Close prices for a chunk of tickers (used in separate process to avoid yfinance shared state)."""
-    data = yf.download(etf_chunk, period=period, interval='1mo', auto_adjust=True)
-    return data['Close'] if isinstance(data.columns, pd.MultiIndex) else data[['Close']].set_axis(etf_chunk, axis=1)
 
 
 class Data:
@@ -24,6 +20,8 @@ class Data:
     weight_cov_path = data_dir_path / "weight_cov.parquet"
     _weight_cov_params = None
     _ticker_display_names = None
+
+    NB_PERIOD = 52
 
     @classmethod
     def _get_ticker_display_names(cls):
@@ -92,6 +90,10 @@ class Data:
         except Exception:
             df.to_parquet(path, index=False)
 
+    def _download_nav_chunk(self, etf_chunk, period):
+        """Download Close prices for a chunk of tickers (used in separate process to avoid yfinance shared state)."""
+        data = yf.download(etf_chunk, period=period, interval=self.frequency, auto_adjust=True)
+        return data['Close'] if isinstance(data.columns, pd.MultiIndex) else data[['Close']].set_axis(etf_chunk, axis=1)
     @classmethod
     def get_weight_cov_params(cls, static=False, refit_weights=False):
         if not static and refit_weights:
@@ -109,6 +111,7 @@ class Data:
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.benchmarks, self.etf_full_names, self.exposure = None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
         self.period = '20y'
+        self.frequency = '1wk' if Data.NB_PERIOD==52 else '1mo'
 
         self.get_currency()
         self.get_rf_rate()
@@ -133,7 +136,7 @@ class Data:
         else:
             to_download = [f'USD{ticker}=X' for ticker in Data.possible_currencies + Data.helper_currencies if
                            ticker != 'USD']
-            self.currency_rate = yf.download(to_download, period=self.period, interval='1mo', auto_adjust=False)[
+            self.currency_rate = yf.download(to_download, period=self.period, interval=self.frequency, auto_adjust=False)[
                 'Close'].bfill()
             Data._write_parquet_timeseries(self.currency_rate, Data.data_dir_path / currency_file)
 
@@ -182,7 +185,7 @@ class Data:
             self.benchmarks = Data._read_parquet_timeseries(Data.data_dir_path / file_name)
         else:
             tickers = [spy_ticker, bonds_ticker, gold_ticker]
-            data = yf.download(tickers, period=self.period, interval='1mo', auto_adjust=True)['Close']
+            data = yf.download(tickers, period=self.period, interval=self.frequency, auto_adjust=True)['Close']
             self.benchmarks = pd.DataFrame({
                 'SPY': data[spy_ticker],
                 'AGG': data[bonds_ticker],
@@ -208,7 +211,7 @@ class Data:
             Data._write_parquet_timeseries(irx, Data.data_dir_path / file_name)
 
         rf_monthly = irx.resample('MS').first()
-        self.rf_rate = (1 + rf_monthly) ** (1 / 12) - 1
+        self.rf_rate = (1 + rf_monthly) ** (1 / Data.NB_PERIOD) - 1
         self.rf_rate.index = self.rf_rate.index.tz_localize(None)
         self.rf_rate = self.drop_test_data_backtest(self.rf_rate)
 
@@ -229,7 +232,7 @@ class Data:
             chunks = [c.tolist() for c in np.array_split(self.etf_list, n_chunks) if len(c) > 0]
 
             with concurrent.futures.ProcessPoolExecutor(max_workers=n_chunks) as executor:
-                results = list(executor.map(_download_nav_chunk, chunks, [self.period] * len(chunks)))
+                results = list(executor.map(self._download_nav_chunk, chunks, [self.period] * len(chunks)))
 
             cols_ordered = list(dict.fromkeys(self.etf_list))
             self.nav = pd.concat(results, axis=1).reindex(columns=cols_ordered).ffill()
@@ -253,7 +256,7 @@ class Data:
 
         for curr in self.rates:
             if curr:
-                self.returns[curr] = (1 + self.returns[curr]) * ((1 + self.rates[curr] / 100) ** (1 / 12)) - 1
+                self.returns[curr] = (1 + self.returns[curr]) * ((1 + self.rates[curr] / 100) ** (1 / Data.NB_PERIOD)) - 1
 
         self.log_returns = np.log(1 + self.returns)
         self.excess_returns = self.returns.subtract(self.rf_rate, axis=0)

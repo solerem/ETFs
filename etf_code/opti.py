@@ -71,24 +71,14 @@ class Opti:
 
         return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
-    @staticmethod
-    def softcount(w, tau=2e-3, alpha=200.0, eps=1e-12):
-        abs_smooth = np.sqrt(w * w + eps)
-        return 1.0 / (1.0 + np.exp(-alpha * (abs_smooth - tau)))
 
     def get_constraints(self):
         func = sum
         func = Opti.abs_sum
 
-        K = 15
-        self.constraints = [
-            {'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3},
-            {'type': 'ineq', 'fun': lambda w: K - np.sum(Opti.softcount(w, tau=1e-2, alpha=100.0))}
-        ]
-
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
 
-    def optimize(self, max_assets=20, borrow_years=1 / 12):
+    def optimize(self, max_assets=20, borrow_years=1 / Data.NB_PERIOD):
         borrow_rate_annual = {tick: 0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
 
@@ -100,7 +90,7 @@ class Opti:
 
         # Build data for a mean-variance objective from historical returns
         rets = self.portfolio.data.returns[self.portfolio.etf_list]
-        rets[self.portfolio.currency] += ((1.01) ** (1 / 12)) - 1
+        rets[self.portfolio.currency] += ((1.01) ** (1 / Data.NB_PERIOD)) - 1
         mu = rets.mean().values  # expected returns (vector)
         Sigma = rets.cov().values  # covariance matrix (n x n)
         n = self.portfolio.n
@@ -361,7 +351,7 @@ class Opti:
         explain['CAGR'] = 'Average annual growth rate'
 
         sharpe = returns.mean() / returns.std()
-        info['Sharpe ratio'] = round(sharpe * math.sqrt(12), 2)
+        info['Sharpe ratio'] = round(sharpe * math.sqrt(Data.NB_PERIOD), 2)
         explain['Sharpe ratio'] = 'Risk-adjusted return'
 
         running_max = self.cumulative.cummax()
@@ -376,7 +366,7 @@ class Opti:
         info['Beta (Stocks)'] = round(beta, 2)
         explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'
 
-        vol = returns.std() * math.sqrt(12)
+        vol = returns.std() * math.sqrt(Data.NB_PERIOD)
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 

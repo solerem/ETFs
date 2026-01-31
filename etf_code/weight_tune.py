@@ -20,7 +20,7 @@ class WeightTune:
             backtest=None,
             rates=None,
             max_assets=20,
-            borrow_years=1 / 12,
+            borrow_years=1/Data.NB_PERIOD,
     ):
         self.portfolio = Portfolio(
             override_weight_cov=0,
@@ -47,7 +47,7 @@ class WeightTune:
 
     def _get_mu_sigma(self):
         rets = self.portfolio.data.returns[self.portfolio.etf_list].copy()
-        rets[self.portfolio.currency] += ((1.01) ** (1 / 12)) - 1
+        rets[self.portfolio.currency] += ((1.01) ** (1 / Data.NB_PERIOD)) - 1
         mu = rets.mean().values
         sigma = rets.cov().values
         return mu, sigma

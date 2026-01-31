@@ -14,7 +14,7 @@ class Backtest:
         self.opti = opti
         self.portfolio = self.opti.portfolio
         # Adaptive train/test split (matches implementation)
-        self.ratio_train_test = .8 if self.portfolio.data.period == '5y' else .9
+        self.ratio_train_test = .9
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
         self.cumulative = None
@@ -261,13 +261,13 @@ class Backtest:
         end_date = self.returns.index[-1]
         nb_years = (end_date - start_date).days / 365.25
         if nb_years <= 0:
-            nb_years = len(self.returns) / 12.0  # Fallback to months/12 if days calculation fails
+            nb_years = len(self.returns) / Data.NB_PERIOD # Fallback to months/Data.NB_PERIOD if days calculation fails
         pa_perf = (round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1))
         info['CAGR'] = str(round(pa_perf, 1)) + ' %'
         explain['CAGR'] = 'Average annual growth rate'
 
         sharpe = self.returns.mean() / self.returns.std()
-        info['Sharpe ratio'] = round(sharpe * np.sqrt(12), 2)
+        info['Sharpe ratio'] = round(sharpe * np.sqrt(Data.NB_PERIOD), 2)
         explain['Sharpe ratio'] = 'Risk-adjusted return'
 
         running_max = self.cumulative.cummax()
@@ -277,12 +277,12 @@ class Backtest:
         explain['Max drawdown'] = 'Largest peak-to-trough loss'
         explain['Avg drawdown'] = 'Typical loss during downturns'
 
-        spy = self.portfolio.data.benchmarks['SPY'].pct_change().dropna()[self.cutoff - 1:]
+        spy = self.portfolio.data.benchmarks['SPY'].pct_change().dropna()[self.cutoff:]
         beta = self.returns.cov(spy) / spy.var()
         info['Beta (Stocks)'] = round(beta, 2)
         explain['Beta (Stocks)'] = 'Sensitivity to stock market movements'
 
-        vol = self.returns.std() * np.sqrt(12)
+        vol = self.returns.std() * np.sqrt(Data.NB_PERIOD)
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 

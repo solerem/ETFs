@@ -201,7 +201,8 @@ class Opti:
     def plot_optimum(self):
         sorted_optimum = dict(sorted(self.optimum.items(), key=lambda item: item[1], reverse=True))
         values = [abs(sorted_optimum[x]) for x in sorted_optimum]
-        labels = [x if sorted_optimum[x] >= 0 else 'short ' + x for x in sorted_optimum]
+        display_ticker = lambda t: Data.ticker_display_name(t)
+        labels = [display_ticker(x) if sorted_optimum[x] >= 0 else 'short ' + display_ticker(x) for x in sorted_optimum]
         colors = [self.color_map[k] for k in sorted_optimum.keys()]
         full_name_list = [self.portfolio.data.etf_full_names.loc[ticker] for ticker in sorted_optimum]
 
@@ -292,7 +293,8 @@ class Opti:
         contribution = cumulative_returns.multiply(weights, axis=1) * 100
         fig = go.Figure()
         for col in contribution.columns:
-            display_name = col if self.optimum[col] >= 0 else 'short ' + col
+            ticker_label = Data.ticker_display_name(col)
+            display_name = ticker_label if self.optimum[col] >= 0 else 'short ' + ticker_label
             fig.add_trace(go.Scatter(
                 x=contribution.index,
                 y=contribution[col].values,

@@ -23,6 +23,30 @@ class Data:
     static_dir_path = data_dir_path / "STATIC"
     weight_cov_path = data_dir_path / "weight_cov.parquet"
     _weight_cov_params = None
+    _ticker_display_names = None
+
+    @classmethod
+    def _get_ticker_display_names(cls):
+        """Load ticker -> display name mapping from alternatives.csv (display only; etf_full_names unchanged)."""
+        if cls._ticker_display_names is None:
+            path = cls.static_dir_path / "alternatives.csv"
+            if path.exists():
+                df = pd.read_csv(path, sep=';')
+                # Columns: TICKER; NEW NAME (space in header)
+                ticker_col = [c for c in df.columns if 'TICKER' in c.upper()][0]
+                name_col = [c for c in df.columns if 'NAME' in c.upper()][0]
+                cls._ticker_display_names = dict(
+                    zip(df[ticker_col].astype(str).str.strip(), df[name_col].astype(str).str.strip())
+                )
+            else:
+                cls._ticker_display_names = {}
+        return cls._ticker_display_names
+
+    @classmethod
+    def ticker_display_name(cls, ticker):
+        """Return display name for ticker in dashboard (from alternatives.csv); etf_full_names unchanged."""
+        names = cls._get_ticker_display_names()
+        return names.get(ticker, ticker)
 
     @staticmethod
     def _coerce_datetime_index(index):

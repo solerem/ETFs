@@ -7,36 +7,27 @@ import numpy as np
 
 
 class Info:
-    threshold_correlation = .9
+    threshold_correlation = .85
 
     etf_list = [
         'SPY', 'QQQ', 'DIA', 'MDY',
         'EWM', 'GLD',
         'IWN', 'IUSG', 'IYJ', 'EWL', 'VHT', 'IWB', 'XLU', 'IGE', 'RTH', 'VWO', 'IWV', 'EWW', 'EWC', 'EWN', 'VPU', 'PWB',
-        'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'IVW', 'DBC',
-        'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IVV', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV',
-        'EWT', 'IYW', 'IMCG', 'EWH', 'IGPT', 'PJP', 'SPYG', 'ITOT', 'FXI', 'EWI', 'XLE', 'XLY', 'EWA', 'ILCG', 'IMCV',
+        'VIS', 'IYM', 'SPYV', 'SLYV', 'IUSV', 'AGG', 'IWF', 'EWZ', 'LQD', 'ILCB', 'IXN', 'VDE', 'VOX', 'XLG', 'DBC',
+        'IJK', 'XLP', 'XSMO', 'IXC', 'EWY', 'IGM', 'IJH', 'PEJ', 'IYY', 'SOXX', 'EWP', 'VPL', 'IYH', 'VTV',
+        'EWT', 'IYW', 'IMCG', 'EWH', 'IGPT', 'PJP', 'SPYG', 'FXI', 'EWI', 'XLE', 'XLY', 'EWA', 'ILCG', 'IMCV',
         'XLI', 'IWM', 'DVY', 'VBK', 'EWG', 'IGV', 'IJS', 'XNTK', 'IYT', 'SPTM', 'PEY', 'VBR', 'EEM', 'PWV', 'TLT',
         'VFH', 'IEV', 'VB', 'SPEU', 'VGK', 'IYG', 'IWP', 'VTI', 'FEZ', 'EZU', 'IWR', 'VV', 'XLB', 'EWU', 'IJJ', 'IJR',
         'EFA', 'EPP', 'IEF', 'VDC', 'IBB', 'PBW', 'TIP', 'IWS', 'IYE', 'IWO', 'VUG', 'SUSA', 'ILCV', 'IYK', 'XMMO',
         'XLV', 'ONEQ', 'SHY', 'ISCB', 'EWJ', 'VXF', 'EWQ', 'PSI', 'ILF', 'IYR', 'IXG', 'IWD', 'IXP', 'VO', 'IDU', 'VGT',
-        'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'IVE', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
-        'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK',
-        'SI=F', 'PL=F', 'PA=F'
-    ]
-    etf_list += [
-        "^GSPC", "^DJI", "^IXIC", "^RUT", "^GDAXI", "^FCHI",
+        'EWD', 'IYZ', 'ISCV', 'ICF', 'IOO', 'SLYG', 'VCR', 'EWS', 'EZA', 'XLF', 'IMCB', 'IYF', 'VAW', 'OEF',
+        'IJT', 'RWR', 'IXJ', 'SMH', 'IYC', 'ISCG', 'VNQ', 'XMVM', 'RSP', 'DGT', 'XLK', 'EWK', 'EWO', 'SDY', 'FVD',
+        'SI=F', 'PL=F', 'PA=F', "^IXIC", "^GDAXI", "^FCHI",
         "^STOXX50E", "^STOXX", "^HSI", "399001.SZ", "^BSESN",
-        "^NSEI", "^AXJO", "^BVSP"
+        "^NSEI", "^AXJO", "^BVSP", 'KBE', 'PRF', 'OIH', 'PFM', 'PHO', 'PBJ', 'BBH', 'PPH', 'IWC', 'KIE', 'FXE'
     ]
 
     etf_list = sorted(list(set(etf_list)))
-
-    name = {
-        1: 'Low risk',
-        2: 'Medium risk',
-        3: 'High risk'
-    }
 
     def __init__(self, risk, cash, holdings, currency, rates, static=False, refit_weights = False):
         self.weight_cov = None
@@ -47,7 +38,6 @@ class Info:
         self.refit_weights = refit_weights
         self.currency = currency if currency else 'USD'
         self.static = static
-        self.name = 'Risk ' + str(self.risk)
         self.etf_list = Info.etf_list.copy()
         self.n = len(self.etf_list)
 
@@ -144,7 +134,6 @@ class Portfolio(Info):
         best_etfs = cluster_df.groupby('Cluster')['obj_values'].idxmin().tolist()
 
         to_drop = [ticker for ticker in self.etf_list if ticker not in best_etfs and ticker != self.currency]
-        print(to_drop)
         if to_drop:
             self.data.nav.drop(columns=to_drop, inplace=True, errors='ignore')
             self.data.returns.drop(columns=to_drop, inplace=True, errors='ignore')

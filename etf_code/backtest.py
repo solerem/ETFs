@@ -159,7 +159,8 @@ class Backtest:
         for col in tickers_to_plot:
             # Check if this is a short position (negative mean weight or in optimum as negative)
             is_short = mean_w.get(col, 0.0) < 0 or self.opti.optimum.get(col, 0) < 0
-            display_name = 'short ' + col if is_short else col
+            ticker_label = Data.ticker_display_name(col)
+            display_name = 'short ' + ticker_label if is_short else ticker_label
             series_color = color_map.get(col)
             fig.add_trace(go.Scatter(
                 x=data.index,
@@ -194,7 +195,8 @@ class Backtest:
         returns = self.returns_decomp[self.to_consider]
         fig = go.Figure()
         for col in self.to_consider:
-            display_name = col if self.opti.optimum[col] >= 0 else 'short ' + col
+            ticker_label = Data.ticker_display_name(col)
+            display_name = ticker_label if self.opti.optimum[col] >= 0 else 'short ' + ticker_label
             fig.add_trace(go.Scatter(
                 x=returns.index,
                 y=(returns[col].cumsum() * 100).values,

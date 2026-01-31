@@ -78,7 +78,7 @@ class Dashboard(dash.Dash):
         )
 
         self.main_div = None
-        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, 20
+        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, 10
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.long_only = False  # False for Long/Short, True for Long only
 
@@ -109,14 +109,8 @@ class Dashboard(dash.Dash):
 
     def _sidebar_controls(self):
         return dbc.Card([
-            dbc.CardHeader(html.Div([
-                html.Span(className="bi bi-sliders me-2"),
-                html.Span("Controls", className="fw-semibold")
-            ])),
             dbc.CardBody([
 
-                # Long/Short toggle
-                dbc.Label("Position Type", html_for="long-only-toggle", className="fw-semibold"),
                 html.Div([
                     dbc.ButtonGroup([
                         dbc.Button(
@@ -147,8 +141,8 @@ class Dashboard(dash.Dash):
                 html.Div(className="mb-3"),
 
                 dbc.Label("Max number of assets", html_for="max-assets-input", className="fw-semibold"),
-                dbc.Input(id='max-assets-input', type='number', value=20, min=1, max=100, step=1,
-                          placeholder="Max positions (e.g. 20)"),
+                dbc.Input(id='max-assets-input', type='number', value=10, min=1, max=100, step=1,
+                          placeholder="Max positions (e.g. 10)"),
                 html.Div(className="mb-3"),
 
                 dbc.Label("Base currency", html_for="radio-currency", className="fw-semibold"),
@@ -259,7 +253,7 @@ class Dashboard(dash.Dash):
         def input_callbacks(risk, max_assets, currency, cash_sgd, btn_long_short_active, btn_long_only_active,
                             holdings_tickers, holdings_values, rates_tickers, rates_values):
             self.risk = risk
-            self.max_assets = 20 if max_assets is None else max(1, int(max_assets))
+            self.max_assets = 10 if max_assets is None else max(1, int(max_assets))
             self.currency = currency
             self.cash_sgd = cash_sgd
             self.long_only = btn_long_only_active if btn_long_only_active else False
@@ -355,6 +349,8 @@ class Dashboard(dash.Dash):
                 self.rebalancer = Rebalancer(self.opti)
                 df = self.rebalancer.rebalance_df.copy()
                 df.rename(columns={'Buy/Sell': f'Buy/Sell ({self.currency})'}, inplace=True)
+                # Display ticker column with alternative names from alternatives.csv (etf_full_names unchanged)
+                df['Ticker'] = df['Ticker'].map(Data.ticker_display_name)
 
                 table = dash_table.DataTable(
                     data=df.to_dict('records'),

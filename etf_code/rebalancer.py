@@ -100,5 +100,3 @@ class Rebalancer:
 
         self.rebalance_df = self.rebalance_df[(~self.rebalance_df['After'].isna()) | (self.rebalance_df['Before'] != 0)]
         self.rebalance_df.rename(columns={'index': 'Ticker'}, inplace=True)
-
-        # Annotate with preferred substitutes when available

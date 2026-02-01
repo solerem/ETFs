@@ -13,13 +13,15 @@ warnings.filterwarnings('ignore', category=pd.errors.Pandas4Warning, module='yfi
 
 
 class Data:
-    possible_currencies = ['USD', 'EUR', 'SGD', 'AUD', 'GBP', 'HKD', 'JPY']
-    helper_currencies = ['INR', 'CNY', 'BRL', 'CAD']
+    possible_currencies = ['USD', 'EUR', 'SGD']
+    helper_currencies = ['INR', 'CNY', 'BRL', 'CAD', 'AUD', 'JPY', 'HKD', 'GBP']
     data_dir_path = Path(__file__).resolve().parent.parent / "data_dir"
     static_dir_path = data_dir_path / "STATIC"
-    weight_cov_path = data_dir_path / "weight_cov.csv"
+    risk_weight_cov_table_path = data_dir_path / "risk_weight_cov_table.csv"
+    risk_weights_table_path = data_dir_path / "risk_weights_table.csv"
     objective_stats_path = data_dir_path / "objective_stats.csv"
-    _weight_cov_params = None
+    _risk_weight_cov_table = None
+    _risk_weights_table = None
     _ticker_display_names = None
 
     NB_PERIOD = 52
@@ -115,17 +117,51 @@ class Data:
         data = yf.download(etf_chunk, period=period, interval=self.frequency, auto_adjust=True)
         return data['Close'] if isinstance(data.columns, pd.MultiIndex) else data[['Close']].set_axis(etf_chunk, axis=1)
     @classmethod
-    def get_weight_cov_params(cls, static=False, refit_weights=False):
-        if not static and refit_weights:
-            from weight_tune import save_weights
-            save_weights()
+    def get_risk_weights_table(cls, currency, static=False, refit_weights=False):
+        """Load (risk, ticker -> weight) table for linear return; returns (risks, weight_df) or None.
+        weight_df has index=risk, columns=ticker, values=weight (NaN filled with 0)."""
+        if refit_weights:
+            from weight_tune import save_weights_linear
+            save_weights_linear()
+            cls._risk_weight_cov_table = None
+            cls._risk_weights_table = None
+        if cls._risk_weights_table is None:
+            cls._risk_weights_table = {}
+            if cls.risk_weights_table_path.exists():
+                df = pd.read_csv(cls.risk_weights_table_path)
+                for curr in df["currency"].unique():
+                    sub = df.loc[df["currency"] == curr]
+                    pivot = sub.pivot_table(
+                        index="risk", columns="ticker", values="weight", aggfunc="first"
+                    ).fillna(0.0)
+                    risks = np.sort(pivot.index.unique().astype(float))
+                    cls._risk_weights_table[curr] = (risks, pivot)
+        if currency not in cls._risk_weights_table:
+            return None
+        return cls._risk_weights_table[currency]
 
-        if cls._weight_cov_params is None:
-            df = pd.read_csv(cls.weight_cov_path)
-            params = df.set_index("currency")[["a", "b", "c"]]
-            cls._weight_cov_params = params.to_dict(orient="index")
-
-        return cls._weight_cov_params
+    @classmethod
+    def get_risk_weight_cov_table(cls, currency, static=False, refit_weights=False):
+        """Load (risk, weight_cov) table for linear return; returns (risks, weight_covs) or None."""
+        if refit_weights:
+            from weight_tune import save_weights_linear
+            save_weights_linear()
+            cls._risk_weight_cov_table = None
+            cls._risk_weights_table = None
+        if cls._risk_weight_cov_table is None:
+            if not cls.risk_weight_cov_table_path.exists():
+                return None
+            df = pd.read_csv(cls.risk_weight_cov_table_path)
+            cls._risk_weight_cov_table = {}
+            for curr in df["currency"].unique():
+                sub = df.loc[df["currency"] == curr].sort_values("risk")
+                cls._risk_weight_cov_table[curr] = (
+                    sub["risk"].values.astype(float),
+                    sub["weight_cov"].values.astype(float),
+                )
+        if currency not in cls._risk_weight_cov_table:
+            return None
+        return cls._risk_weight_cov_table[currency]
 
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, _full_data=None):
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.benchmarks, self.etf_full_names, self.exposure, self.mean_er, self.var_er = None, None, None, None, None, None, None, None, None, None, None, None

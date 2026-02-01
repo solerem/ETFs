@@ -35,7 +35,27 @@ class Opti:
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
-        self.optimize(max_assets=self.max_assets)
+        w_override = getattr(portfolio, "w_opt_override", None)
+        # When long_only is True, never use pre-computed weights (they may contain shorts).
+        # When max_assets < n, cardinality is constrained so we must run the optimizer.
+        use_override = (
+            w_override is not None
+            and len(w_override) == portfolio.n
+            and not self.long_only
+            and self.max_assets >= portfolio.n
+        )
+        if use_override:
+            self.w_opt = np.asarray(w_override, dtype=float)
+            self.optimum_all = {
+                tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)
+            }
+            self.optimum = {
+                ticker: weight
+                for ticker, weight in self.optimum_all.items()
+                if abs(weight) >= 0.01
+            }
+        else:
+            self.optimize(max_assets=self.max_assets)
         self.get_cumulative()
         self.get_color_map()
 
@@ -52,24 +72,6 @@ class Opti:
     @staticmethod
     def abs_sum(lst):
         return sum([abs(x) for x in lst])
-
-    @staticmethod
-    def save_fig_as_dash_img(fig, output_path):
-        if output_path:
-            output_path = Path(output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            fig.savefig(output_path, format="png", bbox_inches="tight")
-
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
-        plt.close(fig)
-        buf.seek(0)
-
-        encoded = base64.b64encode(buf.read()).decode("utf-8")
-        img_src = f"data:image/png;base64,{encoded}"
-
-        return html.Img(src=img_src, style={"maxWidth": "100%", "height": "auto"})
 
 
     def get_constraints(self):

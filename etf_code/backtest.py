@@ -63,7 +63,7 @@ class Backtest:
                 rates=self.portfolio.rates,
                 data=sliced_data,
             )
-            optimum = Opti(portfolio, long_only=self.opti.long_only).optimum_all
+            optimum = Opti(portfolio, long_only=self.opti.long_only, max_assets=self.opti.max_assets).optimum_all
             self.w_opt.loc[self.index[i]] = optimum
 
     def get_returns(self):

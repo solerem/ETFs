@@ -331,9 +331,15 @@ class Dashboard(dash.Dash):
             Output('rebalance-div', 'children'),
             Output('exposure-graphs', 'children'),
             Input('create-portfolio', 'n_clicks'),
+            State('btn-long-only', 'active'),
+            State('max-assets-input', 'value'),
         )
-        def create_portfolio(create_portfolio_n_click):
+        def create_portfolio(create_portfolio_n_click, btn_long_only_active, max_assets_input):
             if create_portfolio_n_click:
+                long_only = btn_long_only_active if btn_long_only_active else False
+                self.long_only = long_only
+                max_assets = 10 if max_assets_input is None else max(1, int(max_assets_input))
+                self.max_assets = max_assets
                 self.portfolio = Portfolio(
                     self.risk,
                     self.cash_sgd,
@@ -342,7 +348,7 @@ class Dashboard(dash.Dash):
                     static=True,
                     rates=self.rates,
                 )
-                self.opti = Opti(self.portfolio, long_only=self.long_only, max_assets=self.max_assets)
+                self.opti = Opti(self.portfolio, long_only=long_only, max_assets=max_assets)
 
                 portfolio_div = html.Div([
                     html.Div(self.opti.plot_in_sample(), className="chart-frame"),

@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Info:
-    threshold_correlation = .89
+    threshold_correlation = .85
 
     etf_list = [
         'SPY', 'QQQ', 'DIA', 'MDY',
@@ -42,14 +42,22 @@ class Info:
         self.n = len(self.etf_list)
 
     def get_weight_cov(self, override_weight_cov=None):
+        self._used_linear_table = False
         if override_weight_cov is not None:
             self.weight_cov = float(override_weight_cov)
             return
-        params = Data.get_weight_cov_params(static=self.static, refit_weights=self.refit_weights)
-        coeffs = params[self.currency]
-        self.weight_cov = (
-                float(coeffs["a"]) * np.exp(float(coeffs["b"]) * self.risk)
-                + float(coeffs["c"])
+        table = Data.get_risk_weight_cov_table(
+            self.currency, static=self.static, refit_weights=self.refit_weights
+        )
+        if table is not None:
+            risks, weight_covs = table
+            r = np.clip(float(self.risk), 0.0, 10.0)
+            self.weight_cov = float(np.interp(r, risks, weight_covs))
+            self._used_linear_table = True
+            return
+        raise RuntimeError(
+            f"risk_weight_cov_table.csv missing or has no entry for currency {self.currency}. "
+            "Run weight_tune.save_weights_linear() to generate it."
         )
 
 
@@ -96,6 +104,23 @@ class Portfolio(Info):
         self.get_liquidity()
         self.cov_excess_returns = self.data.excess_returns.cov().values
         self.get_objective()
+        self.w_opt_override = None
+        if getattr(self, "_used_linear_table", False):
+            wt = Data.get_risk_weights_table(
+                self.currency, static=self.static, refit_weights=False
+            )
+            if wt is not None:
+                risks, pivot = wt
+                r = np.clip(float(self.risk), 0.0, 10.0)
+                w_vec = np.array([
+                    float(np.interp(r, risks, pivot[ticker].reindex(risks).fillna(0).values))
+                    if ticker in pivot.columns else 0.0
+                    for ticker in self.etf_list
+                ], dtype=float)
+                s = np.sum(np.abs(w_vec))
+                if s > 0:
+                    w_vec /= s
+                self.w_opt_override = w_vec
 
     def remove_etf(self, ticker):
         self.data.nav.drop(ticker, axis=1, inplace=True)

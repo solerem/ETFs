@@ -171,11 +171,12 @@ class WeightTune:
         safest = self.find_safest_weight_cov(
             max_weight_cov=max_weight_cov, tol=tol, max_iter=max_iter
         )
-        safest = np.sqrt(safest) / 5
         riskiest = self.find_riskiest_weight_cov(
             max_weight_cov=max_weight_cov, tol=tol, max_iter=max_iter
         )
-        riskiest *= 1.1
+
+        safest = np.sqrt(safest)
+        riskiest = np.sqrt(riskiest)
         return safest, riskiest
 
     @staticmethod
@@ -330,14 +331,64 @@ class WeightTune:
             **self._portfolio_kwargs,
         )
 
+    def get_linear_return_table(
+            self,
+            risk_low=0,
+            risk_high=10,
+            num_risks=11,
+            max_weight_cov=1e6,
+            tol=1e-4,
+            max_iter=40,
+            num_points=25,
+    ):
+        """Build (risk, weight_cov) table so that portfolio expected return is linear in risk."""
+        safest, riskiest = self.get_weight_cov_bounds(
+            max_weight_cov=max_weight_cov, tol=tol, max_iter=max_iter
+        )
+        R0 = self._portfolio_mean_for_weight_cov(risk_low, safest)
+        R10 = self._portfolio_mean_for_weight_cov(risk_high, riskiest)
+        risks = np.linspace(risk_low, risk_high, num_risks)
+        rows_cov = []
+        rows_weights = []
+        for risk in tqdm(risks, desc="linear return table"):
+            target_return = R0 + (R10 - R0) * (risk - risk_low) / (risk_high - risk_low)
+            weight_cov, _ = self._find_weight_cov_for_mean_target(
+                risk=risk,
+                target_mean=target_return,
+                weight_cov_min=safest,
+                weight_cov_max=riskiest,
+                num_points=num_points,
+            )
+            rows_cov.append({"risk": float(risk), "weight_cov": float(weight_cov)})
+            portfolio = self._build_portfolio_for_weight_cov(risk, weight_cov)
+            opti = Opti(portfolio)
+            for ticker, w in zip(portfolio.etf_list, opti.w_opt):
+                rows_weights.append({
+                    "currency": self.portfolio.currency,
+                    "risk": float(risk),
+                    "ticker": ticker,
+                    "weight": float(w),
+                })
+        return rows_cov, rows_weights, (R0, R10)
 
-def save_weights():
-    rows = []
-    for currency in tqdm(Data.possible_currencies):
+
+def save_weights_linear():
+    """Build and save (risk, weight_cov) and (risk, ticker, weight) tables for linear return 0–10."""
+    all_rows_cov = []
+    all_rows_weights = []
+    for currency in tqdm(Data.possible_currencies):#["USD"]:
         tune = WeightTune(currency=currency)
-        weights = tune.get_weight_cov_formula()
-        rows.append({"currency": currency, **weights})
+        rows_cov, rows_weights, _ = tune.get_linear_return_table(
+            risk_low=0,
+            risk_high=10,
+            num_risks=11,
+        )
+        for r in rows_cov:
+            all_rows_cov.append({"currency": currency, "risk": r["risk"], "weight_cov": r["weight_cov"]})
+        all_rows_weights.extend(rows_weights)
+    df_cov = pd.DataFrame(all_rows_cov)
+    df_cov.to_csv(Data.data_dir_path / "risk_weight_cov_table.csv", index=False)
+    df_weights = pd.DataFrame(all_rows_weights)
+    df_weights.to_csv(Data.data_dir_path / "risk_weights_table.csv", index=False)
 
-    df = pd.DataFrame(rows)
-    output_path = Path(Data.data_dir_path / "weight_cov.csv")
-    df.to_csv(output_path, index=False)
+

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
-import gurobipy as gp
-from gurobipy import GRB
+import cvxpy as cp
 from tqdm import tqdm
 from data import Data
 from portfolio import Portfolio
@@ -85,56 +84,50 @@ class WeightTune:
         sigma = self._sigma
         n = self.portfolio.n
 
-        m = gp.Model("portfolio")
-        m.Params.OutputFlag = 0
+        # Ensure sigma is PSD for cvxpy quad_form
+        sigma = sigma + 1e-8 * np.eye(n)
 
-        M = 1.0
-        w_plus = m.addVars(n, lb=0.0, ub=M, name="w_plus")
-        w_minus = m.addVars(n, lb=0.0, ub=M, name="w_minus")
-        z = m.addVars(n, vtype=GRB.BINARY, name="z")
-
-        for i in range(n):
-            m.addConstr(w_plus[i] <= M * z[i])
-            m.addConstr(w_minus[i] <= M * z[i])
-
-        m.addConstr(
-            gp.quicksum(w_plus[i] + w_minus[i] for i in range(n)) == 1.0,
-            name="budget",
-        )
-        m.addConstr(
-            gp.quicksum(z[i] for i in range(n)) <= self.max_assets,
-            name="cardinality",
-        )
-
-        w_expr = {i: w_plus[i] - w_minus[i] for i in range(n)}
-        var_term = gp.quicksum(
-            sigma[i, j] * w_expr[i] * w_expr[j] for i in range(n) for j in range(n)
-        )
-        ret_term = gp.quicksum(mu[i] * w_expr[i] for i in range(n))
-        borrow_cost = gp.quicksum(
-            self._borrow_rate_annual[self.portfolio.etf_list[i]]
-            * self.borrow_years
-            * w_minus[i]
-            for i in range(n)
-        )
-
-        if mode == "min_variance":
-            objective = var_term
-        elif mode == "max_return":
-            objective = -ret_term + borrow_cost
-        else:
-            objective = var_term * weight_cov - ret_term + borrow_cost
-
-        m.setObjective(objective, GRB.MINIMIZE)
-        m.optimize()
-
-        if m.status != GRB.OPTIMAL:
-            raise RuntimeError(f"Gurobi optimization failed with status {m.status}")
-
-        w_opt = np.array(
-            [w_plus[i].X - w_minus[i].X for i in range(n)],
+        borrow_vec = np.array(
+            [self._borrow_rate_annual[t] for t in self.portfolio.etf_list],
             dtype=float,
         )
+
+        M = 1.0
+        w_plus = cp.Variable(n, nonneg=True)
+        w_minus = cp.Variable(n, nonneg=True)
+        z = cp.Variable(n, boolean=True)
+
+        constraints = [
+            w_plus <= M * z,
+            w_minus <= M * z,
+            cp.sum(w_plus + w_minus) == 1.0,
+            cp.sum(z) <= self.max_assets,
+        ]
+
+        w = w_plus - w_minus
+        var_term = cp.quad_form(w, sigma)
+        ret_term = mu @ w
+        borrow_cost = borrow_vec @ w_minus * self.borrow_years
+
+        if mode == "min_variance":
+            objective = cp.Minimize(var_term)
+        elif mode == "max_return":
+            objective = cp.Minimize(-ret_term + borrow_cost)
+        else:
+            objective = cp.Minimize(
+                weight_cov * var_term - ret_term + borrow_cost
+            )
+
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.SCIP, verbose=False)
+
+        if prob.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+            raise RuntimeError(
+                f"CVXPY/SCIP optimization failed with status {prob.status}"
+            )
+
+        w_opt = (w_plus.value - w_minus.value).flatten()
+        w_opt = np.asarray(w_opt, dtype=float)
         w_opt /= np.sum(np.abs(w_opt))
         return w_opt
 

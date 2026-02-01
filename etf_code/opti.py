@@ -19,8 +19,7 @@ from dash import html
 import pandas as pd
 from pathlib import Path
 import statsmodels.api as sm
-import gurobipy as gp
-from gurobipy import GRB
+import cvxpy as cp
 import plotly.graph_objects as go
 
 from charts import dash_graph, figure_drawdown, figure_performance_vs_benchmarks
@@ -37,11 +36,12 @@ from config import (
 class Opti:
     solver_method = 'SLSQP'
 
-    def __init__(self, portfolio, long_only=False, max_assets=DEFAULT_MAX_ASSETS):
+    def __init__(self, portfolio, long_only=False, max_assets=DEFAULT_MAX_ASSETS, solver_n_threads=None):
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.long_only = long_only
         self.max_assets = max_assets
+        self.solver_n_threads = solver_n_threads
         self.get_bounds()
         self.get_constraints()
         self.w0 = np.full(self.portfolio.n, 1 / self.portfolio.n)
@@ -91,12 +91,10 @@ class Opti:
         self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': CONSTRAINT_TOL}]
 
     def optimize(self, max_assets=DEFAULT_MAX_ASSETS, borrow_years=1 / Data.NB_PERIOD):
-        borrow_rate_annual = {tick: 0. for tick in self.portfolio.etf_list}
+        borrow_rate_annual = {tick: 0.0 for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
-
         df_repo = pd.read_csv(Data.static_dir_path / 'repo.csv', sep=';')
         df_repo['REPO'] = df_repo['REPO'].str.replace(',', '.').astype(float)
-
         for _, row in df_repo.iterrows():
             borrow_rate_annual[row['TICKER']] = row['REPO'] / 100
 
@@ -107,88 +105,58 @@ class Opti:
         Sigma = rets.cov().values  # covariance matrix (n x n)
         n = self.portfolio.n
 
-        # Create model
-        m = gp.Model("portfolio")
+        # Borrow cost vector (same order as etf_list)
+        borrow_vec = np.array(
+            [borrow_rate_annual[t] for t in self.portfolio.etf_list],
+            dtype=float,
+        )
 
-        # Big-M consistent with bounds on w_plus, w_minus
-        # Since |w_i| <= 1 and L1 sum = 1, M = 1.0 is fine.
+        # Ensure Sigma is PSD for cvxpy quad_form (numerical stability)
+        Sigma = Sigma + 1e-8 * np.eye(n)
+
+        # CVXPY variables: long/short decomposition and cardinality
         M = 1.0
+        w_plus = cp.Variable(n, nonneg=True)
+        w_minus = cp.Variable(n, nonneg=True)
+        z = cp.Variable(n, boolean=True)
 
-        # Decompose weights into long/short parts:
-        #   w_i = w_plus[i] - w_minus[i]
-        #   w_plus[i] >= 0, w_minus[i] >= 0
-        # Short exposure is exactly w_minus[i].
-        w_plus = m.addVars(n, lb=0.0, ub=M, name="w_plus")
-        w_minus = m.addVars(n, lb=0.0, ub=M, name="w_minus")
-
-        # Binary variables for selection (cardinality)
-        z = m.addVars(n, vtype=GRB.BINARY, name="z")
-
-        # Link w_plus, w_minus to selection z:
-        # If z_i = 0 => w_plus[i] = w_minus[i] = 0
-        for i in range(n):
-            m.addConstr(w_plus[i] <= M * z[i])
-            m.addConstr(w_minus[i] <= M * z[i])
-        
-        # For long-only mode, force w_minus to be 0
+        # Constraints
+        constraints = [
+            w_plus <= M * z,
+            w_minus <= M * z,
+            cp.sum(w_plus + w_minus) == 1.0,
+            cp.sum(z) <= max_assets,
+        ]
         if self.long_only:
-            for i in range(n):
-                m.addConstr(w_minus[i] == 0, name=f"long_only_{i}")
+            constraints.append(w_minus == 0)
 
-        # L1 budget: sum(|w_i|) = sum(w_plus[i] + w_minus[i]) = 1
-        m.addConstr(
-            gp.quicksum(w_plus[i] + w_minus[i] for i in range(n)) == 1.0,
-            name="budget"
+        w = w_plus - w_minus
+        var_term = cp.quad_form(w, Sigma)
+        ret_term = mu @ w
+        borrow_cost = borrow_vec @ w_minus * borrow_years
+
+        objective = cp.Minimize(
+            self.portfolio.weight_cov * var_term - ret_term + borrow_cost
         )
+        prob = cp.Problem(objective, constraints)
+        solver_opts = {}
+        if self.solver_n_threads is not None:
+            solver_opts["parallel/maxnthreads"] = self.solver_n_threads
+        prob.solve(solver=cp.SCIP, verbose=False, **solver_opts)
 
-        # Cardinality: at most max_assets non-zero positions
-        m.addConstr(
-            gp.quicksum(z[i] for i in range(n)) <= max_assets,
-            name="cardinality"
-        )
+        if prob.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+            raise RuntimeError(
+                f"CVXPY/SCIP optimization failed with status {prob.status}"
+            )
 
-        # Define the actual weights as expressions for convenience
-        w_expr = {i: w_plus[i] - w_minus[i] for i in range(n)}
-
-        # Mean-variance objective:  w' Σ w  - μ' w  + borrow_cost(shorts)
-        var_term = gp.quicksum(
-            Sigma[i, j] * w_expr[i] * w_expr[j] for i in range(n) for j in range(n)
-        )
-        ret_term = gp.quicksum(mu[i] * w_expr[i] for i in range(n))
-
-        # Build per-asset borrow cost
-        borrow_cost = gp.quicksum(
-            borrow_rate_annual[self.portfolio.etf_list[i]] * borrow_years * w_minus[i]
-            for i in range(n)
-        )
-
-        # Final objective
-        m.setObjective(
-            var_term * self.portfolio.weight_cov - ret_term + borrow_cost,
-            GRB.MINIMIZE
-        )
-
-        # Solve
-        m.Params.OutputFlag = 0  # silence solver; remove if you want logs
-        m.update()
-        m.optimize()
-
-        if m.status != GRB.OPTIMAL:
-            raise RuntimeError(f"Gurobi optimization failed with status {m.status}")
-
-        # Extract weights: w_i = w_plus - w_minus
-        w_opt = np.array(
-            [w_plus[i].X - w_minus[i].X for i in range(n)],
-            dtype=float
-        )
-
+        w_opt = (w_plus.value - w_minus.value).flatten()
+        w_opt = np.asarray(w_opt, dtype=float)
         w_opt /= Opti.abs_sum(w_opt)
 
         self.w_opt = w_opt
         self.optimum_all = {
             tick: w for tick, w in zip(self.portfolio.etf_list, self.w_opt)
         }
-
         self.optimum = {
             ticker: weight
             for ticker, weight in self.optimum_all.items()

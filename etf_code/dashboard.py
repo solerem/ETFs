@@ -7,6 +7,8 @@ from dash import dash_table
 
 import dash_bootstrap_components as dbc
 
+from etf_code import config
+
 # Shared state for backtest progress (written by worker thread, read by interval callback)
 _backtest_state = {"running": False, "current": 0, "total": 1, "done": False, "result": None, "error": None}
 
@@ -82,7 +84,7 @@ class Dashboard(dash.Dash):
         )
 
         self.main_div = None
-        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, 10
+        self.risk, self.currency, self.cash_sgd, self.holdings, self.rates, self.max_assets = None, None, None, None, None, config.DEFAULT_MAX_ASSETS
         self.portfolio, self.opti, self.backtest, self.rebalancer, self.exposure = None, None, None, None, None
         self.long_only = False  # False for Long/Short, True for Long only
 
@@ -145,7 +147,7 @@ class Dashboard(dash.Dash):
                 html.Div(className="mb-3"),
 
                 dbc.Label("Max number of assets", html_for="max-assets-input", className="fw-semibold"),
-                dbc.Input(id='max-assets-input', type='number', value=10, min=1, max=100, step=1,
+                dbc.Input(id='max-assets-input', type='number', value=config.DEFAULT_MAX_ASSETS, min=1, max=100, step=1,
                           placeholder="Max positions (e.g. 10)"),
                 html.Div(className="mb-3"),
 

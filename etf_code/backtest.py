@@ -1,4 +1,6 @@
+import os
 import pandas as pd
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from portfolio import Portfolio, Info
 from opti import Opti
 from data import Data
@@ -10,6 +12,34 @@ import plotly.graph_objects as go
 
 from charts import dash_graph, figure_drawdown, figure_performance_vs_benchmarks
 from config import TRAIN_TEST_RATIO, WEIGHT_PLOT_COVERAGE, VAR_CONFIDENCE
+
+
+def _backtest_worker(args):
+    """Run one backtest date in a separate process. Returns (date, optimum_all)."""
+    (i, full_data, index, risk, currency, rates, long_only, max_assets) = args
+    sliced_data = Data(
+        currency,
+        Info.etf_list,
+        static=True,
+        backtest=index[i],
+        rates=rates,
+        _full_data=full_data,
+    )
+    portfolio = Portfolio(
+        risk=risk,
+        currency=currency,
+        static=True,
+        backtest=index[i],
+        rates=rates,
+        data=sliced_data,
+    )
+    opti = Opti(
+        portfolio,
+        long_only=long_only,
+        max_assets=max_assets,
+        solver_n_threads=1,
+    )
+    return (index[i], opti.optimum_all)
 
 
 class Backtest:
@@ -43,31 +73,40 @@ class Backtest:
 
         self.w_opt = pd.DataFrame({ticker: [] for ticker in self.opti.portfolio.etf_list})
         total = self.n - self.cutoff
-        it = range(self.cutoff, self.n)
-        if self.progress_callback is None:
-            it = tqdm(it)
-        for idx, i in enumerate(it):
-            if self.progress_callback is not None:
-                self.progress_callback(idx + 1, total)
-            # Slice pre-loaded data to this date (no disk read)
-            sliced_data = Data(
+        indices = list(range(self.cutoff, self.n))
+
+        # Parallelize backtest: each date is independent
+        n_workers = min(max(1, (os.cpu_count() or 4) - 1), 8, total)
+        task_args = [
+            (
+                i,
+                full_data,
+                self.index,
+                self.portfolio.risk,
                 self.portfolio.currency,
-                Info.etf_list,
-                static=True,
-                backtest=self.index[i],
-                rates=self.portfolio.rates,
-                _full_data=full_data,
+                self.portfolio.rates,
+                self.opti.long_only,
+                self.opti.max_assets,
             )
-            portfolio = Portfolio(
-                risk=self.portfolio.risk,
-                currency=self.portfolio.currency,
-                static=True,
-                backtest=self.index[i],
-                rates=self.portfolio.rates,
-                data=sliced_data,
-            )
-            optimum = Opti(portfolio, long_only=self.opti.long_only, max_assets=self.opti.max_assets).optimum_all
-            self.w_opt.loc[self.index[i]] = optimum
+            for i in indices
+        ]
+
+        executor = ProcessPoolExecutor(max_workers=n_workers)
+        futures = {executor.submit(_backtest_worker, a): a for a in task_args}
+        completed = 0
+        if self.progress_callback is None:
+            iterator = tqdm(as_completed(futures), total=total, desc="Backtest")
+        else:
+            iterator = as_completed(futures)
+
+        for future in iterator:
+            date, optimum_all = future.result()
+            self.w_opt.loc[date] = optimum_all
+            if self.progress_callback is not None:
+                completed += 1
+                self.progress_callback(completed, total)
+
+        executor.shutdown(wait=True)
 
     def get_returns(self):
         self.returns_decomp = Data.get_test_data_backtest(self.portfolio.data.returns, self.index[self.cutoff])

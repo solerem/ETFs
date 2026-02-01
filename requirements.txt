@@ -1,0 +1,21 @@
+# Install: pip install -r requirements.txt
+
+# To obtain your free Gurobi license:
+# Register for a free Gurobi account and log in: https://portal.gurobi.com/iam/register/
+# Visit the User Portal: http://portal.gurobi.com/iam/licenses/request?type=academic
+# From the homepage of the User Portal, click on the Licenses tab, then click Request.
+# Locate the Online Course box.
+# Click the button to generate your Online Course License
+
+dash>=2.0.0
+dash-bootstrap-components>=1.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+yfinance>=0.2.0
+statsmodels>=0.14.0
+gurobipy>=10.0.0
+plotly>=5.0.0
+tqdm>=4.65.0
+pyarrow>=12.0.0

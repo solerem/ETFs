@@ -23,6 +23,7 @@ import gurobipy as gp
 from gurobipy import GRB
 import plotly.graph_objects as go
 
+from charts import dash_graph, figure_drawdown, figure_performance_vs_benchmarks
 from config import (
     NB_PERIODS_PER_YEAR,
     MIN_WEIGHT_DISPLAY,
@@ -219,72 +220,18 @@ class Opti:
             hovertemplate='%{label}: %{percent:.1%}<br>%{customdata}<extra></extra>'
         )
         fig.update_layout(title='Optimal Allocation')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_in_sample(self):
         cumulative_pct = (self.cumulative - 1) * 100
-
         spy = (self.portfolio.data.benchmarks['SPY'] / self.portfolio.data.benchmarks['SPY'].iloc[0] - 1) * 100
         bonds = (self.portfolio.data.benchmarks['AGG'] / self.portfolio.data.benchmarks['AGG'].iloc[0] - 1) * 100
         gold = (self.portfolio.data.benchmarks['GLD'] / self.portfolio.data.benchmarks['GLD'].iloc[0] - 1) * 100
-
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=spy.index,
-            y=spy.values,
-            mode='lines',
-            name="Stocks",
-            line=dict(color='red'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=bonds.index,
-            y=bonds.values,
-            mode='lines',
-            name="Bonds",
-            line=dict(color='blue'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=gold.index,
-            y=gold.values,
-            mode='lines',
-            name="Gold",
-            line=dict(color='orange'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=cumulative_pct.index,
-            y=cumulative_pct.values,
-            mode='lines',
-            name="Portfolio",
-            line=dict(width=4, color='green'),
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-
-        fig.update_layout(
+        fig = figure_performance_vs_benchmarks(
+            cumulative_pct, spy, bonds, gold,
             title='In-sample Performance vs Benchmark',
-            yaxis_title='%',
-            hovermode='x unified',
-            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
-        fig.update_yaxes(tickformat='.1f')
-        fig.add_hline(y=0, line_color='black')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_weighted_perf(self):
         returns = self.portfolio.data.returns[self.optimum.keys()]
@@ -313,41 +260,11 @@ class Opti:
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(tickformat='.1f')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_drawdown(self):
-        rolling_max = self.cumulative.cummax()
-        drawdown = self.cumulative / rolling_max - 1
-        drawdown_pct = drawdown * 100
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=drawdown_pct.index,
-            y=drawdown_pct.values,
-            mode='lines',
-            fill='tozeroy',
-            name='Drawdown',
-            line=dict(color='red'),
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-
-        fig.update_layout(
-            title='Drawdown',
-            yaxis_title='%',
-            hovermode='x unified',
-            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
-        )
-        fig.update_yaxes(tickformat='.1f')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        fig = figure_drawdown(self.cumulative, title='Drawdown')
+        return dash_graph(fig)
 
     def plot_info(self):
         info = {}

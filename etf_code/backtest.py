@@ -8,6 +8,7 @@ import statsmodels.api as sm
 import numpy as np
 import plotly.graph_objects as go
 
+from charts import dash_graph, figure_drawdown, figure_performance_vs_benchmarks
 from config import TRAIN_TEST_RATIO, WEIGHT_PLOT_COVERAGE, VAR_CONFIDENCE
 
 
@@ -76,70 +77,17 @@ class Backtest:
     def plot_backtest(self):
         cumulative = (1 + self.returns).cumprod()
         cumulative_pct = (cumulative - 1) * 100
-
-        spy = self.portfolio.data.benchmarks['SPY'].copy()
-        spy = spy.loc[self.index[self.cutoff]:]
+        spy = self.portfolio.data.benchmarks['SPY'].copy().loc[self.index[self.cutoff]:]
         spy = (spy / spy.iloc[0] - 1) * 100
-
-        bonds = self.portfolio.data.benchmarks['AGG'].copy()
-        bonds = bonds.loc[self.index[self.cutoff]:]
+        bonds = self.portfolio.data.benchmarks['AGG'].copy().loc[self.index[self.cutoff]:]
         bonds = (bonds / bonds.iloc[0] - 1) * 100
-
-        gold = self.portfolio.data.benchmarks['GLD'].copy()
-        gold = gold.loc[self.index[self.cutoff]:]
+        gold = self.portfolio.data.benchmarks['GLD'].copy().loc[self.index[self.cutoff]:]
         gold = (gold / gold.iloc[0] - 1) * 100
-
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=spy.index,
-            y=spy.values,
-            mode='lines',
-            name="Stocks",
-            line=dict(color='red'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=bonds.index,
-            y=bonds.values,
-            mode='lines',
-            name="Bonds",
-            line=dict(color='blue'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=gold.index,
-            y=gold.values,
-            mode='lines',
-            name="Gold",
-            line=dict(color='orange'),
-            opacity=0.6,
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_trace(go.Scatter(
-            x=cumulative_pct.index,
-            y=cumulative_pct.values,
-            mode='lines',
-            name="Portfolio",
-            line=dict(width=4, color='green'),
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.add_hline(y=0, line_color='black')
-        fig.update_layout(
+        fig = figure_performance_vs_benchmarks(
+            cumulative_pct, spy, bonds, gold,
             title='Backtest Performance vs Benchmark',
-            yaxis_title='%',
-            hovermode='x unified',
-            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
-        fig.update_yaxes(tickformat='.1f')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_weights(self):
         import math
@@ -213,13 +161,7 @@ class Backtest:
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(range=[0, 100], tickformat='.1f')
-
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_perf_attrib(self):
         returns = self.returns_decomp[self.to_consider]
@@ -244,42 +186,12 @@ class Backtest:
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
         fig.update_yaxes(tickformat='.1f')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_drawdown(self):
         cumulative = (1 + self.returns).cumprod()
-
-        rolling_max = cumulative.cummax()
-        drawdown = cumulative / rolling_max - 1
-        drawdown_pct = drawdown * 100
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=drawdown_pct.index,
-            y=drawdown_pct.values,
-            mode='lines',
-            fill='tozeroy',
-            name='Drawdown',
-            line=dict(color='red'),
-            hovertemplate='%{y:.1f}%<extra>%{fullData.name}</extra>'
-        ))
-        fig.update_layout(
-            title='Backtest Drawdown',
-            yaxis_title='%',
-            hovermode='x unified',
-            legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
-        )
-        fig.update_yaxes(tickformat='.1f')
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        fig = figure_drawdown(cumulative, title='Backtest Drawdown')
+        return dash_graph(fig)
 
     def plot_info(self):
         info = {}

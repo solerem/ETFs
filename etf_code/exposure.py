@@ -1,7 +1,8 @@
 from opti import Opti
 from data import Data
-from dash import dcc
 import plotly.graph_objects as go
+
+from charts import dash_graph
 
 
 class Exposure:
@@ -24,12 +25,7 @@ class Exposure:
             title=title,
             legend=dict(orientation='h', yanchor='top', y=-0.2, xanchor='center', x=0.5)
         )
-
-        return dcc.Graph(
-            figure=fig,
-            config={'displaylogo': False, 'scrollZoom': True},
-            style={'height': '420px'}
-        )
+        return dash_graph(fig)
 
     def plot_currency(self):
         etf_currency = self.opti.portfolio.data.etf_currency

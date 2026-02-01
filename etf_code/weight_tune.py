@@ -8,6 +8,23 @@ from portfolio import Portfolio
 from opti import Opti
 from pathlib import Path
 
+from config import (
+    NB_PERIODS_PER_YEAR,
+    BORROW_RATE_ANNUAL_FACTOR,
+    WEIGHT_COV_MAX,
+    WEIGHT_TUNE_TOL,
+    WEIGHT_TUNE_MAX_ITER,
+    WEIGHT_TUNE_NUM_POINTS,
+    FIT_EXP_ANCHOR_MAX_ITER,
+    FIT_EXP_EPS,
+    RISK_LOW,
+    RISK_HIGH,
+    NUM_RISKS,
+    ANCHOR_RISK,
+    ANCHOR_MEAN,
+    DEFAULT_MAX_ASSETS,
+)
+
 
 class WeightTune:
     def __init__(
@@ -19,8 +36,8 @@ class WeightTune:
             static=True,
             backtest=None,
             rates=None,
-            max_assets=20,
-            borrow_years=1/Data.NB_PERIOD,
+            max_assets=DEFAULT_MAX_ASSETS,
+            borrow_years=1 / NB_PERIODS_PER_YEAR,
     ):
         self.portfolio = Portfolio(
             override_weight_cov=0,
@@ -47,7 +64,7 @@ class WeightTune:
 
     def _get_mu_sigma(self):
         rets = self.portfolio.data.returns[self.portfolio.etf_list].copy()
-        rets[self.portfolio.currency] += ((1.01) ** (1 / Data.NB_PERIOD)) - 1
+        rets[self.portfolio.currency] += (BORROW_RATE_ANNUAL_FACTOR ** (1 / NB_PERIODS_PER_YEAR)) - 1
         mu = rets.mean().values
         sigma = rets.cov().values
         return mu, sigma
@@ -122,10 +139,10 @@ class WeightTune:
         return w_opt
 
     @staticmethod
-    def _weights_match(w_a, w_b, tol=1e-4):
+    def _weights_match(w_a, w_b, tol=WEIGHT_TUNE_TOL):
         return np.allclose(w_a, w_b, atol=tol, rtol=0.0)
 
-    def find_safest_weight_cov(self, max_weight_cov=1e6, tol=1e-4, max_iter=40):
+    def find_safest_weight_cov(self, max_weight_cov=WEIGHT_COV_MAX, tol=WEIGHT_TUNE_TOL, max_iter=WEIGHT_TUNE_MAX_ITER):
         w_safest = self._solve(weight_cov=max_weight_cov, mode="mean_variance")
         low = 0.0
         high = max_weight_cov
@@ -140,7 +157,7 @@ class WeightTune:
 
         return high
 
-    def find_riskiest_weight_cov(self, max_weight_cov=1e6, tol=1e-4, max_iter=40):
+    def find_riskiest_weight_cov(self, max_weight_cov=WEIGHT_COV_MAX, tol=WEIGHT_TUNE_TOL, max_iter=WEIGHT_TUNE_MAX_ITER):
         w_max_ret = self._solve(weight_cov=0.0, mode="max_return")
 
         low = 0.0
@@ -167,7 +184,7 @@ class WeightTune:
 
         return low
 
-    def get_weight_cov_bounds(self, max_weight_cov=1e6, tol=1e-4, max_iter=40):
+    def get_weight_cov_bounds(self, max_weight_cov=WEIGHT_COV_MAX, tol=WEIGHT_TUNE_TOL, max_iter=WEIGHT_TUNE_MAX_ITER):
         safest = self.find_safest_weight_cov(
             max_weight_cov=max_weight_cov, tol=tol, max_iter=max_iter
         )
@@ -190,8 +207,8 @@ class WeightTune:
         return a, b, c
 
     @classmethod
-    def fit_exp_params_with_anchor(cls, x0, y0, x1, y1, x2, y2, max_iter=60):
-        eps = 1e-9
+    def fit_exp_params_with_anchor(cls, x0, y0, x1, y1, x2, y2, max_iter=FIT_EXP_ANCHOR_MAX_ITER):
+        eps = FIT_EXP_EPS
         c_low = -min(y0, y1) + eps
         c_high = max(y0, y1, y2) * 10.0
 
@@ -242,7 +259,7 @@ class WeightTune:
             target_mean,
             weight_cov_min,
             weight_cov_max,
-            num_points=25,
+            num_points=WEIGHT_TUNE_NUM_POINTS,
     ):
         if weight_cov_min <= 0:
             grid = np.linspace(weight_cov_min, weight_cov_max, num_points)
@@ -288,14 +305,14 @@ class WeightTune:
 
     def get_weight_cov_formula(
             self,
-            risk_low=0,
-            risk_high=10,
+            risk_low=RISK_LOW,
+            risk_high=RISK_HIGH,
             c=None,
-            anchor_risk=5.5,
-            anchor_mean=0.008,
-            max_weight_cov=1e6,
-            tol=1e-4,
-            max_iter=40,
+            anchor_risk=ANCHOR_RISK,
+            anchor_mean=ANCHOR_MEAN,
+            max_weight_cov=WEIGHT_COV_MAX,
+            tol=WEIGHT_TUNE_TOL,
+            max_iter=WEIGHT_TUNE_MAX_ITER,
     ):
         safest, riskiest = self.get_weight_cov_bounds(
             max_weight_cov=max_weight_cov, tol=tol, max_iter=max_iter
@@ -333,13 +350,13 @@ class WeightTune:
 
     def get_linear_return_table(
             self,
-            risk_low=0,
-            risk_high=10,
-            num_risks=11,
-            max_weight_cov=1e6,
-            tol=1e-4,
-            max_iter=40,
-            num_points=25,
+            risk_low=RISK_LOW,
+            risk_high=RISK_HIGH,
+            num_risks=NUM_RISKS,
+            max_weight_cov=WEIGHT_COV_MAX,
+            tol=WEIGHT_TUNE_TOL,
+            max_iter=WEIGHT_TUNE_MAX_ITER,
+            num_points=WEIGHT_TUNE_NUM_POINTS,
     ):
         """Build (risk, weight_cov) table so that portfolio expected return is linear in risk."""
         safest, riskiest = self.get_weight_cov_bounds(
@@ -379,9 +396,9 @@ def save_weights_linear():
     for currency in tqdm(Data.possible_currencies):#["USD"]:
         tune = WeightTune(currency=currency)
         rows_cov, rows_weights, _ = tune.get_linear_return_table(
-            risk_low=0,
-            risk_high=10,
-            num_risks=11,
+            risk_low=RISK_LOW,
+            risk_high=RISK_HIGH,
+            num_risks=NUM_RISKS,
         )
         for r in rows_cov:
             all_rows_cov.append({"currency": currency, "risk": r["risk"], "weight_cov": r["weight_cov"]})

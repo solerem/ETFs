@@ -5,9 +5,11 @@ from scipy.spatial.distance import squareform
 import pandas as pd
 import numpy as np
 
+from config import CORRELATION_THRESHOLD
+
 
 class Info:
-    threshold_correlation = .85
+    threshold_correlation = CORRELATION_THRESHOLD
 
     etf_list = [
         'SPY', 'QQQ', 'DIA', 'MDY',

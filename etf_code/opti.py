@@ -23,11 +23,20 @@ import gurobipy as gp
 from gurobipy import GRB
 import plotly.graph_objects as go
 
+from config import (
+    NB_PERIODS_PER_YEAR,
+    MIN_WEIGHT_DISPLAY,
+    BORROW_RATE_ANNUAL_FACTOR,
+    CONSTRAINT_TOL,
+    DEFAULT_MAX_ASSETS,
+    VAR_CONFIDENCE,
+)
+
 
 class Opti:
     solver_method = 'SLSQP'
 
-    def __init__(self, portfolio, long_only=False, max_assets=20):
+    def __init__(self, portfolio, long_only=False, max_assets=DEFAULT_MAX_ASSETS):
         self.optimum, self.optimum_all, self.w_opt, self.constraints, self.bounds, self.cumulative, self.returns, self.color_map = None, None, None, None, None, None, None, None
         self.portfolio = portfolio
         self.long_only = long_only
@@ -52,7 +61,7 @@ class Opti:
             self.optimum = {
                 ticker: weight
                 for ticker, weight in self.optimum_all.items()
-                if abs(weight) >= 0.01
+                if abs(weight) >= MIN_WEIGHT_DISPLAY
             }
         else:
             self.optimize(max_assets=self.max_assets)
@@ -78,9 +87,9 @@ class Opti:
         func = sum
         func = Opti.abs_sum
 
-        self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': 1e-3}]
+        self.constraints = [{'type': 'eq', 'fun': lambda w: func(w) - 1, 'tol': CONSTRAINT_TOL}]
 
-    def optimize(self, max_assets=20, borrow_years=1 / Data.NB_PERIOD):
+    def optimize(self, max_assets=DEFAULT_MAX_ASSETS, borrow_years=1 / Data.NB_PERIOD):
         borrow_rate_annual = {tick: 0. for tick in self.portfolio.etf_list}
         # https://www.interactivebrokers.com/en/pricing/reference-benchmark-rates-int.php
 
@@ -92,7 +101,7 @@ class Opti:
 
         # Build data for a mean-variance objective from historical returns
         rets = self.portfolio.data.returns[self.portfolio.etf_list]
-        rets[self.portfolio.currency] += ((1.01) ** (1 / Data.NB_PERIOD)) - 1
+        rets[self.portfolio.currency] += (BORROW_RATE_ANNUAL_FACTOR ** (1 / NB_PERIODS_PER_YEAR)) - 1
         mu = rets.mean().values  # expected returns (vector)
         Sigma = rets.cov().values  # covariance matrix (n x n)
         n = self.portfolio.n
@@ -182,7 +191,7 @@ class Opti:
         self.optimum = {
             ticker: weight
             for ticker, weight in self.optimum_all.items()
-            if abs(weight) >= 0.01
+            if abs(weight) >= MIN_WEIGHT_DISPLAY
         }
 
     def get_cumulative(self):
@@ -372,7 +381,7 @@ class Opti:
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 
-        var95 = np.percentile(returns, (1 - .95) * 100)
+        var95 = np.percentile(returns, (1 - VAR_CONFIDENCE) * 100)
         info['VaR 95%'] = str(round(var95 * 100, 1)) + ' %'
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
 

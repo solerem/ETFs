@@ -8,6 +8,8 @@ import statsmodels.api as sm
 import numpy as np
 import plotly.graph_objects as go
 
+from config import TRAIN_TEST_RATIO, WEIGHT_PLOT_COVERAGE, VAR_CONFIDENCE
+
 
 class Backtest:
     def __init__(self, opti, progress_callback=None):
@@ -15,7 +17,7 @@ class Backtest:
         self.portfolio = self.opti.portfolio
         self.progress_callback = progress_callback
         # Adaptive train/test split (matches implementation)
-        self.ratio_train_test = .9
+        self.ratio_train_test = TRAIN_TEST_RATIO
         self.to_consider = self.opti.optimum.keys()
         self.w_opt, self.returns, self.n, self.cutoff, self.index, self.returns_decomp = None, None, None, None, None, None
         self.cumulative = None
@@ -169,8 +171,8 @@ class Backtest:
         # Start with current ones; compute included coverage
         included_weight = float(mean_w[list(included)].sum()) if included else 0.0
 
-        # Greedily add until reaching ≥ 99% cumulative mean weight
-        target = 0.99 * total_weight
+        # Greedily add until reaching ≥ WEIGHT_PLOT_COVERAGE cumulative mean weight
+        target = WEIGHT_PLOT_COVERAGE * total_weight
         while included_weight < target and remaining:
             nxt = remaining.pop(0)
             included.add(nxt)
@@ -289,7 +291,7 @@ class Backtest:
         end_date = self.returns.index[-1]
         nb_years = (end_date - start_date).days / 365.25
         if nb_years <= 0:
-            nb_years = len(self.returns) / Data.NB_PERIOD # Fallback to months/Data.NB_PERIOD if days calculation fails
+            nb_years = len(self.returns) / Data.NB_PERIOD  # Fallback if days calculation fails
         pa_perf = (round(((self.cumulative.iloc[-1]) ** (1 / nb_years) - 1) * 100, 1))
         info['CAGR'] = str(round(pa_perf, 1)) + ' %'
         explain['CAGR'] = 'Average annual growth rate'
@@ -314,7 +316,7 @@ class Backtest:
         info['Volatility'] = round(vol, 2)
         explain['Volatility'] = 'Return fluctuations (risk)'
 
-        var95 = np.percentile(self.returns, (1 - .95) * 100)
+        var95 = np.percentile(self.returns, (1 - VAR_CONFIDENCE) * 100)
         info['VaR 95%'] = str(round(var95 * 100, 1)) + ' %'
         explain['VaR 95%'] = 'Max expected loss at 95% confidence'
 

@@ -1,13 +1,8 @@
 from dashboard import Dashboard
 from portfolio import Portfolio
 
-
-def main(debug: bool = False) -> None:
+if __name__ == '__main__':
     Portfolio(refit_weights=False)
 
     db = Dashboard()
-    db.run(debug=debug)
-
-
-if __name__ == '__main__':
-    main(debug=False)
+    db.run(debug=False)

@@ -7,6 +7,8 @@ from pathlib import Path
 from scipy.optimize import minimize
 import warnings
 
+from config import NB_PERIODS_PER_YEAR, HISTORY_PERIOD
+
 warnings.filterwarnings('ignore', category=pd.errors.Pandas4Warning, module='yfinance')
 
 
@@ -24,7 +26,7 @@ class Data:
     _risk_weights_table = None
     _ticker_display_names = None
 
-    NB_PERIOD = 52
+    NB_PERIOD = NB_PERIODS_PER_YEAR
 
     @classmethod
     def _get_ticker_display_names(cls):
@@ -166,8 +168,8 @@ class Data:
     def __init__(self, currency, etf_list, static=False, backtest=None, rates=None, _full_data=None):
         self.currency_rate, self.nav, self.rf_rate, self.returns, self.excess_returns, self.log_returns, self.etf_currency, self.benchmarks, self.etf_full_names, self.exposure, self.mean_er, self.var_er = None, None, None, None, None, None, None, None, None, None, None, None
         self.etf_list, self.currency, self.static, self.backtest, self.rates = etf_list, currency, static, backtest, rates
-        self.period = '20y'
-        self.frequency = '1wk' if Data.NB_PERIOD == 52 else '1mo'
+        self.period = HISTORY_PERIOD
+        self.frequency = '1wk' if Data.NB_PERIOD == NB_PERIODS_PER_YEAR else '1mo'
 
         if _full_data is not None:
             self._init_from_full_data(_full_data)

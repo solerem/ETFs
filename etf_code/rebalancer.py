@@ -56,16 +56,7 @@ class Rebalancer:
                 # Rebalancing component = adjustment needed to get from scaled_current to goal
                 rebalancing_comp = goal_value - scaled_current
                 self.rebalancing_component[ticker] = rebalancing_comp
-                
-                # For short positions, flip only the rebalancing component in the final difference
-                # The total represents the actual trade to execute
-                if current_holding < 0:
-                    # Flip rebalancing component: take opposite trade for shorts
-                    # Total = new_cash_component - rebalancing_component
-                    total_difference = new_cash_comp - rebalancing_comp
-                else:
-                    # Long position: no flip needed
-                    total_difference = new_cash_comp + rebalancing_comp
+                total_difference = new_cash_comp + rebalancing_comp
             else:
                 # New position: all difference is new cash allocation, no flip
                 total_difference = goal_value - current_holding
